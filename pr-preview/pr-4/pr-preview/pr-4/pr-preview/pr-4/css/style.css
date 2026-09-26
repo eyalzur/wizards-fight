@@ -257,11 +257,7 @@ html, body {
 
 /* Defend overlay */
 .defend-overlay {
-  /* Anchored below #hud (same ~56px reference point .menu-panel already
-     uses), not the screen's own top edge — it used to sit at top:10px of
-     #screen-game, which is the HUD's own top edge, so it rendered directly
-     over the wizard name/HP/mana bar instead of below it. */
-  position: absolute; top: 66px; left: 12px; right: 12px; z-index: 700;
+  position: absolute; top: 10px; left: 12px; right: 12px; z-index: 700;
   display: flex; flex-direction: column; gap: 8px;
 }
 .defend-overlay.hidden { display: none; }

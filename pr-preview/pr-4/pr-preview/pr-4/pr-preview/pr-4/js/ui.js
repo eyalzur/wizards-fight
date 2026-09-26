@@ -365,10 +365,7 @@ export function renderDefendPrompts(incoming, player, now, onCounter) {
       const msLeft = Math.max(0, p.impactTime - now);
       const totalMs = Math.max(1, p.impactTime - p.travelStart);
       const barPct = pct(msLeft, totalMs);
-      const onCooldown = (player.cooldowns[counterSpell.id] || 0) > now;
-      const lowMana = player.mana < counterSpell.manaCost;
-      const ready = !onCooldown && !lowMana;
-      const reason = lowMana ? 'Not enough mana.' : onCooldown ? 'Still recharging.' : '';
+      const ready = (player.cooldowns[counterSpell.id] || 0) <= now && player.mana >= counterSpell.manaCost;
       return `<div class="defend-card">
         <div class="defend-title">⚠️ Incoming ${spell.icon} ${spell.name}! (${formatCountdown(msLeft)})</div>
         <div class="defend-timer"><div class="defend-timer-fill" style="width:${barPct}%"></div></div>
@@ -377,7 +374,6 @@ export function renderDefendPrompts(incoming, player, now, onCounter) {
             ${counterSpell.icon} Counterspell <span class="sheet-btn-cost">${counterSpell.manaCost}💧</span>
           </button>
         </div>
-        ${!ready ? `<div class="defend-reason">${reason}</div>` : ''}
       </div>`;
     })
     .join('');
