@@ -129,68 +129,79 @@ export function hideDownOverlay() {
 
 // Tapping a wizard (yourself or an NPC) opens this sheet in place of the old
 // always-on spellbook — casting is contextual to whoever you tapped.
+// The game loop re-renders this every tick to keep HP/mana/cooldowns live,
+// so the animated `.sheet-panel` shell is only (re)created when the open
+// target changes, not on every tick — otherwise its entrance animation
+// would replay every 250ms and the sheet would visibly jump.
+let currentSheetKey = null;
+
 export function renderWizardSheet(data, callbacks) {
   const el = document.getElementById('wizard-sheet');
   if (!data) {
+    currentSheetKey = null;
     el.classList.add('hidden');
     el.innerHTML = '';
     return;
   }
   el.classList.remove('hidden');
 
-  if (data.kind === 'self') {
-    const { wizard: w, shieldSpell, shieldActive, shieldRemainingS, shieldReady, shieldReason } = data;
+  const key = data.kind === 'self' ? 'self' : `npc:${data.wizard.id}`;
+  if (key !== currentSheetKey) {
+    currentSheetKey = key;
     el.innerHTML = `
       <div class="sheet-panel">
         <button class="sheet-close" id="sheet-close">✕</button>
-        <div class="sheet-header">
-          <span class="sheet-avatar self">${w.avatar}</span>
-          <div>
-            <div class="sheet-name">${w.name} <small>Lv.${w.level}</small></div>
-            <div class="sheet-sub">Your Wizard</div>
-          </div>
-        </div>
-        <div class="sheet-stats">
-          <div class="bar hp-bar"><div class="bar-fill hp-fill" style="width:${pct(w.hp, w.maxHP)}%"></div><span class="bar-text">${w.hp}/${w.maxHP} HP</span></div>
-          <div class="bar mana-bar"><div class="bar-fill mana-fill" style="width:${pct(w.mana, w.maxMana)}%"></div><span class="bar-text">${w.mana}/${w.maxMana} MP</span></div>
-        </div>
-        <div class="sheet-shield-status${shieldActive ? ' active' : ''}">${shieldActive ? `🛡️ Ward active — ${shieldRemainingS}s left` : 'No ward raised'}</div>
-        <div class="sheet-actions">
-          <button id="sheet-shield" class="sheet-btn shield${shieldReady ? '' : ' disabled'}">
-            <span class="sheet-btn-icon">${shieldSpell.icon}</span> ${shieldActive ? 'Refresh' : 'Raise'} Ward Shield
-            <span class="sheet-btn-cost">${shieldSpell.manaCost}💧</span>
-          </button>
-        </div>
-        ${!shieldReady && shieldReason ? `<div class="sheet-reason">${shieldReason}</div>` : ''}
+        <div id="sheet-body"></div>
       </div>`;
     document.getElementById('sheet-close').addEventListener('click', callbacks.onClose);
+  }
+  const body = document.getElementById('sheet-body');
+
+  if (data.kind === 'self') {
+    const { wizard: w, shieldSpell, shieldActive, shieldRemainingS, shieldReady, shieldReason } = data;
+    body.innerHTML = `
+      <div class="sheet-header">
+        <span class="sheet-avatar self">${w.avatar}</span>
+        <div>
+          <div class="sheet-name">${w.name} <small>Lv.${w.level}</small></div>
+          <div class="sheet-sub">Your Wizard</div>
+        </div>
+      </div>
+      <div class="sheet-stats">
+        <div class="bar hp-bar"><div class="bar-fill hp-fill" style="width:${pct(w.hp, w.maxHP)}%"></div><span class="bar-text">${w.hp}/${w.maxHP} HP</span></div>
+        <div class="bar mana-bar"><div class="bar-fill mana-fill" style="width:${pct(w.mana, w.maxMana)}%"></div><span class="bar-text">${w.mana}/${w.maxMana} MP</span></div>
+      </div>
+      <div class="sheet-shield-status${shieldActive ? ' active' : ''}">${shieldActive ? `🛡️ Ward active — ${shieldRemainingS}s left` : 'No ward raised'}</div>
+      <div class="sheet-actions">
+        <button id="sheet-shield" class="sheet-btn shield${shieldReady ? '' : ' disabled'}">
+          <span class="sheet-btn-icon">${shieldSpell.icon}</span> ${shieldActive ? 'Refresh' : 'Raise'} Ward Shield
+          <span class="sheet-btn-cost">${shieldSpell.manaCost}💧</span>
+        </button>
+      </div>
+      ${!shieldReady && shieldReason ? `<div class="sheet-reason">${shieldReason}</div>` : ''}`;
     if (shieldReady) document.getElementById('sheet-shield').addEventListener('click', callbacks.onShield);
     return;
   }
 
   const { wizard: npc, atkSpell, canAttack, reason, dist } = data;
-  el.innerHTML = `
-    <div class="sheet-panel">
-      <button class="sheet-close" id="sheet-close">✕</button>
-      <div class="sheet-header">
-        <span class="sheet-avatar">${npc.avatar}</span>
-        <div>
-          <div class="sheet-name">${npc.name} <small>Lv.${npc.level}</small></div>
-          <div class="sheet-sub">${dist}m away</div>
-        </div>
+  body.innerHTML = `
+    <div class="sheet-header">
+      <span class="sheet-avatar">${npc.avatar}</span>
+      <div>
+        <div class="sheet-name">${npc.name} <small>Lv.${npc.level}</small></div>
+        <div class="sheet-sub">${dist}m away</div>
       </div>
-      <div class="sheet-stats">
-        <div class="bar hp-bar"><div class="bar-fill hp-fill" style="width:${pct(npc.hp, npc.maxHP)}%"></div><span class="bar-text">${npc.hp}/${npc.maxHP} HP</span></div>
-      </div>
-      <div class="sheet-actions">
-        <button id="sheet-attack" class="sheet-btn attack${canAttack ? '' : ' disabled'}">
-          <span class="sheet-btn-icon">${atkSpell.icon}</span> Cast ${atkSpell.name}
-          <span class="sheet-btn-cost">${atkSpell.manaCost}💧</span>
-        </button>
-      </div>
-      ${!canAttack ? `<div class="sheet-reason">${reason}</div>` : ''}
-    </div>`;
-  document.getElementById('sheet-close').addEventListener('click', callbacks.onClose);
+    </div>
+    <div class="sheet-stats">
+      <div class="bar hp-bar"><div class="bar-fill hp-fill" style="width:${pct(npc.hp, npc.maxHP)}%"></div><span class="bar-text">${npc.hp}/${npc.maxHP} HP</span></div>
+    </div>
+    <div class="sheet-actions">
+      <button id="sheet-attack" class="sheet-btn attack${canAttack ? '' : ' disabled'}">
+        <span class="sheet-btn-icon">${atkSpell.icon}</span> Cast ${atkSpell.name}
+        <span class="sheet-btn-cost">${atkSpell.manaCost}💧</span>
+      </button>
+    </div>
+    ${!canAttack ? `<div class="sheet-reason">${reason}</div>` : ''}`;
   if (canAttack) document.getElementById('sheet-attack').addEventListener('click', callbacks.onAttack);
 }
 
