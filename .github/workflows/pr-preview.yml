@@ -19,5 +19,4 @@ jobs:
         with:
           source-dir: .
           preview-branch: main
-          pages-base-url: https://eyalzur.github.io/wizards-fight
           action: auto
