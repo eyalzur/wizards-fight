@@ -281,6 +281,7 @@ html, body {
   background: var(--gold); color: #241448; font-weight: 800; font-size: 0.85rem;
 }
 .defend-btn.disabled { opacity: 0.4; pointer-events: none; }
+.defend-reason { margin-top: 6px; font-size: 0.78rem; color: var(--text-dim); text-align: center; }
 
 /* Down overlay */
 .down-overlay {
