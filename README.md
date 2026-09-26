@@ -7,6 +7,8 @@ target a window to defend before the spell lands.
 Everything runs client-side (plain HTML/CSS/JS, no build step, no backend, no
 accounts). Your wizard is saved to your browser's `localStorage` only.
 
+**Live:** https://eyalzur.github.io/wizards-fight/
+
 ## Play it
 
 Open `index.html` through a local web server (ES modules need `http://`, not
