@@ -82,6 +82,10 @@ what makes the combat logic testable without a browser (see
   shieldBuff: null | { mitigation, expiresAt },
   position: {lat, lng} | null,
   nextManaRegen, nextHpRegen,          // internal tick bookkeeping
+  // Runes & Powers (see docs/FEATURES.md) — carried on every wizard for
+  // shape consistency with xp/level, but only ever earned/spent by the
+  // player; NPCs keep these at 0 forever.
+  runes, spellPowerLevel, spellRecoveryLevel,
   // NPC only:
   temperament, nextAiCheck, defeated, respawnAt,
 }
