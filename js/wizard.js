@@ -142,6 +142,18 @@ export function buyUpgrade(upgrade, wizard) {
   return { ok: true };
 }
 
+// Dev tooling only (see docs/ARCHITECTURE.md "Dev/testing tooling: ?qa=1") —
+// directly sets an upgrade's level, bypassing runes/cost entirely, but still
+// clamped to [0, maxLevel] so QA can reach any *valid* level (including the
+// maxed cap) and never an out-of-range one — the cap itself is what needs to
+// stay testable as a real boundary.
+export function setUpgradeLevel(upgrade, wizard, level) {
+  const n = Math.round(Number(level));
+  const clamped = Math.max(0, Math.min(upgrade.maxLevel, Number.isFinite(n) ? n : 0));
+  wizard[upgrade.field] = clamped;
+  return clamped;
+}
+
 // Applied at cast time in combat.js — multiplies the caster's existing
 // `power` stat the same way spell.power already does, just gated behind a
 // permanent purchase instead of an element/level bonus.
