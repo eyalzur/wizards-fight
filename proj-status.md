@@ -52,8 +52,16 @@ see Roadmap).
 - **Progression** — XP on NPC kill, leveling grows stats and heals you.
   Player defeat is a soft penalty (4s downtime, respawn at 60% HP/mana) —
   no permadeath.
-- **Persistence** — wizard + NPCs + spawn point + speed setting saved to
-  `localStorage`. No server, no accounts, nothing leaves the browser.
+- **Runes & Powers** — a second, ongoing earn-and-spend currency (🔮
+  Runes) alongside XP: every NPC kill grants Runes using the same formula
+  as XP. Runes buy permanent, capped, non-refundable upgrades to two
+  attributes — Spell Power (+5%/level Spark Bolt damage, cap Lv.3/+15%)
+  and Spell Recovery (−0.1s/level Spark Bolt cooldown, cap Lv.3/1.2s) —
+  from a new "🔮 Runes & Powers" bottom sheet (☰ menu). Player-only; NPCs
+  don't earn or spend Runes. See `docs/FEATURES.md` for exact numbers.
+- **Persistence** — wizard (including Runes balance and Powers levels) +
+  NPCs + spawn point + speed setting saved to `localStorage`. No server,
+  no accounts, nothing leaves the browser.
 - **Deploy** — static site, GitHub Pages, deploys from `main`.
 
 ## Known gaps / not yet built
@@ -98,6 +106,21 @@ Short-form history of calls that shaped the current build, newest first.
 Keeps future planning from accidentally re-litigating settled questions
 without knowing why they were settled.
 
+- **2026-09-26 — Runes & Powers shipped as a deliberately narrow first
+  iteration.** Added an ongoing earn-and-spend currency (Runes, on top of
+  the existing one-time XP/level track) that buys permanent Spell Power/
+  Spell Recovery upgrades. Scope was cut on purpose, not by oversight:
+  **no equipment/inventory/carrying-capacity** (a bigger system that needs
+  its own product pass, not something to bolt on here); **no sell-back or
+  respec** (permanent purchases keep the mechanic simple — revisit only if
+  players get stuck with buyer's-remorse complaints); **per-attribute
+  caps, not a shared pool** (explicit call over a shared-pool alternative,
+  so maxing one attribute never limits the other); **only 2 attributes**
+  (Spell Power/Recovery), not range or Ward Shield timing (kept the first
+  iteration's blast radius small — those are natural next attributes to
+  add, not a signal they were rejected). Future planning on
+  currency/progression should treat these as this iteration's intentional
+  boundaries, not gaps to "finally" fix.
 - **2026-09-26 — PR preview deploys added, not an external host.** Wanted
   a way to review a feature live before it hits `main`/production.
   Considered Netlify/Vercel-style deploy previews, but those need a new

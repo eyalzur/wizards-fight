@@ -130,13 +130,46 @@ cooldowns and shield cleared.
 
 ## Progression
 
-- Defeating an NPC grants `15 + npcLevel × 5` XP.
+- Defeating an NPC grants `15 + npcLevel × 5` XP, and the same amount in
+  🔮 Runes (see Runes & Powers below) — a separate, permanent-purchase
+  currency track alongside level-up XP, not a replacement for it.
 - Leveling (`js/wizard.js:growLevel`) adds `+12 maxHP, +6 maxMana, +0.05
   power`, fully heals, and scales the next level's XP requirement by
   1.35x.
 - Player defeat is not punishing: 4 seconds of "recovering" (movement and
   actions blocked), then respawn at 60% of max HP/mana. No stat loss, no
   item loss — there's nothing to lose.
+
+## Runes & Powers
+
+`js/wizard.js` owns the numbers; `js/combat.js` applies them at cast time;
+`js/ui.js`/`js/main.js` render the ☰ menu → 🔮 Runes: {n} button and the
+"🔮 Runes & Powers" bottom sheet it opens.
+
+- **Earning Runes** — every NPC kill grants `15 + npcLevel × 5` Runes
+  (`npcLevel` = the *defeated NPC's* level), the exact same formula and
+  input as XP. Logged right after the XP line: `🔮 You gain {n} Runes.`
+  Player-only: NPCs never earn or spend Runes.
+- **Spell Power 💥** — permanently multiplies Spark Bolt's (and any future
+  attack spell's) damage via the caster's own `power` stat, the same way
+  `spell.power` is already multiplied by it. **+5% per level, cap Lv.3
+  (+15% total)** — chosen to land in the same ballpark as one normal
+  level-up's `+0.05 power` (≈5% relative gain on the base 1.0 power stat),
+  without being an order of magnitude bigger.
+- **Spell Recovery ⏳** — permanently reduces Spark Bolt's cooldown.
+  **−0.1s per level, cap Lv.3 (1.5s → 1.2s, a 20% reduction)**, with a
+  defensive floor of 0.5s baked into the formula (not reachable at the
+  current cap, but guards future tuning from ever hitting 0 or negative).
+- **Cost** — `cost = round(base × 1.5^purchasesSoFar)`, the same
+  exponential shape as the level-up XP curve (`xpToNext × 1.35`), just its
+  own base/rate per attribute:
+  - Spell Power: base 40 → costs 40, 60, 90 (190 total to max).
+  - Spell Recovery: base 35 → costs 35, 53, 79 (167 total to max).
+- **Permanent, no sell-back** — purchases only ever go up; there is no
+  respec/refund path, by design (see `proj-status.md` Decisions Log).
+- Each attribute is capped independently (a "per-attribute cap," not a
+  shared pool) — maxing Spell Power doesn't affect what Spell Recovery
+  costs or how far it can go, and vice versa.
 
 ## Persistence
 

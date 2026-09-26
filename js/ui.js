@@ -38,13 +38,14 @@ export function showGameScreen() {
   document.getElementById('screen-game').classList.add('active');
 }
 
-export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onLogToggle, onReset }) {
+export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onPowersToggle, onLogToggle, onReset }) {
   document.getElementById('btn-locate').addEventListener('click', onLocate);
 
   const menuPanel = document.getElementById('menu-panel');
   menuPanel.innerHTML = `
     <button id="menu-fullscreen">⛶ Fullscreen</button>
     <button id="menu-speed">⚡ Fast</button>
+    <button id="menu-powers">🔮 Runes: 0</button>
     <button id="menu-log">📜 Spell Log</button>
     <button id="menu-reset" class="menu-danger">🔄 New Wizard</button>
   `;
@@ -54,6 +55,10 @@ export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onLogToggle, on
     menuPanel.classList.add('hidden');
   });
   document.getElementById('menu-speed').addEventListener('click', onSpeedToggle);
+  document.getElementById('menu-powers').addEventListener('click', () => {
+    onPowersToggle();
+    menuPanel.classList.add('hidden');
+  });
   document.getElementById('menu-log').addEventListener('click', () => {
     onLogToggle();
     menuPanel.classList.add('hidden');
@@ -65,6 +70,9 @@ export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onLogToggle, on
   document.getElementById('btn-log-close').addEventListener('click', () => {
     document.getElementById('log-panel').classList.add('hidden');
   });
+  document.getElementById('btn-powers-close').addEventListener('click', () => {
+    document.getElementById('powers-panel').classList.add('hidden');
+  });
 }
 
 export function setSpeedLabel(text) {
@@ -72,8 +80,52 @@ export function setSpeedLabel(text) {
   if (el) el.textContent = text;
 }
 
+export function setRunesLabel(n) {
+  const el = document.getElementById('menu-powers');
+  if (el) el.textContent = `🔮 Runes: ${n}`;
+}
+
 export function toggleLog() {
   document.getElementById('log-panel').classList.toggle('hidden');
+}
+
+export function togglePowersPanel() {
+  document.getElementById('powers-panel').classList.toggle('hidden');
+}
+
+// Two stacked power-cards (Spell Power, Spell Recovery) inside #powers-panel.
+// `data` is plain numbers/strings computed by main.js from wizard.js's
+// upgrade helpers — this function only renders and wires clicks.
+export function renderPowersPanel(data, callbacks) {
+  document.getElementById('powers-balance').innerHTML = `Balance: <strong>${data.runes}</strong> 🔮 Runes`;
+  const cardsEl = document.getElementById('powers-cards');
+  cardsEl.innerHTML = renderPowerCard(data.power, 'btn-buy-power') + renderPowerCard(data.recovery, 'btn-buy-recovery');
+  if (!data.power.maxed && data.power.canAfford) {
+    document.getElementById('btn-buy-power').addEventListener('click', callbacks.onBuyPower);
+  }
+  if (!data.recovery.maxed && data.recovery.canAfford) {
+    document.getElementById('btn-buy-recovery').addEventListener('click', callbacks.onBuyRecovery);
+  }
+}
+
+function renderPowerCard(card, btnId) {
+  return `
+    <div class="power-card">
+      <div class="power-card-head">
+        <span class="power-icon">${card.icon}</span>
+        <div>
+          <div class="power-name">${card.name}</div>
+          <div class="power-desc">${card.desc}</div>
+        </div>
+      </div>
+      <div class="power-status">Lv.${card.level}/${card.maxLevel} · ${card.effectText}</div>
+      ${
+        card.maxed
+          ? `<div class="power-maxed">✨ Maxed</div>`
+          : `<button id="${btnId}" class="power-buy${card.canAfford ? '' : ' disabled'}">⬆ Upgrade ${card.cost}🔮</button>
+             ${!card.canAfford ? `<div class="power-reason">Need ${card.shortfall} more Runes</div>` : ''}`
+      }
+    </div>`;
 }
 
 export function toast(msg) {
