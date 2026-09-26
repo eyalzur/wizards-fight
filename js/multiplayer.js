@@ -11,7 +11,7 @@
 // player who hasn't set up a Firebase project (or is offline) should never
 // see an error because of this file.
 
-const FIREBASE_SDK_VERSION = '10.13.2';
+const FIREBASE_SDK_VERSION = '12.19.0';
 
 let enabled = false;
 let uid = null;
