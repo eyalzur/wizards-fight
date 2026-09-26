@@ -3,7 +3,7 @@
 Last updated: 2026-09-26
 
 This file is the single source of truth for "what exists, what's next, and
-why we made the calls we made." Run `/check-proj` to get a suggested next
+why we made the calls we made." Run `/resume-proj` to get a suggested next
 task based on this file plus any open GitHub issues.
 
 See also: [`docs/FEATURES.md`](docs/FEATURES.md) (what the game does),
@@ -71,7 +71,7 @@ see Roadmap).
   an actual multi-minute play session end-to-end — only under the Fast
   test multiplier.
 
-## Roadmap (unordered backlog — `/check-proj` helps prioritize)
+## Roadmap (unordered backlog — `/resume-proj` helps prioritize)
 
 - Reintroduce element-specific attack spells (Fireball, Frost Shard,
   Thunder Jab, Thornwhip) and a heal spell (Minor Renewal), now that the
