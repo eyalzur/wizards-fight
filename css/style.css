@@ -196,6 +196,18 @@ html, body {
 .npc-avatar { border-color: var(--pink); }
 .npc-avatar.selected { border-color: var(--gold); box-shadow: 0 0 14px rgba(226,177,60,0.8); transform: scale(1.08); }
 .npc-avatar.defeated { opacity: 0.35; filter: grayscale(1); }
+
+/* Real players get a third accent color (reusing the ward-shield purple) plus
+   a persistent badge dot, so they read as a real player at a glance, before
+   tapping — distinct from both the self-marker (mana blue) and NPCs (pink). */
+.remote-avatar { border-color: var(--purple); box-shadow: 0 0 14px rgba(138,92,246,0.6); position: relative; }
+.remote-avatar.selected { border-color: var(--gold); box-shadow: 0 0 14px rgba(226,177,60,0.8); transform: scale(1.08); }
+.remote-avatar.defeated { opacity: 0.35; filter: grayscale(1); }
+.remote-badge {
+  position: absolute; top: -2px; right: -2px; width: 12px; height: 12px;
+  background: var(--purple); border: 2px solid var(--bg-panel); border-radius: 50%;
+  box-shadow: 0 0 6px rgba(138,92,246,0.8);
+}
 .marker-hp { width: 40px; height: 4px; margin: 3px auto 0; background: rgba(0,0,0,0.4); border-radius: 3px; overflow: hidden; }
 .marker-hp-fill { height: 100%; background: var(--hp); }
 .marker-label {
@@ -231,9 +243,16 @@ html, body {
   border-radius: 50%; background: var(--bg-panel-2); border: 2px solid var(--pink); flex-shrink: 0;
 }
 .sheet-avatar.self { border-color: var(--mana); }
+.sheet-avatar.remote { border-color: var(--purple); }
 .sheet-name { font-weight: 800; font-size: 1.05rem; }
 .sheet-name small { color: var(--text-dim); font-weight: 600; margin-left: 4px; }
 .sheet-sub { color: var(--text-dim); font-size: 0.78rem; }
+.sheet-sub-synced { opacity: 0.85; }
+.sheet-remote-note {
+  font-size: 0.75rem; color: var(--text-dim); background: rgba(138,92,246,0.12);
+  border: 1px solid rgba(138,92,246,0.3); border-radius: 10px;
+  padding: 8px 10px; margin-bottom: 10px;
+}
 .sheet-stats { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .sheet-stats .bar { height: 12px; }
 .sheet-stats .bar-text { font-size: 0.65rem; top: 1px; }
