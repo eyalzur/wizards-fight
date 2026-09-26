@@ -5,6 +5,7 @@ let playerMarker = null;
 let senseCircle = null;
 let npcMarkers = {};
 let projectileMarkers = {};
+let playerClickHandler = null;
 
 export function initMap(center, onMapClick) {
   map = L.map('map', { zoomControl: true, tap: true }).setView([center.lat, center.lng], 17);
@@ -24,7 +25,8 @@ export function recenter(pos) {
   if (map) map.panTo([pos.lat, pos.lng]);
 }
 
-export function updatePlayer(pos, wizard) {
+export function updatePlayer(pos, wizard, onPlayerClick) {
+  playerClickHandler = onPlayerClick;
   const icon = L.divIcon({
     className: 'wizard-marker player-marker',
     html: `<div class="marker-avatar player-avatar">${wizard.avatar}</div><div class="marker-label">${wizard.name}</div>`,
@@ -33,6 +35,10 @@ export function updatePlayer(pos, wizard) {
   });
   if (!playerMarker) {
     playerMarker = L.marker([pos.lat, pos.lng], { icon, zIndexOffset: 1000 }).addTo(map);
+    playerMarker.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      playerClickHandler && playerClickHandler();
+    });
   } else {
     playerMarker.setLatLng([pos.lat, pos.lng]);
     playerMarker.setIcon(icon);
@@ -55,12 +61,12 @@ export function updateSenseCircle(pos, radiusM) {
   }
 }
 
-export function renderNpcs(npcs, onNpcClick, selectedTargetId) {
+export function renderNpcs(npcs, onNpcClick, selectedId) {
   const seen = new Set();
   npcs.forEach((npc) => {
     seen.add(npc.id);
     const defeated = npc.hp <= 0;
-    const selected = npc.id === selectedTargetId;
+    const selected = npc.id === selectedId;
     const html = `
       <div class="marker-avatar npc-avatar${defeated ? ' defeated' : ''}${selected ? ' selected' : ''}">${npc.avatar}</div>
       <div class="marker-hp"><div class="marker-hp-fill" style="width:${Math.max(0, (npc.hp / npc.maxHP) * 100)}%"></div></div>
@@ -68,7 +74,10 @@ export function renderNpcs(npcs, onNpcClick, selectedTargetId) {
     const icon = L.divIcon({ className: 'wizard-marker npc-marker', html, iconSize: [46, 58], iconAnchor: [23, 50] });
     if (!npcMarkers[npc.id]) {
       const m = L.marker([npc.position.lat, npc.position.lng], { icon }).addTo(map);
-      m.on('click', () => onNpcClick(npc.id));
+      m.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        onNpcClick(npc.id);
+      });
       npcMarkers[npc.id] = m;
     } else {
       npcMarkers[npc.id].setLatLng([npc.position.lat, npc.position.lng]);

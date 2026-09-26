@@ -38,5 +38,5 @@ export function respawnNpc(npc, center, minR, maxR) {
   npc.defeated = false;
   npc.respawnAt = null;
   npc.cooldowns = {};
-  npc.activeBuffs = [];
+  npc.shieldBuff = null;
 }

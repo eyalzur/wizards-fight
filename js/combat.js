@@ -52,40 +52,61 @@ export function castAttack(caster, target, spellId, world, now) {
   };
   world.projectiles.push(projectile);
   log(world, `${caster.avatar} ${caster.name} hurls ${spell.icon} ${spell.name} at ${target.name}!`);
-  if (target.isNPC) maybeNpcDefend(target, now);
+  if (target.isNPC) maybeNpcDefend(target, projectile, now, world);
   return { ok: true, projectile };
 }
 
-export function castDefend(wizard, spellId, now) {
+// Proactive stance: raise it ahead of time; it's not consumed by any single
+// hit, only by its own expiry (see isShieldActive).
+export function castShield(wizard, spellId, now) {
   const spell = getSpell(spellId);
-  if (!spell || spell.type !== 'defend') return { ok: false, reason: 'That spell cannot defend.' };
+  if (!spell || spell.type !== 'shield') return { ok: false, reason: 'That spell cannot shield you.' };
   const chk = canCastSpell(wizard, spell, now);
   if (!chk.ok) return chk;
   wizard.mana -= spell.manaCost;
   wizard.cooldowns[spell.id] = now + spell.cooldown * 1000;
-  wizard.activeBuffs.push({
-    id: uid(),
-    mitigation: spell.mitigation,
-    expiresAt: now + (spell.buffDuration || 6000),
-  });
+  wizard.shieldBuff = { mitigation: spell.mitigation, expiresAt: now + spell.buffDuration };
   return { ok: true };
 }
 
-function consumeActiveBuff(wizard, now) {
-  wizard.activeBuffs = wizard.activeBuffs.filter((b) => b.expiresAt > now);
-  if (!wizard.activeBuffs.length) return null;
-  return wizard.activeBuffs.shift();
+export function isShieldActive(wizard, now) {
+  return !!wizard.shieldBuff && wizard.shieldBuff.expiresAt > now;
 }
 
-function maybeNpcDefend(npc, now) {
-  const chance = TEMPERAMENT_DEFEND[npc.temperament] ?? 0.4;
-  const options = npc.spells
-    .map(getSpell)
-    .filter((s) => s && s.type === 'defend' && npc.mana >= s.manaCost && (npc.cooldowns[s.id] || 0) <= now);
-  if (options.length && Math.random() < chance) {
-    const s = pick(options);
-    castDefend(npc, s.id, now);
+// Reactive counter: negates one specific incoming projectile outright,
+// resolved immediately rather than waiting for its scheduled impact.
+export function castCounterspell(wizard, projectile, spellId, world, now) {
+  const spell = getSpell(spellId);
+  if (!spell || spell.type !== 'dispel') return { ok: false, reason: 'That spell cannot counter a curse.' };
+  if (!projectile || projectile.resolved || projectile.targetId !== wizard.id) {
+    return { ok: false, reason: 'Nothing to counter.' };
   }
+  const chk = canCastSpell(wizard, spell, now);
+  if (!chk.ok) return chk;
+  wizard.mana -= spell.manaCost;
+  wizard.cooldowns[spell.id] = now + spell.cooldown * 1000;
+  projectile.resolved = true;
+  const caster = findWizard(world, projectile.casterId);
+  const atkSpell = getSpell(projectile.spellId);
+  log(world, `🌀 ${wizard.name} shatters ${caster ? caster.name + "'s" : 'the'} ${atkSpell.icon} ${atkSpell.name} before it lands!`);
+  world.projectiles = world.projectiles.filter((p) => p.id !== projectile.id);
+  return { ok: true };
+}
+
+function maybeNpcDefend(npc, projectile, now, world) {
+  const chance = TEMPERAMENT_DEFEND[npc.temperament] ?? 0.4;
+  if (Math.random() >= chance) return;
+  const dispel = npc.spells
+    .map(getSpell)
+    .find((s) => s && s.type === 'dispel' && npc.mana >= s.manaCost && (npc.cooldowns[s.id] || 0) <= now);
+  if (dispel) {
+    castCounterspell(npc, projectile, dispel.id, world, now);
+    return;
+  }
+  const shield = npc.spells
+    .map(getSpell)
+    .find((s) => s && s.type === 'shield' && npc.mana >= s.manaCost && (npc.cooldowns[s.id] || 0) <= now);
+  if (shield && !isShieldActive(npc, now)) castShield(npc, shield.id, now);
 }
 
 function resolveImpact(world, projectile, now) {
@@ -97,11 +118,10 @@ function resolveImpact(world, projectile, now) {
     return;
   }
   let dmg = Math.max(1, Math.round(spell.power * (caster ? caster.power : 1) - (target.defense || 0)));
-  const buff = consumeActiveBuff(target, now);
   let note = '';
-  if (buff) {
-    dmg = Math.round(dmg * (1 - buff.mitigation));
-    note = ` 🛡️ Blunted by ${target.name}'s ward!`;
+  if (isShieldActive(target, now)) {
+    dmg = Math.round(dmg * (1 - target.shieldBuff.mitigation));
+    note = ` 🛡️ Softened by ${target.name}'s ward!`;
   }
   target.hp = Math.max(0, target.hp - dmg);
   log(world, `${spell.icon} ${spell.name} strikes ${target.name} for ${dmg} damage!${note}`);

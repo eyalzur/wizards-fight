@@ -8,9 +8,18 @@ export const SPELLS = [
     description: "A mote of raw magic. Slow, but every wizard knows it.",
   },
   {
-    id: 'ward_shield', name: 'Ward Shield', icon: '🛡️', type: 'defend',
-    manaCost: 9, buffDuration: 6000, mitigation: 0.6, cooldown: 5,
-    description: 'Raises a shimmering ward that blunts the next hit.',
+    // Proactive stance: raise it ahead of time, it softens every hit that
+    // lands while it's up, and it isn't used up by any single hit.
+    id: 'ward_shield', name: 'Ward Shield', icon: '🛡️', type: 'shield',
+    manaCost: 18, buffDuration: 120000, mitigation: 0.5, cooldown: 25,
+    description: 'Raise a ward that softens every hit for as long as it holds.',
+  },
+  {
+    // Reactive counter: cast it in the moment you see a specific curse
+    // incoming to negate that one spell outright, before it lands.
+    id: 'counterspell', name: 'Counterspell', icon: '🌀', type: 'dispel',
+    manaCost: 14, cooldown: 20,
+    description: 'Shatter one incoming curse the instant you see it coming.',
   },
 ];
 

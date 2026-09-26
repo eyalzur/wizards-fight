@@ -51,29 +51,22 @@
       </div>
       <div class="hud-actions">
         <button id="btn-locate" title="Use my location">📍</button>
-        <button id="btn-speed" title="Toggle spell travel speed">⚡ Fast</button>
-        <button id="btn-fullscreen" title="Fullscreen">⛶</button>
         <button id="btn-menu" title="Menu">☰</button>
       </div>
+      <div id="menu-panel" class="menu-panel hidden"></div>
     </header>
 
     <div id="map"></div>
 
-    <div id="target-card" class="target-card hidden"></div>
     <div id="defend-overlay" class="defend-overlay hidden"></div>
     <div id="down-overlay" class="down-overlay hidden">
       <div class="down-card">💀 <strong>Defeated!</strong><br/>Catching your breath...</div>
     </div>
     <div id="toast-container" class="toast-container"></div>
 
-    <footer id="dock">
-      <div id="spellbook" class="spellbook"></div>
-      <div class="dock-side">
-        <button id="btn-log-toggle" title="Spell log">📜</button>
-      </div>
-    </footer>
+    <div id="wizard-sheet" class="wizard-sheet hidden"></div>
     <div id="log-panel" class="log-panel hidden">
-      <div class="log-panel-header">Spellbook Log</div>
+      <div class="log-panel-header">Spellbook Log <button id="btn-log-close" class="log-close">✕</button></div>
       <div id="log-list" class="log-list"></div>
     </div>
   </section>

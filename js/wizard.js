@@ -36,10 +36,11 @@ export function baseStatsFor(elementId) {
   return stats;
 }
 
-// Every wizard starts with the same one attack + one defend spell, regardless
-// of element. Element only flavors stats for now — more spells come later.
+// Every wizard starts with the same spells regardless of element: one attack,
+// plus two distinct defenses (a proactive shield stance and a reactive
+// counterspell). Element only flavors stats for now — more spells come later.
 export function startingSpellsFor() {
-  return ['spark_bolt', 'ward_shield'];
+  return ['spark_bolt', 'ward_shield', 'counterspell'];
 }
 
 export function createWizard({ id, name, avatar, element, isNPC = false, level = 1 }) {
@@ -64,7 +65,7 @@ export function createWizard({ id, name, avatar, element, isNPC = false, level =
     castTimeMult: stats.castTimeMult,
     spells: startingSpellsFor(),
     cooldowns: {},
-    activeBuffs: [],
+    shieldBuff: null,
     position: null,
     nextManaRegen: 0,
     nextHpRegen: 0,

@@ -10,6 +10,8 @@ import { uid } from './utils.js';
 
 const DEFAULT_CENTER = { lat: 40.758, lng: -73.9855 }; // fallback demo spot if location is denied
 const NPC_COUNT = 9;
+const ATTACK_SPELL = getSpell('spark_bolt');
+const SHIELD_SPELL = getSpell('ward_shield');
 
 let world = null;
 let lastSaveAt = 0;
@@ -57,7 +59,7 @@ function startGame(player, center) {
     npcs: [],
     projectiles: [],
     log: [],
-    selectedTargetId: null,
+    openSheet: null,
     playerDown: false,
     playerRespawnAt: null,
     spawnCenter: { ...center },
@@ -77,7 +79,7 @@ function resumeGame(saved) {
     npcs: saved.npcs || [],
     projectiles: [],
     log: [],
-    selectedTargetId: null,
+    openSheet: null,
     playerDown: saved.player.hp <= 0,
     playerRespawnAt: saved.player.hp <= 0 ? Date.now() + 3000 : null,
     spawnCenter: saved.spawnCenter || saved.player.position,
@@ -101,18 +103,18 @@ function boot() {
         },
         () => ui.toast('Could not get your location.')
       ),
-    onMenu: onMenu,
-    onSpellSelect,
-    onLogToggle: ui.toggleLog,
-    onCancelTarget: () => {
-      world.selectedTargetId = null;
-      render();
-    },
     onFullscreen: toggleFullscreen,
     onSpeedToggle: () => {
       world.timeScale = world.timeScale > combat.TIME_SCALES.real ? combat.TIME_SCALES.real : combat.TIME_SCALES.fast;
       saveState(world);
       render();
+    },
+    onLogToggle: ui.toggleLog,
+    onReset: () => {
+      if (window.confirm('Start over with a brand new wizard? This erases your current wizard.')) {
+        clearState();
+        location.reload();
+      }
     },
   });
   setInterval(gameTick, 250);
@@ -125,6 +127,11 @@ function toggleFullscreen() {
 }
 
 function onMapClick(lat, lng) {
+  if (world.openSheet) {
+    world.openSheet = null;
+    render();
+    return;
+  }
   if (world.playerDown) {
     ui.toast("You're recovering — can't move yet!");
     return;
@@ -151,39 +158,73 @@ function animateWalk(wizard, dest) {
   requestAnimationFrame(step);
 }
 
-function onSpellSelect(spellId) {
-  const spell = getSpell(spellId);
-  const now = Date.now();
-  const player = world.player;
-  if (spell.type === 'attack') {
-    if (!world.selectedTargetId) {
-      ui.toast('Choose a wizard on the map to target first! 🎯');
-      return;
-    }
-    const target = world.npcs.find((n) => n.id === world.selectedTargetId);
-    if (!target || target.hp <= 0) {
-      ui.toast('That wizard is gone. Pick another target.');
-      world.selectedTargetId = null;
-      render();
-      return;
-    }
-    const res = combat.castAttack(player, target, spellId, world, now);
-    if (!res.ok) ui.toast(res.reason);
-  } else if (spell.type === 'defend') {
-    const res = combat.castDefend(player, spellId, now);
-    if (!res.ok) ui.toast(res.reason);
-    else ui.toast(`${spell.icon} You raise your guard!`);
-  }
+function onPlayerClick() {
+  world.openSheet = world.openSheet?.kind === 'self' ? null : { kind: 'self' };
+  render();
+}
+
+function onNpcClick(npcId) {
+  if (world.playerDown) return;
+  world.openSheet = world.openSheet?.kind === 'npc' && world.openSheet.id === npcId ? null : { kind: 'npc', id: npcId };
+  render();
+}
+
+function onSheetAttack(npc) {
+  const res = combat.castAttack(world.player, npc, ATTACK_SPELL.id, world, Date.now());
+  if (!res.ok) ui.toast(res.reason);
+  else world.openSheet = null;
   saveState(world);
   render();
 }
 
-function onMenu() {
-  const ok = window.confirm('Start over with a brand new wizard? This erases your current wizard.');
-  if (ok) {
-    clearState();
-    location.reload();
+function onSheetShield() {
+  const res = combat.castShield(world.player, SHIELD_SPELL.id, Date.now());
+  if (!res.ok) ui.toast(res.reason);
+  else ui.toast(`${SHIELD_SPELL.icon} Your ward shimmers to life.`);
+  saveState(world);
+  render();
+}
+
+function onCounterspell(projectileId) {
+  const projectile = world.projectiles.find((p) => p.id === projectileId);
+  const res = combat.castCounterspell(world.player, projectile, 'counterspell', world, Date.now());
+  if (!res.ok) ui.toast(res.reason);
+  saveState(world);
+  render();
+}
+
+function buildSelfSheetData(now) {
+  const p = world.player;
+  const shieldActive = combat.isShieldActive(p, now);
+  const shieldReady = (p.cooldowns[SHIELD_SPELL.id] || 0) <= now && p.mana >= SHIELD_SPELL.manaCost;
+  let shieldReason = '';
+  if (!shieldReady) {
+    shieldReason = p.mana < SHIELD_SPELL.manaCost ? 'Not enough mana.' : 'Still recharging.';
   }
+  return {
+    kind: 'self',
+    wizard: p,
+    shieldSpell: SHIELD_SPELL,
+    shieldActive,
+    shieldRemainingS: shieldActive ? Math.ceil((p.shieldBuff.expiresAt - now) / 1000) : 0,
+    shieldReady,
+    shieldReason,
+  };
+}
+
+function buildNpcSheetData(npc, now) {
+  const player = world.player;
+  const dist = geo.distanceMeters(player.position, npc.position);
+  const inRange = dist <= Math.min(ATTACK_SPELL.range, player.senseRange);
+  const cdReady = (player.cooldowns[ATTACK_SPELL.id] || 0) <= now;
+  const canAfford = player.mana >= ATTACK_SPELL.manaCost;
+  const canAttack = npc.hp > 0 && !world.playerDown && inRange && cdReady && canAfford;
+  let reason = '';
+  if (npc.hp <= 0) reason = 'Defeated — regrouping...';
+  else if (!inRange) reason = `Out of range (${Math.round(dist)}m away).`;
+  else if (!cdReady) reason = 'Recharging.';
+  else if (!canAfford) reason = 'Not enough mana.';
+  return { kind: 'npc', wizard: npc, atkSpell: ATTACK_SPELL, canAttack, reason, dist: Math.round(dist) };
 }
 
 function gameTick() {
@@ -203,36 +244,39 @@ function render() {
 
   const visibleNpcs = world.npcs.filter((n) => geo.distanceMeters(player.position, n.position) <= player.senseRange);
 
-  if (world.selectedTargetId) {
-    const t = world.npcs.find((n) => n.id === world.selectedTargetId);
+  if (world.openSheet?.kind === 'npc') {
+    const t = world.npcs.find((n) => n.id === world.openSheet.id);
     const visible = t && t.hp > 0 && geo.distanceMeters(player.position, t.position) <= player.senseRange;
-    if (!visible) world.selectedTargetId = null;
+    if (!visible) world.openSheet = null;
   }
 
-  map.updatePlayer(player.position, player);
+  map.updatePlayer(player.position, player, onPlayerClick);
   map.updateSenseCircle(player.position, player.senseRange);
-  map.renderNpcs(visibleNpcs, onNpcClick, world.selectedTargetId);
+  map.renderNpcs(visibleNpcs, onNpcClick, world.openSheet?.kind === 'npc' ? world.openSheet.id : null);
   map.renderProjectiles(world.projectiles, now);
 
   ui.renderHud(player);
   ui.setSpeedLabel(world.timeScale > combat.TIME_SCALES.real ? '⚡ Fast' : '🐢 Real');
-  ui.renderSpellbook(player, now, world.selectedTargetId);
-  ui.renderTargetCard(world.selectedTargetId ? world.npcs.find((n) => n.id === world.selectedTargetId) : null);
   ui.renderLog(world.log);
 
-  const incoming = world.projectiles.filter((p) => !p.resolved && p.targetId === player.id && p.casterId !== player.id);
-  ui.renderDefendPrompts(incoming, player, now, (spellId) => {
-    const res = combat.castDefend(player, spellId, Date.now());
-    if (!res.ok) ui.toast(res.reason);
-    render();
+  let sheetData = null;
+  if (world.openSheet?.kind === 'self') sheetData = buildSelfSheetData(now);
+  else if (world.openSheet?.kind === 'npc') {
+    const npc = world.npcs.find((n) => n.id === world.openSheet.id);
+    if (npc) sheetData = buildNpcSheetData(npc, now);
+  }
+  ui.renderWizardSheet(sheetData, {
+    onClose: () => {
+      world.openSheet = null;
+      render();
+    },
+    onAttack: sheetData?.kind === 'npc' ? () => onSheetAttack(sheetData.wizard) : null,
+    onShield: onSheetShield,
   });
+
+  const incoming = world.projectiles.filter((p) => !p.resolved && p.targetId === player.id && p.casterId !== player.id);
+  ui.renderDefendPrompts(incoming, player, now, onCounterspell);
 
   if (world.playerDown) ui.showDownOverlay();
   else ui.hideDownOverlay();
-}
-
-function onNpcClick(npcId) {
-  if (world.playerDown) return;
-  world.selectedTargetId = npcId;
-  render();
 }
