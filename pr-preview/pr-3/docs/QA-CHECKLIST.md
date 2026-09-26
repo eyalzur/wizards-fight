@@ -1,0 +1,138 @@
+# QA checklist
+
+Manual (or Playwright-scripted) checks. Not every item applies to every
+change — pick the sections relevant to what changed. Numbers referenced
+here should match `docs/FEATURES.md`; if they don't, one of the two is
+stale.
+
+## Setup / creation
+
+- [ ] Name field: empty submits as "Wizard"; 16-char limit enforced.
+- [ ] Each of the 5 avatars and 5 elements is selectable and submits.
+- [ ] Geolocation allowed → wizard spawns at real location.
+- [ ] Geolocation denied/unavailable → falls back to the demo location
+      with a toast explaining why, and the game still starts.
+- [ ] Fullscreen is requested on submit (won't be grantable in every test
+      environment — verify no error is thrown either way).
+
+## Map & movement
+
+- [ ] Real streets/labels render (verify on the actual deployed site —
+      map tiles don't load in a Claude Artifact preview sandbox).
+- [ ] Sense-range circle is drawn around the player and updates if
+      senseRange changes (e.g. after a level-up, if that ever changes it).
+- [ ] NPCs outside sense range are not rendered as markers at all.
+- [ ] Tapping within 250m walks the player there (animated); tapping
+      further shows the "too far" toast with the actual distance.
+- [ ] Tapping a wizard marker does **not** also move the player (marker
+      clicks must stop propagation to the map's click handler).
+- [ ] Tapping empty map while a wizard sheet is open closes the sheet
+      instead of moving.
+- [ ] 📍 button re-centers on real location and shows a confirmation
+      toast, or a failure toast if location can't be read.
+
+## Wizard sheet (tap-to-act)
+
+- [ ] Tapping your own marker opens the self sheet: correct HP/mana,
+      shield status text, Raise/Refresh Shield button.
+- [ ] Tapping an NPC opens their sheet: correct name/level/HP/distance,
+      Attack button.
+- [ ] Attack button is disabled with the correct reason when: NPC
+      defeated, out of range, on cooldown, insufficient mana — check each
+      independently.
+- [ ] Successful attack closes the sheet and logs a "hurls" message.
+- [ ] ✕ closes the sheet without side effects.
+
+## Spells & combat
+
+- [ ] Spark Bolt: mana deducted, cooldown set, projectile appears on the
+      map and visibly travels from caster to target.
+- [ ] Travel time roughly matches `distance ÷ 1.0 m/s ÷ timeScale` (spot
+      check, not exact-to-the-ms).
+- [ ] Impact applies damage, logs a "strikes ... for N damage" message,
+      and reduces target HP (marker HP bar for NPCs, HUD bar for player).
+- [ ] Ward Shield: casting sets `shieldBuff`, sheet shows "active — Ns
+      left", and a hit landing during that window shows the "Softened by
+      ward" note with reduced damage. Damage is still reduced on a
+      *second* hit within the window (shield is not consumed by one hit).
+- [ ] Shield expires after 2 real minutes (or scaled equivalent under
+      Fast) — a hit after expiry takes full damage.
+- [ ] Counterspell: when an NPC attacks the player, the defend-overlay
+      appears with the correct incoming spell name/icon and a live
+      countdown. Casting Counterspell in time removes the projectile,
+      logs a "shatters" message, and the player takes zero damage from
+      it. Missing the window (letting it resolve) applies full/shielded
+      damage as normal.
+- [ ] Counterspell/Shield buttons in the overlay/sheet correctly disable
+      when on cooldown or unaffordable.
+- [ ] NPCs occasionally initiate attacks on their own (aggression roll) —
+      verify by waiting under Fast speed; frequency should roughly match
+      the temperament rates in `docs/FEATURES.md`.
+- [ ] NPCs occasionally react to being attacked with their own Shield or
+      Counterspell (visible via a mitigated/negated hit in the log).
+
+## Progression & defeat
+
+- [ ] Defeating an NPC logs XP gain matching `15 + npcLevel × 5`.
+- [ ] Leveling up logs a level-up message, fully restores HP/mana, and
+      the HUD level/xp bar update.
+- [ ] Defeated NPCs disappear and reappear 30–50s later at a new position
+      with full HP/mana and no stale cooldowns/shield.
+- [ ] Player defeat shows the "Defeated!" overlay, blocks movement and
+      casting for ~4s, then respawns at 60% HP/mana with a log message.
+
+## Runes & Powers
+
+- [ ] Defeating an NPC logs a `🔮 You gain {n} Runes.` line right after the
+      existing `⭐ You gain {n} XP.` line, with matching `n` (`15 +
+      npcLevel × 5`).
+- [ ] ☰ menu's `🔮 Runes: {n}` button always shows the live balance and
+      updates immediately after a kill.
+- [ ] Clicking it opens the `#powers-panel` bottom sheet (dark skin, gold
+      top border — not the log's parchment theme) showing the balance and
+      two power-cards (Spell Power, Spell Recovery).
+- [ ] Each card shows the correct level (`Lv.N/3`), effect text (`+N%
+      damage` / `N.Ns cooldown`), and either an enabled "⬆ Upgrade {cost}🔮"
+      button or a disabled one with "Need {shortfall} more Runes" — check
+      both affordable and unaffordable states.
+- [ ] Buying an upgrade debits the exact cost, increments the level, and
+      updates the displayed effect and next cost (costs follow `round(base
+      × 1.5^purchasesSoFar)` — see `docs/FEATURES.md` for the exact
+      numbers).
+- [ ] After 3 purchases, a card shows "✨ Maxed" with no upgrade button —
+      verify there's no way to buy a 4th.
+- [ ] A purchased Spell Power level visibly changes Spark Bolt's logged
+      damage number; a purchased Spell Recovery level visibly changes the
+      time between casts, not just the sheet's displayed cooldown text.
+- [ ] Reload mid-game preserves `runes`/`spellPowerLevel`/
+      `spellRecoveryLevel` (they're part of the player's persisted wizard).
+- [ ] NPCs never show a Runes balance or gain Runes on anything.
+
+## Speed toggle & menu
+
+- [ ] ☰ opens the menu; each item (Fullscreen, Speed, Spell Log, New
+      Wizard) is present and clickable.
+- [ ] Speed toggle flips the label (⚡ Fast ↔ 🐢 Real) and visibly changes
+      new casts' travel time; in-flight projectiles keep their original
+      timing (only new casts are affected).
+- [ ] Spell Log opens/closes via the menu item and its own ✕.
+- [ ] New Wizard asks for confirmation, then clears `localStorage` and
+      reloads to the creation screen.
+
+## Persistence
+
+- [ ] Reload mid-game restores the same wizard, NPCs, and spawn point.
+- [ ] Reload while a projectile is in flight doesn't crash (it's expected
+      to simply not exist after reload — that's not a bug, see
+      `docs/ARCHITECTURE.md` State persistence).
+- [ ] Reload after being defeated correctly resumes into the down/
+      recovering state rather than a broken half-state.
+
+## Cross-cutting
+
+- [ ] No console/page errors during a full create → move → attack →
+      get-attacked → counter/shield → defeat/respawn cycle.
+- [ ] Works at phone width (~400px) — no horizontal scroll, sheet and
+      overlays stay usable.
+- [ ] `docs/FEATURES.md` numbers still match `js/spells.js`/`js/wizard.js`
+      after any balance change.
