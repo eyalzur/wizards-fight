@@ -77,7 +77,7 @@ pass — see "When to use an agent" below.
 
 - **`product-designer`** — before building anything where "should we even
   do this" is a real question, or when the roadmap needs re-prioritizing.
-  This is also what `/check-proj` leans on for its recommendation.
+  This is also what `/resume-proj` leans on for its recommendation.
 - **`ui-designer`** — before any new screen, panel, or interaction
   pattern; also useful as a second opinion on whether a UI change fits
   the established theme before it's built.

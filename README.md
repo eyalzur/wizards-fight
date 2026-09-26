@@ -24,7 +24,7 @@ This README is just "how to run it." Everything else lives in:
 - [`docs/QA-CHECKLIST.md`](docs/QA-CHECKLIST.md) — what to verify before
   calling a change done.
 
-Run `/check-proj` (a Claude Code skill in this repo) for a status read and
+Run `/resume-proj` (a Claude Code skill in this repo) for a status read and
 a suggested next task. Four subagents in `.claude/agents/` cover
 product design, UI design, tech design/development, and QA — see
 `docs/WORKFLOW.md` for when to use which.
