@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Wizards Fight</title>
+<meta name="description" content="Create a wizard, sense others nearby on a real street map, and duel with spells that take time to land." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%99%3C/text%3E%3C/svg%3E" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+
+  <section id="screen-create" class="screen active">
+    <div class="create-card">
+      <h1 class="game-title">🧙 Wizards Fight</h1>
+      <p class="subtitle">Forge your wizard. Sense your rivals. Cast before they do.</p>
+
+      <form id="create-form">
+        <label class="field-label">Your Name</label>
+        <input id="name-input" name="name" type="text" maxlength="16" placeholder="e.g. Ari the Bold" autocomplete="off" />
+
+        <label class="field-label">Choose Your Look</label>
+        <div id="avatar-options" class="avatar-options"></div>
+
+        <label class="field-label">Choose Your Element</label>
+        <div id="element-options" class="element-options"></div>
+
+        <button type="submit" class="btn-primary">✨ Begin Your Journey</button>
+      </form>
+
+      <p class="fineprint">No accounts, no chat, nothing leaves your browser. Your location (if you allow it) is only used to place your wizard on the map.</p>
+    </div>
+  </section>
+
+  <section id="screen-game" class="screen">
+    <header id="hud">
+      <div class="hud-identity">
+        <span id="hud-avatar" class="hud-avatar">🧙</span>
+        <div class="hud-namecol">
+          <div class="hud-name-row"><span id="hud-name">Wizard</span><span id="hud-level" class="hud-level">Lv.1</span></div>
+          <div class="bar hp-bar"><div id="hp-bar-fill" class="bar-fill hp-fill"></div><span id="hp-text" class="bar-text"></span></div>
+          <div class="bar mana-bar"><div id="mana-bar-fill" class="bar-fill mana-fill"></div><span id="mana-text" class="bar-text"></span></div>
+          <div class="bar xp-bar"><div id="xp-bar-fill" class="bar-fill xp-fill"></div></div>
+        </div>
+      </div>
+      <div class="hud-actions">
+        <button id="btn-locate" title="Use my location">📍</button>
+        <button id="btn-menu" title="Menu">☰</button>
+      </div>
+      <div id="menu-panel" class="menu-panel hidden"></div>
+    </header>
+
+    <div id="map"></div>
+
+    <div id="defend-overlay" class="defend-overlay hidden"></div>
+    <div id="down-overlay" class="down-overlay hidden">
+      <div class="down-card">💀 <strong>Defeated!</strong><br/>Catching your breath...</div>
+    </div>
+    <div id="toast-container" class="toast-container"></div>
+
+    <div id="wizard-sheet" class="wizard-sheet hidden"></div>
+    <div id="log-panel" class="log-panel hidden">
+      <div class="log-panel-header">Spellbook Log <button id="btn-log-close" class="log-close">✕</button></div>
+      <div id="log-list" class="log-list"></div>
+    </div>
+  </section>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
