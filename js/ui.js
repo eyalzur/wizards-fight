@@ -85,12 +85,31 @@ export function setRunesLabel(n) {
   if (el) el.textContent = `🔮 Runes: ${n}`;
 }
 
+// The bottom-sheet panels (log, powers, and — QA-mode-only — qa) all sit in
+// the same screen area at the same z-index, so leaving one open while
+// opening another would visually stack them and let the hidden one's DOM
+// intercept clicks meant for the one on top. Only one is ever shown at a
+// time; `qa-panel` is looked up defensively since it doesn't exist outside
+// ?qa=1.
+function closeAllBottomPanels() {
+  document.getElementById('log-panel').classList.add('hidden');
+  document.getElementById('powers-panel').classList.add('hidden');
+  document.getElementById('qa-panel')?.classList.add('hidden');
+}
+
+function toggleBottomPanel(id) {
+  const panel = document.getElementById(id);
+  const wasHidden = panel.classList.contains('hidden');
+  closeAllBottomPanels();
+  if (wasHidden) panel.classList.remove('hidden');
+}
+
 export function toggleLog() {
-  document.getElementById('log-panel').classList.toggle('hidden');
+  toggleBottomPanel('log-panel');
 }
 
 export function togglePowersPanel() {
-  document.getElementById('powers-panel').classList.toggle('hidden');
+  toggleBottomPanel('powers-panel');
 }
 
 // Two stacked power-cards (Spell Power, Spell Recovery) inside #powers-panel.
@@ -126,6 +145,78 @@ function renderPowerCard(card, btnId) {
              ${!card.canAfford ? `<div class="power-reason">Need ${card.shortfall} more Runes</div>` : ''}`
       }
     </div>`;
+}
+
+// ---------- QA/dev tooling (?qa=1 only — see docs/ARCHITECTURE.md) ----------
+// initQaTools is only ever called by main.js when the ?qa=1 flag is set, so
+// when it isn't, none of this DOM ever gets created — no menu entry, no
+// panel, nothing to find by inspecting the page.
+export function initQaTools(callbacks) {
+  const menuPanel = document.getElementById('menu-panel');
+  const menuBtn = document.createElement('button');
+  menuBtn.id = 'menu-qa';
+  menuBtn.textContent = '🧪 QA Tools';
+  menuPanel.appendChild(menuBtn);
+  menuBtn.addEventListener('click', () => {
+    toggleBottomPanel('qa-panel');
+    menuPanel.classList.add('hidden');
+  });
+
+  const panel = document.createElement('div');
+  panel.id = 'qa-panel';
+  panel.className = 'powers-panel hidden';
+  panel.innerHTML = `
+    <div class="powers-header">🧪 QA Tools <button id="qa-close" class="powers-close">✕</button></div>
+    <div class="qa-current-runes" id="qa-current-runes"></div>
+    <div class="qa-section">
+      <label class="qa-label">Set Runes to exactly</label>
+      <div class="qa-row">
+        <input id="qa-runes-input" type="number" min="0" step="1" placeholder="e.g. 500" />
+        <button id="qa-runes-set" class="power-buy">Set</button>
+      </div>
+      <div class="qa-row">
+        <button id="qa-runes-add-100" class="power-buy">+100</button>
+        <button id="qa-runes-add-1000" class="power-buy">+1000</button>
+      </div>
+    </div>
+    <div class="qa-section" id="qa-power-row"></div>
+    <div class="qa-section" id="qa-recovery-row"></div>
+  `;
+  document.getElementById('screen-game').appendChild(panel);
+
+  document.getElementById('qa-close').addEventListener('click', () => panel.classList.add('hidden'));
+  document.getElementById('qa-runes-set').addEventListener('click', () => {
+    const raw = document.getElementById('qa-runes-input').value;
+    callbacks.onSetRunes(Number(raw));
+  });
+  document.getElementById('qa-runes-add-100').addEventListener('click', () => callbacks.onAddRunes(100));
+  document.getElementById('qa-runes-add-1000').addEventListener('click', () => callbacks.onAddRunes(1000));
+}
+
+// Rebuilds the current-balance text and the two level-stepper rows every
+// render (like renderPowersPanel does for its buy buttons) — deliberately
+// does NOT touch #qa-runes-input so the player's in-progress typing in that
+// field survives the game loop's 250ms re-renders.
+export function renderQaPanel(data, callbacks) {
+  const panel = document.getElementById('qa-panel');
+  if (!panel) return; // ?qa=1 not set — nothing was ever created
+  document.getElementById('qa-current-runes').textContent = `Current: ${data.runes} 🔮 Runes`;
+  renderQaLevelRow('qa-power-row', 'qa-power', data.power, callbacks.onSetPowerLevel);
+  renderQaLevelRow('qa-recovery-row', 'qa-recovery', data.recovery, callbacks.onSetRecoveryLevel);
+}
+
+function renderQaLevelRow(sectionId, idPrefix, info, onSet) {
+  const el = document.getElementById(sectionId);
+  el.innerHTML = `
+    <label class="qa-label">${info.icon} ${info.label} level</label>
+    <div class="qa-row">
+      <button id="${idPrefix}-minus" class="qa-step${info.level <= 0 ? ' disabled' : ''}">−</button>
+      <span class="qa-level-value">Lv.${info.level}/${info.maxLevel}</span>
+      <button id="${idPrefix}-plus" class="qa-step${info.level >= info.maxLevel ? ' disabled' : ''}">+</button>
+    </div>
+  `;
+  if (info.level > 0) document.getElementById(`${idPrefix}-minus`).addEventListener('click', () => onSet(info.level - 1));
+  if (info.level < info.maxLevel) document.getElementById(`${idPrefix}-plus`).addEventListener('click', () => onSet(info.level + 1));
 }
 
 export function toast(msg) {
@@ -274,7 +365,10 @@ export function renderDefendPrompts(incoming, player, now, onCounter) {
       const msLeft = Math.max(0, p.impactTime - now);
       const totalMs = Math.max(1, p.impactTime - p.travelStart);
       const barPct = pct(msLeft, totalMs);
-      const ready = (player.cooldowns[counterSpell.id] || 0) <= now && player.mana >= counterSpell.manaCost;
+      const onCooldown = (player.cooldowns[counterSpell.id] || 0) > now;
+      const lowMana = player.mana < counterSpell.manaCost;
+      const ready = !onCooldown && !lowMana;
+      const reason = lowMana ? 'Not enough mana.' : onCooldown ? 'Still recharging.' : '';
       return `<div class="defend-card">
         <div class="defend-title">⚠️ Incoming ${spell.icon} ${spell.name}! (${formatCountdown(msLeft)})</div>
         <div class="defend-timer"><div class="defend-timer-fill" style="width:${barPct}%"></div></div>
@@ -283,6 +377,7 @@ export function renderDefendPrompts(incoming, player, now, onCounter) {
             ${counterSpell.icon} Counterspell <span class="sheet-btn-cost">${counterSpell.manaCost}💧</span>
           </button>
         </div>
+        ${!ready ? `<div class="defend-reason">${reason}</div>` : ''}
       </div>`;
     })
     .join('');

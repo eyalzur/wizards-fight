@@ -257,7 +257,11 @@ html, body {
 
 /* Defend overlay */
 .defend-overlay {
-  position: absolute; top: 10px; left: 12px; right: 12px; z-index: 700;
+  /* Anchored below #hud (same ~56px reference point .menu-panel already
+     uses), not the screen's own top edge — it used to sit at top:10px of
+     #screen-game, which is the HUD's own top edge, so it rendered directly
+     over the wizard name/HP/mana bar instead of below it. */
+  position: absolute; top: 66px; left: 12px; right: 12px; z-index: 700;
   display: flex; flex-direction: column; gap: 8px;
 }
 .defend-overlay.hidden { display: none; }
@@ -277,6 +281,7 @@ html, body {
   background: var(--gold); color: #241448; font-weight: 800; font-size: 0.85rem;
 }
 .defend-btn.disabled { opacity: 0.4; pointer-events: none; }
+.defend-reason { margin-top: 6px; font-size: 0.78rem; color: var(--text-dim); text-align: center; }
 
 /* Down overlay */
 .down-overlay {
@@ -368,6 +373,30 @@ html, body {
   text-align: center; font-weight: 800; color: var(--gold-soft);
   padding: 8px; border-radius: 12px; background: rgba(226,177,60,0.12);
 }
+
+/* QA/dev tools panel (?qa=1 only — see docs/ARCHITECTURE.md). Reuses the
+   powers-panel shell; only the innards below are QA-specific. */
+.qa-current-runes { color: var(--gold-soft); font-weight: 700; margin-bottom: 12px; }
+.qa-section {
+  background: var(--bg-panel-2); border-radius: 14px; padding: 12px 14px;
+  border: 1px solid rgba(226,177,60,0.2); margin-bottom: 12px;
+}
+.qa-label { display: block; font-size: 0.78rem; color: var(--text-dim); margin-bottom: 6px; }
+.qa-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.qa-row:first-of-type { margin-top: 0; }
+.qa-row input[type="number"] {
+  flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.15); background: var(--bg-panel);
+  color: var(--text); font-family: var(--font-body); font-size: 0.9rem;
+}
+.qa-row .power-buy { flex: 1; padding: 8px 10px; font-size: 0.85rem; }
+.qa-step {
+  width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
+  font-family: var(--font-head); font-weight: 700; font-size: 1.1rem;
+  color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+}
+.qa-step.disabled { opacity: 0.35; pointer-events: none; }
+.qa-level-value { flex: 1; text-align: center; font-weight: 800; color: var(--gold-soft); }
 
 @media (min-width: 720px) {
   .create-card { max-width: 560px; }

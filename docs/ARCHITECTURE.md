@@ -167,6 +167,32 @@ committed. `docs/QA-CHECKLIST.md` captures what those scripts checked, in
 a form a human can run by hand. Turning that into a real committed test
 suite is on the roadmap.
 
+## Dev/testing tooling: `?qa=1`
+
+A `?qa=1` query param on `index.html` (e.g.
+`https://.../wizards-fight/?qa=1`) unlocks a "🧪 QA Tools" entry in the ☰
+menu, for the project owner to set up test states without grinding NPC
+kills. It is a developer tool, not a player-facing feature:
+
+- Checked once at boot in `main.js` (`new URLSearchParams(location.search).has('qa')`)
+  and never written to `localStorage` — it only applies to the page load it
+  was requested on, so it can't accidentally linger after testing.
+- When the flag is absent, none of the QA DOM is ever created (no menu
+  button, no panel element) — `js/ui.js:initQaTools`/`renderQaPanel` are
+  simply never called, rather than being created-then-hidden.
+- The panel (`js/ui.js:initQaTools`) lets you set the player's Rune balance
+  to an exact number (plus +100/+1000 quick-adds) and set
+  `spellPowerLevel`/`spellRecoveryLevel` directly via +/- steppers,
+  clamped to each upgrade's existing `maxLevel` (`js/wizard.js:setUpgradeLevel`)
+  — it can jump straight to the max/"Maxed" state but never past it, since
+  the cap itself needs to stay testable as a real boundary.
+- Every QA action goes through the same `saveState`/`render` path as a
+  normal purchase (`js/wizard.js:buyUpgrade`) — no separate storage
+  mechanism, no bypass of the persistence layer.
+- There is no item/inventory/equipment system in this codebase (see
+  `proj-status.md` Decisions Log on Runes & Powers), so QA mode has nothing
+  to grant beyond Runes and the two existing upgrade levels.
+
 ## Deployment
 
 Static site, GitHub Pages, **Source: Deploy from a branch → `main` →
