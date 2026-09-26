@@ -98,6 +98,27 @@ Short-form history of calls that shaped the current build, newest first.
 Keeps future planning from accidentally re-litigating settled questions
 without knowing why they were settled.
 
+- **2026-09-26 — PR preview deploys added, not an external host.** Wanted
+  a way to review a feature live before it hits `main`/production.
+  Considered Netlify/Vercel-style deploy previews, but those need a new
+  external account, which cuts against the "no backend, no extra
+  services" constraint. Used `rossjrw/pr-preview-action` instead: each PR
+  gets a real `eyalzur.github.io/wizards-fight/pr-preview/pr-<n>/` URL,
+  commented on the PR, torn down on close — no new account, stays inside
+  GitHub. Trade-off: it works by committing preview folders directly onto
+  `main` (see `docs/ARCHITECTURE.md` PR previews), so `main`'s history now
+  includes bot commits for preview deploy/teardown, not just feature work.
+- **2026-09-26 — Map tiles switched from CartoDB to Esri (keyless).**
+  CartoDB's free anonymous basemap tiles (`basemaps.cartocdn.com`) started
+  requiring an API key partway through 2026, so the live map rendered
+  with an "API KEY REQUIRED" watermark burned into every tile instead of
+  real streets. Same problem this project already rejected Google Maps
+  over (see the tile-provider decision below): a key only the repo owner
+  can provision breaks the "static site, no backend, no accounts"
+  constraint for anyone else running the code. Switched to Esri's World
+  Dark Gray Canvas tiles (base + reference layers for labels), which are
+  free and keyless. Visual style is close to the previous CartoDB Dark
+  Matter look; not pixel-identical.
 - **2026-09-26 — Combat UX rework.** Replaced the always-on spellbook
   dock + separate target-card with a single tap-to-open "wizard sheet"
   per wizard. Split defense into two mechanics (Ward Shield = proactive
