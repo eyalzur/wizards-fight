@@ -3,7 +3,7 @@
 Last updated: 2026-09-26
 
 This file is the single source of truth for "what exists, what's next, and
-why we made the calls we made." Run `/check-proj` to get a suggested next
+why we made the calls we made." Run `/resume-proj` to get a suggested next
 task based on this file plus any open GitHub issues.
 
 See also: [`docs/FEATURES.md`](docs/FEATURES.md) (what the game does),
@@ -79,7 +79,7 @@ see Roadmap).
   an actual multi-minute play session end-to-end — only under the Fast
   test multiplier.
 
-## Roadmap (unordered backlog — `/check-proj` helps prioritize)
+## Roadmap (unordered backlog — `/resume-proj` helps prioritize)
 
 - Reintroduce element-specific attack spells (Fireball, Frost Shard,
   Thunder Jab, Thornwhip) and a heal spell (Minor Renewal), now that the
@@ -121,6 +121,27 @@ without knowing why they were settled.
   add, not a signal they were rejected). Future planning on
   currency/progression should treat these as this iteration's intentional
   boundaries, not gaps to "finally" fix.
+- **2026-09-26 — PR preview deploys added, not an external host.** Wanted
+  a way to review a feature live before it hits `main`/production.
+  Considered Netlify/Vercel-style deploy previews, but those need a new
+  external account, which cuts against the "no backend, no extra
+  services" constraint. Used `rossjrw/pr-preview-action` instead: each PR
+  gets a real `eyalzur.github.io/wizards-fight/pr-preview/pr-<n>/` URL,
+  commented on the PR, torn down on close — no new account, stays inside
+  GitHub. Trade-off: it works by committing preview folders directly onto
+  `main` (see `docs/ARCHITECTURE.md` PR previews), so `main`'s history now
+  includes bot commits for preview deploy/teardown, not just feature work.
+- **2026-09-26 — Map tiles switched from CartoDB to Esri (keyless).**
+  CartoDB's free anonymous basemap tiles (`basemaps.cartocdn.com`) started
+  requiring an API key partway through 2026, so the live map rendered
+  with an "API KEY REQUIRED" watermark burned into every tile instead of
+  real streets. Same problem this project already rejected Google Maps
+  over (see the tile-provider decision below): a key only the repo owner
+  can provision breaks the "static site, no backend, no accounts"
+  constraint for anyone else running the code. Switched to Esri's World
+  Dark Gray Canvas tiles (base + reference layers for labels), which are
+  free and keyless. Visual style is close to the previous CartoDB Dark
+  Matter look; not pixel-identical.
 - **2026-09-26 — Combat UX rework.** Replaced the always-on spellbook
   dock + separate target-card with a single tap-to-open "wizard sheet"
   per wizard. Split defense into two mechanics (Ward Shield = proactive

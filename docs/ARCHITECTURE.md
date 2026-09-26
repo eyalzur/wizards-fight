@@ -15,8 +15,10 @@ the one item that would actually force this constraint to be revisited).
 
 External dependencies, both loaded via CDN, no local copies:
 - **Leaflet** 1.9.4 (`cdnjs`) — the map engine.
-- **CartoDB Dark Matter tiles** (`basemaps.cartocdn.com`) — the actual
-  map imagery (real OpenStreetMap data).
+- **Esri World Dark Gray Canvas tiles** (`server.arcgisonline.com`, base +
+  reference layers) — the actual map imagery (real OpenStreetMap-derived
+  data). Chosen because it's keyless; CartoDB's basemaps started requiring
+  an API key in 2026 (see `proj-status.md` Decisions Log).
 - Google Fonts: Cinzel (headings), Nunito (body).
 
 ## Module map
@@ -177,3 +179,18 @@ Actions-based deploy path (for if the repo ever switches Pages Source to
 path — if you see it fail in the Actions tab, that's expected as long as
 Pages Source is set to "Deploy from a branch"; it isn't touching
 anything.
+
+## PR previews
+
+`.github/workflows/pr-preview.yml` (`rossjrw/pr-preview-action`) gives
+every open pull request its own live URL for review before merge:
+`https://eyalzur.github.io/wizards-fight/pr-preview/pr-<number>/`. It
+redeploys on every push to the PR and posts/updates a sticky comment with
+the link. Mechanically, this works by having the action commit the PR's
+files into a `pr-preview/pr-<number>/` folder **on `main` itself** (not a
+separate `gh-pages` branch) — the simplest option given Pages already
+serves the whole `main` tree and this project has no build step to keep
+a preview folder in sync with. The action removes that folder (another
+bot commit to `main`) when the PR closes. Practical effect: `main`'s
+history includes bot commits for preview deploy/teardown alongside real
+feature commits — expected, not a mistake if you see them in `git log`.
