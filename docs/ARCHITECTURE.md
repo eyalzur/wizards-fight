@@ -15,8 +15,10 @@ the one item that would actually force this constraint to be revisited).
 
 External dependencies, both loaded via CDN, no local copies:
 - **Leaflet** 1.9.4 (`cdnjs`) — the map engine.
-- **CartoDB Dark Matter tiles** (`basemaps.cartocdn.com`) — the actual
-  map imagery (real OpenStreetMap data).
+- **Esri World Dark Gray Canvas tiles** (`server.arcgisonline.com`, base +
+  reference layers) — the actual map imagery (real OpenStreetMap-derived
+  data). Chosen because it's keyless; CartoDB's basemaps started requiring
+  an API key in 2026 (see `proj-status.md` Decisions Log).
 - Google Fonts: Cinzel (headings), Nunito (body).
 
 ## Module map

@@ -10,11 +10,19 @@ let playerClickHandler = null;
 export function initMap(center, onMapClick) {
   map = L.map('map', { zoomControl: true, tap: true }).setView([center.lat, center.lng], 17);
   // Dark basemap (real streets/city labels) instead of stock light OSM tiles,
-  // so the map reads clearly against the game's night theme.
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  // so the map reads clearly against the game's night theme. Esri's Dark
+  // Gray Canvas is keyless (unlike CARTO's basemaps, which started
+  // requiring an API key in 2026); base + reference are two layers because
+  // Esri ships labels separately from the road canvas.
+  const esriAttribution = '&copy; OpenStreetMap contributors &copy; Esri';
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 20,
-    subdomains: 'abcd',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    maxNativeZoom: 16,
+    attribution: esriAttribution,
+  }).addTo(map);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 20,
+    maxNativeZoom: 16,
   }).addTo(map);
   map.on('click', (e) => onMapClick(e.latlng.lat, e.latlng.lng));
   setTimeout(() => map.invalidateSize(), 80);
