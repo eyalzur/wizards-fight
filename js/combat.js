@@ -7,6 +7,11 @@ import { uid, log, pick, randRange } from './utils.js';
 const TEMPERAMENT_AGGRO = { passive: 0.06, neutral: 0.16, aggressive: 0.32 };
 const TEMPERAMENT_DEFEND = { passive: 0.7, neutral: 0.45, aggressive: 0.2 };
 
+// A spell's `speed` in spells.js is tuned for real time (a cast takes real
+// minutes to land). world.timeScale divides travel time so testing doesn't
+// require waiting minutes per cast — real play should use TIME_SCALES.real.
+export const TIME_SCALES = { real: 1, fast: 30 };
+
 function findWizard(world, id) {
   if (world.player.id === id) return world.player;
   return world.npcs.find((n) => n.id === id);
@@ -32,7 +37,7 @@ export function castAttack(caster, target, spellId, world, now) {
   caster.mana -= spell.manaCost;
   caster.cooldowns[spell.id] = now + spell.cooldown * 1000;
   const castMs = spell.castTime * 1000 * (caster.castTimeMult || 1);
-  const travelMs = (dist / spell.speed) * 1000;
+  const travelMs = ((dist / spell.speed) * 1000) / (world.timeScale || TIME_SCALES.real);
   const projectile = {
     id: uid(),
     casterId: caster.id,
@@ -60,22 +65,9 @@ export function castDefend(wizard, spellId, now) {
   wizard.cooldowns[spell.id] = now + spell.cooldown * 1000;
   wizard.activeBuffs.push({
     id: uid(),
-    type: spell.dodgeChance ? 'dodge' : 'mitigate',
     mitigation: spell.mitigation,
-    dodgeChance: spell.dodgeChance,
     expiresAt: now + (spell.buffDuration || 6000),
   });
-  return { ok: true };
-}
-
-export function castHeal(wizard, spellId, now) {
-  const spell = getSpell(spellId);
-  if (!spell || spell.type !== 'heal') return { ok: false, reason: 'That spell cannot heal.' };
-  const chk = canCastSpell(wizard, spell, now);
-  if (!chk.ok) return chk;
-  wizard.mana -= spell.manaCost;
-  wizard.cooldowns[spell.id] = now + spell.cooldown * 1000;
-  wizard.hp = Math.min(wizard.maxHP, wizard.hp + spell.healAmount);
   return { ok: true };
 }
 
@@ -108,17 +100,8 @@ function resolveImpact(world, projectile, now) {
   const buff = consumeActiveBuff(target, now);
   let note = '';
   if (buff) {
-    if (buff.type === 'mitigate') {
-      dmg = Math.round(dmg * (1 - buff.mitigation));
-      note = ` 🛡️ Blunted by ${target.name}'s ward!`;
-    } else if (buff.type === 'dodge') {
-      if (Math.random() < buff.dodgeChance) {
-        dmg = 0;
-        note = ` 💨 ${target.name} dodges completely!`;
-      } else {
-        note = ` 💨 ${target.name} tries to dodge but is caught!`;
-      }
-    }
+    dmg = Math.round(dmg * (1 - buff.mitigation));
+    note = ` 🛡️ Blunted by ${target.name}'s ward!`;
   }
   target.hp = Math.max(0, target.hp - dmg);
   log(world, `${spell.icon} ${spell.name} strikes ${target.name} for ${dmg} damage!${note}`);

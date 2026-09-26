@@ -2,7 +2,7 @@ const STORAGE_KEY = 'wizardsfight_save_v1';
 
 export function saveState(world) {
   try {
-    const data = { player: world.player, npcs: world.npcs, spawnCenter: world.spawnCenter };
+    const data = { player: world.player, npcs: world.npcs, spawnCenter: world.spawnCenter, timeScale: world.timeScale };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (e) {
     console.warn('Could not save game state', e);

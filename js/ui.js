@@ -23,6 +23,9 @@ export function initCreateScreen(elements, onSubmit) {
 
   document.getElementById('create-form').addEventListener('submit', (ev) => {
     ev.preventDefault();
+    // Request fullscreen synchronously, inside the click gesture, or some
+    // browsers refuse it once an async step (geolocation) breaks the chain.
+    document.documentElement.requestFullscreen?.().catch(() => {});
     const fd = new FormData(ev.target);
     const name = (fd.get('name') || '').toString().trim().slice(0, 16) || 'Wizard';
     const avatar = fd.get('avatar') || '🧙';
@@ -36,12 +39,19 @@ export function showGameScreen() {
   document.getElementById('screen-game').classList.add('active');
 }
 
-export function bindHud({ onLocate, onMenu, onSpellSelect, onLogToggle, onCancelTarget }) {
+export function bindHud({ onLocate, onMenu, onSpellSelect, onLogToggle, onCancelTarget, onFullscreen, onSpeedToggle }) {
   document.getElementById('btn-locate').addEventListener('click', onLocate);
   document.getElementById('btn-menu').addEventListener('click', onMenu);
   document.getElementById('btn-log-toggle').addEventListener('click', onLogToggle);
+  document.getElementById('btn-fullscreen').addEventListener('click', onFullscreen);
+  document.getElementById('btn-speed').addEventListener('click', onSpeedToggle);
   handlers.onSpellSelect = onSpellSelect;
   handlers.onCancelTarget = onCancelTarget;
+}
+
+export function setSpeedLabel(text) {
+  const el = document.getElementById('btn-speed');
+  if (el) el.textContent = text;
 }
 
 export function toggleLog() {

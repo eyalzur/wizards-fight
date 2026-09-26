@@ -156,8 +156,20 @@ html, body {
   width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(226,177,60,0.3);
   background: var(--bg-panel-2); color: var(--text); font-size: 1.1rem; cursor: pointer;
 }
+#btn-speed {
+  width: auto; border-radius: 20px; padding: 0 12px; font-size: 0.78rem; font-weight: 800;
+  white-space: nowrap;
+}
 
 #map { flex: 1; min-height: 0; position: relative; background: #0a0614; }
+
+/* Recolor Leaflet's default (light-themed) chrome to match the night theme */
+.leaflet-container { background: #0a0614; }
+.leaflet-bar { box-shadow: 0 1px 5px rgba(0,0,0,0.65); }
+.leaflet-bar a { background-color: var(--bg-panel-2); border-bottom: 1px solid rgba(226,177,60,0.25); color: var(--gold); }
+.leaflet-bar a:hover, .leaflet-bar a:focus { background-color: var(--bg-panel); }
+.leaflet-control-attribution { background: rgba(28,16,56,0.85); color: var(--text-dim); border-radius: 6px 0 0 0; }
+.leaflet-control-attribution a { color: var(--gold); }
 
 /* Leaflet marker content */
 .wizard-marker { text-align: center; pointer-events: auto; }

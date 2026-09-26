@@ -22,14 +22,6 @@ const ELEMENT_MODS = {
   arcane: { castTimeMult: -0.15 },
 };
 
-const ELEMENT_BONUS_SPELLS = {
-  fire: ['fireball'],
-  ice: ['frost_shard'],
-  lightning: ['thunder_jab'],
-  nature: ['thornwhip', 'minor_renewal'],
-  arcane: ['arcane_missile', 'swift_step'],
-};
-
 export function baseStatsFor(elementId) {
   const mods = ELEMENT_MODS[elementId] || {};
   const stats = { ...BASE_STATS };
@@ -44,8 +36,10 @@ export function baseStatsFor(elementId) {
   return stats;
 }
 
-export function startingSpellsFor(elementId) {
-  return ['spark_bolt', 'ward_shield', ...(ELEMENT_BONUS_SPELLS[elementId] || [])];
+// Every wizard starts with the same one attack + one defend spell, regardless
+// of element. Element only flavors stats for now — more spells come later.
+export function startingSpellsFor() {
+  return ['spark_bolt', 'ward_shield'];
 }
 
 export function createWizard({ id, name, avatar, element, isNPC = false, level = 1 }) {
@@ -68,7 +62,7 @@ export function createWizard({ id, name, avatar, element, isNPC = false, level =
     senseRange: stats.senseRange,
     manaRegenMs: stats.manaRegenMs,
     castTimeMult: stats.castTimeMult,
-    spells: startingSpellsFor(element),
+    spells: startingSpellsFor(),
     cooldowns: {},
     activeBuffs: [],
     position: null,

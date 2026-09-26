@@ -8,9 +8,12 @@ let projectileMarkers = {};
 
 export function initMap(center, onMapClick) {
   map = L.map('map', { zoomControl: true, tap: true }).setView([center.lat, center.lng], 17);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors',
+  // Dark basemap (real streets/city labels) instead of stock light OSM tiles,
+  // so the map reads clearly against the game's night theme.
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 20,
+    subdomains: 'abcd',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
   }).addTo(map);
   map.on('click', (e) => onMapClick(e.latlng.lat, e.latlng.lng));
   setTimeout(() => map.invalidateSize(), 80);

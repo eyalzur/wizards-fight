@@ -62,6 +62,7 @@ function startGame(player, center) {
     playerRespawnAt: null,
     spawnCenter: { ...center },
     maxWalkMeters: 250,
+    timeScale: combat.TIME_SCALES.fast,
   };
   for (let i = 0; i < NPC_COUNT; i++) {
     world.npcs.push(createNpc({ id: uid(), center, minR: 60, maxR: player.senseRange * 2, playerLevel: player.level }));
@@ -81,6 +82,7 @@ function resumeGame(saved) {
     playerRespawnAt: saved.player.hp <= 0 ? Date.now() + 3000 : null,
     spawnCenter: saved.spawnCenter || saved.player.position,
     maxWalkMeters: 250,
+    timeScale: saved.timeScale || combat.TIME_SCALES.fast,
   };
   world.log.push(`🌙 Welcome back, ${world.player.name}.`);
   boot();
@@ -106,9 +108,20 @@ function boot() {
       world.selectedTargetId = null;
       render();
     },
+    onFullscreen: toggleFullscreen,
+    onSpeedToggle: () => {
+      world.timeScale = world.timeScale > combat.TIME_SCALES.real ? combat.TIME_SCALES.real : combat.TIME_SCALES.fast;
+      saveState(world);
+      render();
+    },
   });
   setInterval(gameTick, 250);
   render();
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+  else document.exitFullscreen?.().catch(() => {});
 }
 
 function onMapClick(lat, lng) {
@@ -160,9 +173,6 @@ function onSpellSelect(spellId) {
     const res = combat.castDefend(player, spellId, now);
     if (!res.ok) ui.toast(res.reason);
     else ui.toast(`${spell.icon} You raise your guard!`);
-  } else if (spell.type === 'heal') {
-    const res = combat.castHeal(player, spellId, now);
-    if (!res.ok) ui.toast(res.reason);
   }
   saveState(world);
   render();
@@ -205,6 +215,7 @@ function render() {
   map.renderProjectiles(world.projectiles, now);
 
   ui.renderHud(player);
+  ui.setSpeedLabel(world.timeScale > combat.TIME_SCALES.real ? '⚡ Fast' : '🐢 Real');
   ui.renderSpellbook(player, now, world.selectedTargetId);
   ui.renderTargetCard(world.selectedTargetId ? world.npcs.find((n) => n.id === world.selectedTargetId) : null);
   ui.renderLog(world.log);
