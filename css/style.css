@@ -260,28 +260,34 @@ html, body {
   /* Anchored below #hud (same ~56px reference point .menu-panel already
      uses), not the screen's own top edge — it used to sit at top:10px of
      #screen-game, which is the HUD's own top edge, so it rendered directly
-     over the wizard name/HP/mana bar instead of below it. */
+     over the wizard name/HP/mana bar instead of below it. Also capped in
+     height with internal scrolling: several simultaneous incoming spells
+     used to stack as full-height cards with no limit, which could push
+     the whole map (and every tappable wizard on it) off-screen. */
   position: absolute; top: 66px; left: 12px; right: 12px; z-index: 700;
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column; gap: 5px;
+  max-height: 34dvh; overflow-y: auto;
 }
 .defend-overlay.hidden { display: none; }
 .defend-card {
   background: rgba(30, 8, 20, 0.92); border: 2px solid var(--pink);
-  border-radius: 14px; padding: 10px 12px;
-  box-shadow: 0 0 24px rgba(255,92,138,0.5);
+  border-radius: 10px; padding: 5px 9px;
+  box-shadow: 0 0 14px rgba(255,92,138,0.45);
   animation: pulse-red 1s infinite;
+  flex-shrink: 0;
+  font-size: 0.82rem;
 }
-@keyframes pulse-red { 0%,100% { box-shadow: 0 0 16px rgba(255,92,138,0.4);} 50% { box-shadow: 0 0 28px rgba(255,92,138,0.8);} }
-.defend-title { font-weight: 800; margin-bottom: 6px; }
-.defend-timer { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.15); overflow: hidden; margin-bottom: 8px; }
+@keyframes pulse-red { 0%,100% { box-shadow: 0 0 10px rgba(255,92,138,0.35);} 50% { box-shadow: 0 0 18px rgba(255,92,138,0.7);} }
+.defend-title { font-weight: 800; margin-bottom: 3px; font-size: 0.85rem; line-height: 1.2; }
+.defend-timer { height: 4px; border-radius: 3px; background: rgba(255,255,255,0.15); overflow: hidden; margin-bottom: 4px; }
 .defend-timer-fill { height: 100%; background: var(--pink); transition: width 0.1s linear; }
 .defend-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .defend-btn {
-  padding: 8px 12px; border-radius: 10px; border: none; cursor: pointer;
-  background: var(--gold); color: #241448; font-weight: 800; font-size: 0.85rem;
+  padding: 5px 10px; border-radius: 8px; border: none; cursor: pointer;
+  background: var(--gold); color: #241448; font-weight: 800; font-size: 0.78rem;
 }
 .defend-btn.disabled { opacity: 0.4; pointer-events: none; }
-.defend-reason { margin-top: 6px; font-size: 0.78rem; color: var(--text-dim); text-align: center; }
+.defend-reason { margin-top: 4px; font-size: 0.72rem; color: var(--text-dim); }
 
 /* Down overlay */
 .down-overlay {
