@@ -1,6 +1,6 @@
 # Wizards Fight — Project Status
 
-Last updated: 2026-09-26
+Last updated: 2026-09-27
 
 This file is the single source of truth for "what exists, what's next, and
 why we made the calls we made." Run `/resume-proj` to get a suggested next
@@ -106,6 +106,32 @@ Short-form history of calls that shaped the current build, newest first.
 Keeps future planning from accidentally re-litigating settled questions
 without knowing why they were settled.
 
+- **2026-09-27 — v1 "mature" visual theme pass, deliberately a first
+  iteration.** User asked for a UI theme that "feels more mature," shows
+  "characters, not just icons," and reads more realistic, framed explicitly
+  as something to iterate on later, not a final redesign. Shipped: (1) a
+  full desaturation pass on every existing CSS custom property (same
+  tokens, aged/muted hex values) plus halved glow-`box-shadow` opacities and
+  smaller corner radii, so borders read as candlelit metal instead of neon
+  halo; (2) body font swapped Nunito → Inter (headings stay Cinzel); (3)
+  wizard avatars became inline SVG hooded-figure portraits (no facial
+  features, by design — avoids needing per-avatar face art while still
+  reading as "a character") instead of emoji, tinted by element color, with
+  the existing colored ring around each avatar's container still doing the
+  identity encoding (self/NPC/selected); (4) element icons on the create
+  screen became single-stroke SVG line art instead of emoji; (5) flying
+  spell projectiles became a small colored glow-orb instead of a flying
+  emoji. Scope cut on purpose: spell icons (✨🛡️🌀) were left as emoji —
+  lower priority per the design brief, deferred rather than rushed. Only 3
+  distinct hood artworks exist; the create screen still offers 5 choices by
+  mirroring 2 of them (`transform: scaleX(-1)`), per an explicit user call
+  to keep 5 visible options without commissioning 5 pieces of art — the
+  hood art had to get an asymmetric sash detail added so the mirrored
+  variants are actually visually distinguishable, not identical. NPCs,
+  which previously reused their *element's* emoji as their avatar, now get
+  a portrait randomly assigned from the same 5 looks, independent of
+  element. Map tiles, the tap-to-open-sheet interaction, and all combat
+  math/logic were explicitly out of scope and untouched.
 - **2026-09-26 — Runes & Powers shipped as a deliberately narrow first
   iteration.** Added an ongoing earn-and-spend currency (Runes, on top of
   the existing one-time XP/level track) that buys permanent Spell Power/

@@ -1,6 +1,13 @@
-import { createWizard, ELEMENTS, getElement } from './wizard.js';
+import { createWizard, ELEMENTS } from './wizard.js';
 import { randomPointInAnnulus } from './geo.js';
 import { uid, pick, randInt } from './utils.js';
+
+// NPCs don't go through the create-screen avatar picker, so they get a
+// portrait assigned directly here instead: one of the 3 distinct hood
+// artworks, optionally mirrored — the same serialized `wizard.avatar`
+// format js/ui.js's AVATARS choices produce (see js/portraits.js), picked
+// at random per NPC rather than tied to their element.
+const NPC_AVATARS = ['portrait-hood-a', 'portrait-hood-a:flip', 'portrait-hood-b', 'portrait-hood-c', 'portrait-hood-c:flip'];
 
 const FIRST = [
   'Zed', 'Miro', 'Talon', 'Fenn', 'Iggy', 'Puck', 'Ravi', 'Suri', 'Milo', 'Nix',
@@ -22,7 +29,7 @@ export function createNpc({ id, center, minR, maxR, playerLevel }) {
   const element = pick(ELEMENTS).id;
   const level = Math.max(1, playerLevel + randInt(-1, 1));
   const npc = createWizard({ id: id || uid(), name: generateNpcName(), element, isNPC: true, level });
-  npc.avatar = getElement(element).icon;
+  npc.avatar = pick(NPC_AVATARS);
   npc.position = randomPointInAnnulus(center.lat, center.lng, minR, maxR);
   npc.temperament = pick(TEMPERAMENTS);
   npc.nextAiCheck = 0;

@@ -1,11 +1,15 @@
 import { uid } from './utils.js';
 
+// `icon` is kept as a plain-text emoji for places that render flavor text
+// (toasts, log lines); `symbolId` points at the matching single-stroke SVG
+// in index.html's sprite sheet, used anywhere an icon renders in its own
+// box (the create screen's element picker) — see js/ui.js.
 export const ELEMENTS = [
-  { id: 'fire', label: 'Fire', icon: '🔥', color: '#ff6b4a', desc: 'Blazing power and bold offense.' },
-  { id: 'ice', label: 'Ice', icon: '❄️', color: '#6fd8ff', desc: 'Cold resilience and steady defense.' },
-  { id: 'lightning', label: 'Lightning', icon: '⚡', color: '#ffe066', desc: 'Sharp reflexes and keen senses.' },
-  { id: 'nature', label: 'Nature', icon: '🌿', color: '#6bff8f', desc: 'Deep reserves and healing magic.' },
-  { id: 'arcane', label: 'Arcane', icon: '🔮', color: '#b98bff', desc: 'Swift casting and clever tricks.' },
+  { id: 'fire', label: 'Fire', icon: '🔥', symbolId: 'el-fire', color: '#ff6b4a', desc: 'Blazing power and bold offense.' },
+  { id: 'ice', label: 'Ice', icon: '❄️', symbolId: 'el-ice', color: '#6fd8ff', desc: 'Cold resilience and steady defense.' },
+  { id: 'lightning', label: 'Lightning', icon: '⚡', symbolId: 'el-lightning', color: '#ffe066', desc: 'Sharp reflexes and keen senses.' },
+  { id: 'nature', label: 'Nature', icon: '🌿', symbolId: 'el-nature', color: '#6bff8f', desc: 'Deep reserves and healing magic.' },
+  { id: 'arcane', label: 'Arcane', icon: '🔮', symbolId: 'el-arcane', color: '#b98bff', desc: 'Swift casting and clever tricks.' },
 ];
 
 export function getElement(id) {
@@ -48,7 +52,7 @@ export function createWizard({ id, name, avatar, element, isNPC = false, level =
   const wizard = {
     id: id || uid(),
     name: name || 'Wizard',
-    avatar: avatar || '🧙',
+    avatar: avatar || 'portrait-hood-a',
     element,
     isNPC,
     level: 1,

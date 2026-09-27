@@ -1,11 +1,24 @@
 import { getSpell } from './spells.js';
+import { getElement } from './wizard.js';
+import { avatarSvg } from './portraits.js';
 
-const AVATARS = ['🧙‍♂️', '🧙‍♀️', '🧙', '🧝‍♂️', '🧝‍♀️'];
+// 5 selectable looks built from only 3 distinct hood artworks (see
+// index.html's sprite sheet) — 2 of the 5 are the same artwork mirrored via
+// `flip`, per the product call to keep 5 visible choices without needing 5
+// distinct pieces of art. `id` is what's actually stored as `wizard.avatar`
+// (see js/portraits.js for the serialization).
+const AVATARS = [
+  { id: 'portrait-hood-a', symbol: 'portrait-hood-a', flip: false },
+  { id: 'portrait-hood-a:flip', symbol: 'portrait-hood-a', flip: true },
+  { id: 'portrait-hood-b', symbol: 'portrait-hood-b', flip: false },
+  { id: 'portrait-hood-c', symbol: 'portrait-hood-c', flip: false },
+  { id: 'portrait-hood-c:flip', symbol: 'portrait-hood-c', flip: true },
+];
 
 export function initCreateScreen(elements, onSubmit) {
   const avatarWrap = document.getElementById('avatar-options');
   avatarWrap.innerHTML = AVATARS.map(
-    (a, i) => `<label class="avatar-choice"><input type="radio" name="avatar" value="${a}" ${i === 0 ? 'checked' : ''}><span>${a}</span></label>`
+    (a, i) => `<label class="avatar-choice"><input type="radio" name="avatar" value="${a.id}" ${i === 0 ? 'checked' : ''}><span>${avatarSvg(a.id)}</span></label>`
   ).join('');
 
   const elWrap = document.getElementById('element-options');
@@ -13,7 +26,7 @@ export function initCreateScreen(elements, onSubmit) {
     .map(
       (e, i) => `<label class="element-choice" style="--el-color:${e.color}">
         <input type="radio" name="element" value="${e.id}" ${i === 0 ? 'checked' : ''}>
-        <span class="element-icon">${e.icon}</span>
+        <svg class="element-icon"><use href="#${e.symbolId}"></use></svg>
         <span class="element-label">${e.label}</span>
         <span class="element-desc">${e.desc}</span>
       </label>`
@@ -27,7 +40,7 @@ export function initCreateScreen(elements, onSubmit) {
     document.documentElement.requestFullscreen?.().catch(() => {});
     const fd = new FormData(ev.target);
     const name = (fd.get('name') || '').toString().trim().slice(0, 16) || 'Wizard';
-    const avatar = fd.get('avatar') || '🧙';
+    const avatar = fd.get('avatar') || 'portrait-hood-a';
     const elementId = fd.get('element') || 'fire';
     onSubmit({ name, avatar, elementId });
   });
@@ -248,7 +261,7 @@ function formatCountdown(ms) {
 }
 
 export function renderHud(player) {
-  document.getElementById('hud-avatar').textContent = player.avatar;
+  document.getElementById('hud-avatar').innerHTML = avatarSvg(player.avatar, getElement(player.element).color);
   document.getElementById('hud-name').textContent = player.name;
   document.getElementById('hud-level').textContent = `Lv.${player.level}`;
   setBar('hp-bar-fill', player.hp, player.maxHP);
@@ -304,7 +317,7 @@ export function renderWizardSheet(data, callbacks) {
     const { wizard: w, shieldSpell, shieldActive, shieldRemainingS, shieldReady, shieldReason } = data;
     body.innerHTML = `
       <div class="sheet-header">
-        <span class="sheet-avatar self">${w.avatar}</span>
+        <span class="sheet-avatar self">${avatarSvg(w.avatar, getElement(w.element).color)}</span>
         <div>
           <div class="sheet-name">${w.name} <small>Lv.${w.level}</small></div>
           <div class="sheet-sub">Your Wizard</div>
@@ -329,7 +342,7 @@ export function renderWizardSheet(data, callbacks) {
   const { wizard: npc, atkSpell, canAttack, reason, dist } = data;
   body.innerHTML = `
     <div class="sheet-header">
-      <span class="sheet-avatar">${npc.avatar}</span>
+      <span class="sheet-avatar">${avatarSvg(npc.avatar, getElement(npc.element).color)}</span>
       <div>
         <div class="sheet-name">${npc.name} <small>Lv.${npc.level}</small></div>
         <div class="sheet-sub">${dist}m away</div>

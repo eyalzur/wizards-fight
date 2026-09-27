@@ -9,7 +9,10 @@ it here too — this is the reference planning and QA both work from.
 Screen: `#screen-create` (`index.html`, `js/ui.js:initCreateScreen`).
 
 - **Name** — free text, max 16 characters, defaults to "Wizard" if blank.
-- **Avatar** — one of 🧙‍♂️ 🧙‍♀️ 🧙 🧝‍♂️ 🧝‍♀️. Cosmetic only.
+- **Avatar** — one of 5 hooded-figure portraits (SVG, no facial features by
+  design), tinted by your chosen element. Only 3 are distinct artwork; 2 of
+  the 5 choices are one of those 3 mirrored, so there are still 5 visibly
+  different picks. Cosmetic only.
 - **Element** — one of Fire, Ice, Lightning, Nature, Arcane. Sets base
   stats (below); does **not** change which spells you start with — every
   wizard, player or NPC, knows the same 3 spells (see Spells).
@@ -112,6 +115,8 @@ half spawn outside your initial sense range, so moving around to find
 more is meaningful. Each NPC gets:
 
 - A random element (affecting their stats the same as the player).
+- A random avatar portrait (independent of element — one of the same 5
+  looks the create screen offers, not tied to the NPC's element).
 - A level within ±1 of the player's level.
 - A random name from a first-name + title generator (e.g. "Dash
   Sunforge").

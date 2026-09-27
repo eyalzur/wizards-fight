@@ -8,12 +8,70 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%99%3C/text%3E%3C/svg%3E" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+
+<!-- Shared sprite sheet: hooded-figure portraits (avatar choices, no facial
+     features by design — reads mysterious rather than needing per-avatar
+     face art) and single-stroke element glyphs. Referenced by <use> from
+     js/portraits.js-built markup (js/ui.js, js/map.js) and js/ui.js's
+     element picker. Tinted per-instance via `color` (currentColor), so one
+     symbol serves every element/selection color. -->
+<svg style="display:none" aria-hidden="true">
+  <symbol id="portrait-hood-a" viewBox="0 0 64 64">
+    <path d="M32 4 C20 4 11 14 11 26 C11 30 12 34 14 38 C8 44 6 52 6 60 L58 60 C58 52 56 44 50 38 C52 34 53 30 53 26 C53 14 44 4 32 4 Z" fill="#1b1826" stroke="currentColor" stroke-width="1.5"/>
+    <ellipse cx="32" cy="27" rx="9" ry="11" fill="#050308"/>
+    <circle cx="32" cy="46" r="3" fill="currentColor"/>
+    <!-- asymmetric sash: makes the `flip` variant actually look mirrored -->
+    <line x1="17" y1="42" x2="37" y2="58" stroke="currentColor" stroke-width="1.5"/>
+  </symbol>
+  <symbol id="portrait-hood-b" viewBox="0 0 64 64">
+    <path d="M32 3 L44 30 C40 28 36 27 32 27 C28 27 24 28 20 30 Z" fill="#1b1826" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M32 25 C22 25 13 33 13 42 C13 48 14 54 10 60 L54 60 C50 54 51 48 51 42 C51 33 42 25 32 25 Z" fill="#1b1826" stroke="currentColor" stroke-width="1.5"/>
+    <ellipse cx="32" cy="40" rx="8" ry="9" fill="#050308"/>
+    <circle cx="32" cy="52" r="3" fill="currentColor"/>
+    <line x1="16" y1="52" x2="30" y2="60" stroke="currentColor" stroke-width="1.5"/>
+  </symbol>
+  <symbol id="portrait-hood-c" viewBox="0 0 64 64">
+    <path d="M20 14 L11 24 L22 24 Z" fill="#1b1826" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M44 14 L53 24 L42 24 Z" fill="#1b1826" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M32 10 C22 10 14 18 14 28 C14 33 15 38 12 43 C10 50 8 55 8 60 L56 60 C56 55 54 50 52 43 C49 38 50 33 50 28 C50 18 42 10 32 10 Z" fill="#1b1826" stroke="currentColor" stroke-width="1.5"/>
+    <ellipse cx="32" cy="30" rx="9" ry="10" fill="#050308"/>
+    <circle cx="32" cy="48" r="3" fill="currentColor"/>
+    <line x1="15" y1="48" x2="33" y2="59" stroke="currentColor" stroke-width="1.5"/>
+  </symbol>
+
+  <symbol id="el-fire" viewBox="0 0 24 24">
+    <path d="M12 21c-4 0-6-2.7-6-6 0-3 2-5 3-7 .3 2 1.5 3 2.5 2C10 7 11 4 12 2c1 3 0 5 1 7 1 1.5 2 .5 2.5-1 1.5 2 2.5 4.3 2.5 6 0 3.3-2 6-6 6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="el-ice" viewBox="0 0 24 24">
+    <g stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <line x1="12" y1="2" x2="12" y2="22"/>
+      <line x1="3.5" y1="7" x2="20.5" y2="17"/>
+      <line x1="3.5" y1="17" x2="20.5" y2="7"/>
+      <line x1="12" y1="2" x2="9" y2="5"/>
+      <line x1="12" y1="2" x2="15" y2="5"/>
+      <line x1="12" y1="22" x2="9" y2="19"/>
+      <line x1="12" y1="22" x2="15" y2="19"/>
+    </g>
+  </symbol>
+  <symbol id="el-lightning" viewBox="0 0 24 24">
+    <path d="M13 2 4 14h6l-1 8 9-12h-6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="el-nature" viewBox="0 0 24 24">
+    <path d="M4 20c8-1 14-6 16-16-9 1-15 6-16 16z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+    <line x1="5" y1="19" x2="18" y2="6" stroke="currentColor" stroke-width="1.2"/>
+  </symbol>
+  <symbol id="el-arcane" viewBox="0 0 24 24">
+    <path d="M2 12c2.5-5 6.5-8 10-8s7.5 3 10 8c-2.5 5-6.5 8-10 8s-7.5-3-10-8z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  </symbol>
+</svg>
+
 <div id="app">
 
   <section id="screen-create" class="screen active">

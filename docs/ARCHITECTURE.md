@@ -19,7 +19,8 @@ External dependencies, both loaded via CDN, no local copies:
   reference layers) — the actual map imagery (real OpenStreetMap-derived
   data). Chosen because it's keyless; CartoDB's basemaps started requiring
   an API key in 2026 (see `proj-status.md` Decisions Log).
-- Google Fonts: Cinzel (headings), Nunito (body).
+- Google Fonts: Cinzel (headings), Inter (body — switched from Nunito in
+  the v1 "mature" theme pass, see `proj-status.md` Decisions Log).
 
 ## Module map
 
@@ -42,6 +43,11 @@ js/
   ui.js            All non-map DOM: HUD, wizard sheet, defend alert, menu,
                    log, toasts. Also pure rendering — takes data, wires
                    callbacks, no game logic
+  portraits.js     Turns a wizard's `avatar` field into portrait <svg>
+                   markup referencing index.html's sprite `<symbol>`s. Pure
+                   string building, no DOM access, no game logic — shared by
+                   ui.js and map.js so avatar rendering isn't duplicated
+                   across both
   state.js         localStorage save/load (trimmed subset of world state)
   main.js          The only module that owns game state (`world`). Wires
                    input (map clicks, sheet buttons) to combat.js, and
@@ -79,6 +85,12 @@ what makes the combat logic testable without a browser (see
   id, name, avatar, element, isNPC, level, xp, xpToNext,
   maxHP, hp, maxMana, mana, power, defense, senseRange,
   manaRegenMs, castTimeMult,
+  // `avatar` is a portrait symbol id, e.g. "portrait-hood-a" or
+  // "portrait-hood-a:flip" (the `:flip` suffix means render mirrored via
+  // CSS, not separate art) — see js/portraits.js and the sprite `<symbol>`s
+  // in index.html. Rendered tinted by the wizard's element color; identity
+  // (self/NPC/selected) is still encoded by the container's ring color, not
+  // the portrait itself.
   spells: ['spark_bolt', 'ward_shield', 'counterspell'],  // always these 3
   cooldowns: { [spellId]: readyAtTimestamp },
   shieldBuff: null | { mitigation, expiresAt },
@@ -102,6 +114,11 @@ what makes the combat logic testable without a browser (see
   resolved: bool,
 }
 ```
+`main.js:render()` attaches one more field, `casterColor` (the caster's
+element color), to a shallow copy of each projectile before handing them to
+`map.renderProjectiles` — a rendering-only addition, not part of the shape
+combat.js owns or persists, so map.js can color the projectile's glow orb
+without looking up wizards by id itself.
 
 ## The game loop
 

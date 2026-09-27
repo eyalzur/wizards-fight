@@ -1,5 +1,5 @@
 import { loadState, saveState, clearState } from './state.js';
-import { ELEMENTS, createWizard, POWER_UPGRADE, RECOVERY_UPGRADE, upgradeCost, canUpgrade, buyUpgrade, spellCooldownSeconds, setUpgradeLevel } from './wizard.js';
+import { ELEMENTS, createWizard, getElement, POWER_UPGRADE, RECOVERY_UPGRADE, upgradeCost, canUpgrade, buyUpgrade, spellCooldownSeconds, setUpgradeLevel } from './wizard.js';
 import { createNpc } from './npc.js';
 import { getSpell } from './spells.js';
 import * as geo from './geo.js';
@@ -325,6 +325,12 @@ function buildNpcSheetData(npc, now) {
   return { kind: 'npc', wizard: npc, atkSpell: ATTACK_SPELL, canAttack, reason, dist: Math.round(dist) };
 }
 
+function casterColorFor(casterId) {
+  if (world.player.id === casterId) return getElement(world.player.element).color;
+  const npc = world.npcs.find((n) => n.id === casterId);
+  return npc ? getElement(npc.element).color : '#b9903f';
+}
+
 function gameTick() {
   if (!world) return;
   const now = Date.now();
@@ -351,7 +357,10 @@ function render() {
   map.updatePlayer(player.position, player, onPlayerClick);
   map.updateSenseCircle(player.position, player.senseRange);
   map.renderNpcs(visibleNpcs, onNpcClick, world.openSheet?.kind === 'npc' ? world.openSheet.id : null);
-  map.renderProjectiles(world.projectiles, now);
+  // map.js only renders — it doesn't look up wizards by id — so projectiles
+  // get a `casterColor` field attached here (rendering-only, not part of
+  // combat.js's persisted projectile shape) before being handed off.
+  map.renderProjectiles(world.projectiles.map((p) => ({ ...p, casterColor: casterColorFor(p.casterId) })), now);
 
   ui.renderHud(player);
   ui.setSpeedLabel(world.timeScale > combat.TIME_SCALES.real ? '⚡ Fast' : '🐢 Real');

@@ -53,7 +53,9 @@ export function castAttack(caster, target, spellId, world, now) {
     resolved: false,
   };
   world.projectiles.push(projectile);
-  log(world, `${caster.avatar} ${caster.name} hurls ${spell.icon} ${spell.name} at ${target.name}!`);
+  // No caster.avatar prefix here (unlike before the v1 theme pass): avatar
+  // is now a portrait symbol id, not something with a plain-text form.
+  log(world, `${caster.name} hurls ${spell.icon} ${spell.name} at ${target.name}!`);
   if (target.isNPC) maybeNpcDefend(target, projectile, now, world);
   return { ok: true, projectile };
 }

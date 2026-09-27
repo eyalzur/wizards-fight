@@ -1,4 +1,5 @@
-import { getSpell } from './spells.js';
+import { getElement } from './wizard.js';
+import { avatarSvg } from './portraits.js';
 
 let map = null;
 let playerMarker = null;
@@ -37,7 +38,7 @@ export function updatePlayer(pos, wizard, onPlayerClick) {
   playerClickHandler = onPlayerClick;
   const icon = L.divIcon({
     className: 'wizard-marker player-marker',
-    html: `<div class="marker-avatar player-avatar">${wizard.avatar}</div><div class="marker-label">${wizard.name}</div>`,
+    html: `<div class="marker-avatar player-avatar">${avatarSvg(wizard.avatar, getElement(wizard.element).color)}</div><div class="marker-label">${wizard.name}</div>`,
     iconSize: [50, 56],
     iconAnchor: [25, 50],
   });
@@ -76,7 +77,7 @@ export function renderNpcs(npcs, onNpcClick, selectedId) {
     const defeated = npc.hp <= 0;
     const selected = npc.id === selectedId;
     const html = `
-      <div class="marker-avatar npc-avatar${defeated ? ' defeated' : ''}${selected ? ' selected' : ''}">${npc.avatar}</div>
+      <div class="marker-avatar npc-avatar${defeated ? ' defeated' : ''}${selected ? ' selected' : ''}">${avatarSvg(npc.avatar, getElement(npc.element).color)}</div>
       <div class="marker-hp"><div class="marker-hp-fill" style="width:${Math.max(0, (npc.hp / npc.maxHP) * 100)}%"></div></div>
       <div class="marker-label">${npc.name}</div>`;
     const icon = L.divIcon({ className: 'wizard-marker npc-marker', html, iconSize: [46, 58], iconAnchor: [23, 50] });
@@ -100,6 +101,10 @@ export function renderNpcs(npcs, onNpcClick, selectedId) {
   });
 }
 
+// `projectiles` entries are expected to carry a `casterColor` field (a hex
+// string) added by main.js — map.js renders whatever it's handed and
+// doesn't look up wizards by id itself (see docs/ARCHITECTURE.md on the
+// map.js/combat.js boundary).
 export function renderProjectiles(projectiles, now) {
   const seen = new Set();
   projectiles.forEach((p) => {
@@ -109,8 +114,12 @@ export function renderProjectiles(projectiles, now) {
     const frac = Math.min(1, Math.max(0, (now - p.travelStart) / dur));
     const lat = p.startPos.lat + (p.endPos.lat - p.startPos.lat) * frac;
     const lng = p.startPos.lng + (p.endPos.lng - p.startPos.lng) * frac;
-    const spell = getSpell(p.spellId);
-    const icon = L.divIcon({ className: 'projectile-marker', html: `<div class="projectile-icon">${spell.icon}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] });
+    const icon = L.divIcon({
+      className: 'projectile-marker',
+      html: `<div class="projectile-orb" style="--orb-color:${p.casterColor || '#b9903f'}"></div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+    });
     if (!projectileMarkers[p.id]) {
       projectileMarkers[p.id] = L.marker([lat, lng], { icon, interactive: false }).addTo(map);
     } else {
