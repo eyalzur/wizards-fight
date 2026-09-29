@@ -280,11 +280,18 @@ html, body {
 .sheet-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding-right: 26px; }
 /* Sizing/visuals now come from `.marker-ring-wrap`/`.marker-avatar` (see the
    map-marker section) — same ring component as the map and HUD, just a
-   layout slot here. */
+   layout slot here. Real-player identity is carried by the ring color
+   (var(--purple), passed at the call site) rather than a border here. */
 .sheet-avatar { flex-shrink: 0; }
 .sheet-name { font-weight: 800; font-size: 1.05rem; }
 .sheet-name small { color: var(--text-dim); font-weight: 600; margin-left: 4px; }
 .sheet-sub { color: var(--text-dim); font-size: 0.72rem; }
+.sheet-sub-synced { opacity: 0.85; }
+.sheet-remote-note {
+  font-size: 0.75rem; color: var(--text-dim); background: rgba(138,92,246,0.12);
+  border: 1px solid rgba(138,92,246,0.3); border-radius: 10px;
+  padding: 8px 10px; margin-bottom: 10px;
+}
 .sheet-stats { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .sheet-stats .bar { height: 10px; }
 .sheet-stats .bar-text { font-size: 0.6rem; top: 0.5px; }

@@ -6,7 +6,12 @@ import * as geo from './geo.js';
 import * as combat from './combat.js';
 import * as map from './map.js';
 import * as ui from './ui.js';
+import * as multiplayer from './multiplayer.js';
 import { uid } from './utils.js';
+
+const REMOTE_SYNC_MS = 6000; // how often we push our own position/HP up
+const REMOTE_REFRESH_MS = 15000; // how often we re-fetch nearby players
+const PENDING_HIT_POLL_MS = 15000; // how often we check for hits that landed
 
 const DEFAULT_CENTER = { lat: 40.758, lng: -73.9855 }; // fallback demo spot if location is denied
 const NPC_COUNT = 9;
@@ -62,7 +67,9 @@ function startGame(player, center) {
   world = {
     player,
     npcs: [],
+    remotePlayers: [],
     projectiles: [],
+    outgoingHits: [],
     log: [],
     openSheet: null,
     playerDown: false,
@@ -70,6 +77,8 @@ function startGame(player, center) {
     spawnCenter: { ...center },
     maxWalkMeters: 250,
     timeScale: combat.TIME_SCALES.fast,
+    multiplayerEnabled: false,
+    myUid: null,
   };
   for (let i = 0; i < NPC_COUNT; i++) {
     world.npcs.push(createNpc({ id: uid(), center, minR: 60, maxR: player.senseRange * 2, playerLevel: player.level }));
@@ -86,7 +95,9 @@ function resumeGame(saved) {
   world = {
     player: saved.player,
     npcs: saved.npcs || [],
+    remotePlayers: [],
     projectiles: [],
+    outgoingHits: [],
     log: [],
     openSheet: null,
     playerDown: saved.player.hp <= 0,
@@ -94,6 +105,8 @@ function resumeGame(saved) {
     spawnCenter: saved.spawnCenter || saved.player.position,
     maxWalkMeters: 250,
     timeScale: saved.timeScale || combat.TIME_SCALES.fast,
+    multiplayerEnabled: false,
+    myUid: null,
   };
   world.log.push(`🌙 Welcome back, ${world.player.name}.`);
   boot();
@@ -137,6 +150,77 @@ function boot() {
   }
   setInterval(gameTick, 250);
   render();
+  bootstrapMultiplayer();
+}
+
+// Multiplayer bootstrap runs after the single-player game is already up and
+// rendering, and never blocks it — if there's no Firebase config, no
+// network, or anything else goes wrong, initMultiplayer() resolves to
+// { enabled: false } and everything below simply never runs again.
+async function bootstrapMultiplayer() {
+  const res = await multiplayer.initMultiplayer();
+  world.multiplayerEnabled = res.enabled;
+  world.myUid = res.uid;
+  if (!res.enabled) return;
+
+  await multiplayer.syncSelf(world.player);
+  await refreshRemotePlayers();
+  await checkForAwayHits();
+  render();
+
+  setInterval(() => multiplayer.syncSelf(world.player), REMOTE_SYNC_MS);
+  setInterval(refreshRemotePlayers, REMOTE_REFRESH_MS);
+  setInterval(checkForIncomingHits, PENDING_HIT_POLL_MS);
+}
+
+async function refreshRemotePlayers() {
+  world.remotePlayers = await multiplayer.fetchNearbyPlayers();
+  render();
+}
+
+// Batches any hits that landed while this device wasn't running into one
+// summary toast pointing at the log for detail, per the "attacked while
+// away" surfacing spec — this only fires from the boot path, not the live
+// poll below, since a player actively watching already sees each hit land
+// in the log/HUD in real time and doesn't need a toast repeating it.
+async function checkForAwayHits() {
+  const now = Date.now();
+  const hits = await multiplayer.fetchAndClearDueHits(now);
+  if (!hits.length) return;
+  let total = 0;
+  const names = new Set();
+  for (const hit of hits) {
+    const { dmg } = combat.applyPendingHit(world, hit, now);
+    total += dmg;
+    names.add(hit.casterName || 'an NPC');
+  }
+  if (total > 0) {
+    ui.toast(`⚔️ While you were away, ${[...names].join(', ')} hit you for ${total} damage total. See the Spell Log for details.`);
+  }
+  saveState(world);
+}
+
+// Live poll while the app stays open: applies any hit whose travel timer has
+// now elapsed. No toast here (see checkForAwayHits) — the log entry
+// combat.applyPendingHit already writes is enough for someone watching.
+async function checkForIncomingHits() {
+  const now = Date.now();
+  const hits = await multiplayer.fetchAndClearDueHits(now);
+  if (!hits.length) return;
+  for (const hit of hits) combat.applyPendingHit(world, hit, now);
+  saveState(world);
+  render();
+}
+
+function syncSelfIfEnabled() {
+  if (world.multiplayerEnabled) multiplayer.syncSelf(world.player);
+}
+
+function drainOutgoingHits() {
+  if (!world.outgoingHits || !world.outgoingHits.length) return;
+  const hits = world.outgoingHits;
+  world.outgoingHits = [];
+  for (const hit of hits) multiplayer.sendPendingHit(hit.targetId, hit);
 }
 
 function toggleFullscreen() {
@@ -171,7 +255,10 @@ function animateWalk(wizard, dest) {
     const f = Math.min(1, (now - t0) / durationMs);
     wizard.position = { lat: start.lat + (dest.lat - start.lat) * f, lng: start.lng + (dest.lng - start.lng) * f };
     if (f < 1) requestAnimationFrame(step);
-    else saveState(world);
+    else {
+      saveState(world);
+      syncSelfIfEnabled();
+    }
   }
   requestAnimationFrame(step);
 }
@@ -187,11 +274,18 @@ function onNpcClick(npcId) {
   render();
 }
 
+function onRemoteClick(remoteId) {
+  if (world.playerDown) return;
+  world.openSheet = world.openSheet?.kind === 'remote' && world.openSheet.id === remoteId ? null : { kind: 'remote', id: remoteId };
+  render();
+}
+
 function onSheetAttack(npc) {
   const res = combat.castAttack(world.player, npc, ATTACK_SPELL.id, world, Date.now());
   if (!res.ok) ui.toast(res.reason);
   else world.openSheet = null;
   saveState(world);
+  syncSelfIfEnabled();
   render();
 }
 
@@ -200,6 +294,7 @@ function onSheetShield() {
   if (!res.ok) ui.toast(res.reason);
   else ui.toast(`${SHIELD_SPELL.icon} Your ward shimmers to life.`);
   saveState(world);
+  syncSelfIfEnabled();
   render();
 }
 
@@ -208,6 +303,7 @@ function onCounterspell(projectileId) {
   const res = combat.castCounterspell(world.player, projectile, 'counterspell', world, Date.now());
   if (!res.ok) ui.toast(res.reason);
   saveState(world);
+  syncSelfIfEnabled();
   render();
 }
 
@@ -339,10 +435,34 @@ function casterColorFor(casterId) {
   return npc ? getElement(npc.element).color : '#b9903f';
 }
 
+function buildRemoteSheetData(remote, now) {
+  const player = world.player;
+  const dist = geo.distanceMeters(player.position, remote.position);
+  const inRange = dist <= Math.min(ATTACK_SPELL.range, player.senseRange);
+  const cdReady = (player.cooldowns[ATTACK_SPELL.id] || 0) <= now;
+  const canAfford = player.mana >= ATTACK_SPELL.manaCost;
+  const canAttack = remote.hp > 0 && !world.playerDown && inRange && cdReady && canAfford;
+  let reason = '';
+  if (remote.hp <= 0) reason = 'Defeated (on their end) — try again later.';
+  else if (!inRange) reason = `Out of range (${Math.round(dist)}m away).`;
+  else if (!cdReady) reason = 'Recharging.';
+  else if (!canAfford) reason = 'Not enough mana.';
+  return {
+    kind: 'remote',
+    wizard: remote,
+    atkSpell: ATTACK_SPELL,
+    canAttack,
+    reason,
+    dist: Math.round(dist),
+    syncedAgoMs: now - (remote.lastSyncedAt || now),
+  };
+}
+
 function gameTick() {
   if (!world) return;
   const now = Date.now();
   combat.tick(world, now);
+  drainOutgoingHits();
   render();
   if (now - lastSaveAt > 2000) {
     saveState(world);
@@ -355,10 +475,18 @@ function render() {
   const player = world.player;
 
   const visibleNpcs = world.npcs.filter((n) => geo.distanceMeters(player.position, n.position) <= player.senseRange);
+  const visibleRemotePlayers = (world.remotePlayers || []).filter(
+    (r) => r.position && geo.distanceMeters(player.position, r.position) <= player.senseRange
+  );
 
   if (world.openSheet?.kind === 'npc') {
     const t = world.npcs.find((n) => n.id === world.openSheet.id);
     const visible = t && t.hp > 0 && geo.distanceMeters(player.position, t.position) <= player.senseRange;
+    if (!visible) world.openSheet = null;
+  }
+  if (world.openSheet?.kind === 'remote') {
+    const t = (world.remotePlayers || []).find((r) => r.id === world.openSheet.id);
+    const visible = t && t.position && geo.distanceMeters(player.position, t.position) <= player.senseRange;
     if (!visible) world.openSheet = null;
   }
 
@@ -373,6 +501,7 @@ function render() {
     onNpcClick,
     world.openSheet?.kind === 'npc' ? world.openSheet.id : null
   );
+  map.renderRemotePlayers(visibleRemotePlayers, onRemoteClick, world.openSheet?.kind === 'remote' ? world.openSheet.id : null);
   // map.js only renders — it doesn't look up wizards by id — so projectiles
   // get a `casterColor` field attached here (rendering-only, not part of
   // combat.js's persisted projectile shape) before being handed off.
@@ -392,13 +521,16 @@ function render() {
   else if (world.openSheet?.kind === 'npc') {
     const npc = world.npcs.find((n) => n.id === world.openSheet.id);
     if (npc) sheetData = buildNpcSheetData(npc, now);
+  } else if (world.openSheet?.kind === 'remote') {
+    const remote = (world.remotePlayers || []).find((r) => r.id === world.openSheet.id);
+    if (remote) sheetData = buildRemoteSheetData(remote, now);
   }
   ui.renderWizardSheet(sheetData, {
     onClose: () => {
       world.openSheet = null;
       render();
     },
-    onAttack: sheetData?.kind === 'npc' ? () => onSheetAttack(sheetData.wizard) : null,
+    onAttack: sheetData?.kind === 'npc' || sheetData?.kind === 'remote' ? () => onSheetAttack(sheetData.wizard) : null,
     onShield: onSheetShield,
   });
 

@@ -5,6 +5,7 @@ let map = null;
 let playerMarker = null;
 let senseCircle = null;
 let npcMarkers = {};
+let remoteMarkers = {};
 let projectileMarkers = {};
 let playerClickHandler = null;
 
@@ -123,6 +124,51 @@ export function renderNpcs(npcs, onNpcClick, selectedId) {
     if (!seen.has(id)) {
       map.removeLayer(npcMarkers[id]);
       delete npcMarkers[id];
+    }
+  });
+}
+
+// Real players render like NPCs (same ring/HP-gauge/name-label pattern, via
+// avatarWithRing) but with a distinct ring color (var(--purple)) so one's
+// recognizable as a real, possibly-offline player before tapping it — see
+// docs/FEATURES.md "Multiplayer". Kept as its own marker registry/function
+// rather than reusing renderNpcs — the two are similar-looking but genuinely
+// different data sources (own NPC array vs. fetched remote-player
+// snapshots), and collapsing them would mean threading an isRemote flag
+// through every line. shieldActive is always false: this device has no live
+// visibility into a remote player's shield state (see combat.js).
+export function renderRemotePlayers(remotePlayers, onRemoteClick, selectedId) {
+  const seen = new Set();
+  remotePlayers.forEach((rp) => {
+    seen.add(rp.id);
+    const defeated = rp.hp <= 0;
+    const selected = rp.id === selectedId;
+    const wrapClass = [selected ? 'selected' : '', defeated ? 'defeated' : ''].filter(Boolean).join(' ');
+    const avatarHtml = avatarWithRing(rp.avatar, getElement(rp.element).color, {
+      hp: rp.hp,
+      maxHP: rp.maxHP,
+      ringColor: 'var(--purple)',
+      shieldActive: false,
+      wrapClass,
+    });
+    const html = `${avatarHtml}<div class="marker-label">${rp.name}</div>`;
+    const icon = L.divIcon({ className: 'wizard-marker remote-marker', html, iconSize: [64, 84], iconAnchor: [32, 74] });
+    if (!remoteMarkers[rp.id]) {
+      const m = L.marker([rp.position.lat, rp.position.lng], { icon }).addTo(map);
+      m.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        onRemoteClick(rp.id);
+      });
+      remoteMarkers[rp.id] = m;
+    } else {
+      remoteMarkers[rp.id].setLatLng([rp.position.lat, rp.position.lng]);
+      remoteMarkers[rp.id].setIcon(icon);
+    }
+  });
+  Object.keys(remoteMarkers).forEach((id) => {
+    if (!seen.has(id)) {
+      map.removeLayer(remoteMarkers[id]);
+      delete remoteMarkers[id];
     }
   });
 }

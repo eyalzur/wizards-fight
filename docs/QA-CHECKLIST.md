@@ -119,6 +119,63 @@ stale.
 - [ ] New Wizard asks for confirmation, then clears `localStorage` and
       reloads to the creation screen.
 
+## Multiplayer (only if a Firebase project is configured — see docs/ARCHITECTURE.md "Multiplayer")
+
+Skip this whole section if `js/firebase-config.js` doesn't exist or still
+has placeholder values — the item below ("multiplayer absent") is the one
+that matters in that case.
+
+- [ ] **Multiplayer absent (no/placeholder `js/firebase-config.js`):**
+      the game plays exactly as single-player, no console errors, no
+      visible sign multiplayer code even ran (this is the most important
+      check — it's the state most clones/forks of this repo will be in).
+- [ ] Open the site in **two separate browser contexts** (e.g. a normal
+      window + an incognito/private window, or two different browsers) so
+      each gets its own Firebase anonymous identity, and create a wizard
+      in each with real (or spoofed, via devtools) locations close enough
+      to be within each other's sense range.
+- [ ] Within ~15-20s of both being up, each player's marker appears on
+      the other's map: purple accent border + small badge dot, distinct
+      from the gold self-marker and pink NPC markers.
+- [ ] Tapping the other player's marker opens a sheet with: name, level,
+      distance, HP bar, a "synced Xm ago" line, the "A real player — they
+      may be offline. Spark Bolt still travels in real time." note, and a
+      Cast Spark Bolt button — NOT an "NPC" label anywhere.
+- [ ] Cast Spark Bolt at the other player from Player A. Confirm: mana
+      deducted, cooldown set, a projectile animates from A toward B's
+      last-known position, and a log line on A's side says the spell is
+      headed toward B (not a damage number — A never learns the exact
+      damage dealt).
+- [ ] Close Player B's tab/browser entirely before the cast would have
+      landed (real time, not Fast — this is the point of the feature).
+      Wait past the real travel time, then reopen Player B and reload.
+      Confirm: a single toast on load summarizes the hit ("While you were
+      away, `<A's name>` hit you for N damage..."), B's HP is reduced by
+      the expected amount (`spell.power × A's power − B's defense`,
+      halved-ish if B had Ward Shield active — check `docs/FEATURES.md`
+      numbers), and the Spell Log has the matching detail line.
+- [ ] If B had Ward Shield raised *before* reopening (i.e. it was already
+      active and hadn't expired), confirm the away-hit damage reflects
+      the shield's mitigation — Ward Shield still applies to a remote hit
+      even though Counterspell does not (no reactive window exists for a
+      real player's incoming attack in v1 — verify no "Incoming..."
+      defend-overlay ever appears for it, unlike an NPC attack).
+- [ ] With both players' tabs open and active the whole time (no reload),
+      confirm the hit still lands automatically within ~15s of its real
+      impact time via the periodic poll, logged normally, with no toast
+      (toasts are reserved for the "while you were away" load-time case).
+- [ ] Move one player out of the other's sense range (or close enough
+      that distance exceeds `senseRange`); confirm their marker disappears
+      and an open sheet for them auto-closes, same as an NPC leaving
+      range.
+- [ ] Defeat a real player via Spark Bolt (repeat casts/away-hits until
+      their HP hits 0 on their own device); confirm the normal "Defeated!"
+      overlay/respawn flow runs on their side, unaffected by the fact the
+      hit came from a real player rather than an NPC.
+- [ ] Confirm NPCs are still fully present and functional on both devices
+      throughout all of the above — multiplayer should visibly coexist
+      with, not replace, the NPC roster.
+
 ## Persistence
 
 - [ ] Reload mid-game restores the same wizard, NPCs, and spawn point.

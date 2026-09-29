@@ -115,6 +115,51 @@ instead of the old always-on spellbook:
 
 Tapping empty map closes an open sheet before it tries to move you there.
 
+## Multiplayer (real players)
+
+`js/multiplayer.js`, backed by Firebase Realtime Database + Anonymous
+Auth. **Optional and off by default** — it only activates if the repo
+owner has set up their own Firebase project and filled in
+`js/firebase-config.js` (see `docs/ARCHITECTURE.md` "Multiplayer" and
+"Setup"); without that, the game is exactly the single-player experience
+described everywhere else in this document.
+
+When active, other real players' wizards appear on the map the same way
+NPCs do — inside your sense-range circle, with an HP bar and name label —
+positioned by wherever their device last synced its location, which can
+be a little stale (each device pushes its own position roughly every 6s
+while playing, and refreshes the list of nearby players roughly every
+15s). They're visually distinct from both you and NPCs: a purple accent
+(reusing the Ward Shield color) plus a small persistent badge dot on the
+marker, so you can tell a real player apart from an NPC before tapping.
+
+Tapping a real player's marker opens the same wizard sheet as an NPC —
+name, level, distance, HP bar, Cast Spark Bolt button with the same
+disabled-reasons — plus two additions:
+- A second line reading "synced Xm ago", so it's clear how fresh their
+  position/HP is.
+- A permanent note: *"A real player — they may be offline. Spark Bolt
+  still travels in real time."*
+
+Casting Spark Bolt at a real player costs the same mana, has the same
+cooldown, and travels at the same real-world speed as casting at an NPC —
+**always at real speed**, regardless of your own ⚡ Fast/🐢 Real toggle,
+so you can't use your own testing setting to shortcut another player's
+travel-time window. Unlike an NPC hit, a hit on a real player doesn't
+resolve on your screen — it's recorded for their device to apply next
+time it's running (even if that's minutes or hours later), using *their*
+current HP/defense/Ward Shield state at that moment, not a guess made on
+your end. Ward Shield still reduces a hit like this normally; there is
+currently no live "incoming spell" warning (and therefore no
+Counterspell option) for an attack from another real player, since that
+would need always-on live syncing this v1 deliberately doesn't do.
+
+**Attacked while away.** If one or more real players' Spark Bolts landed
+on you while the game wasn't open, the next time you open it you'll see
+one toast summarizing it (e.g. "While you were away, Ari the Bold hit you
+for 9 damage total. See the Spell Log for details.") rather than one
+toast per hit, with the full detail in the Spell Log as usual.
+
 ## NPCs
 
 `js/npc.js`. 9 spawned per game session, scattered in an annulus from
@@ -193,6 +238,13 @@ spawn point, and the time-scale setting are written to
 and which sheet is open are **not** persisted — they reset on reload,
 which is a deliberate simplification (see `docs/ARCHITECTURE.md` for
 what that means for reload-mid-fight edge cases).
+
+If multiplayer is set up (see above), your device's Firebase anonymous
+identity and the list of nearby real players are **not** part of this
+`localStorage` save either — identity comes from Firebase's own
+persistence, and the nearby-players list is always re-fetched fresh.
+Nothing multiplayer-related is lost by clearing this game's own save,
+and "New Wizard" doesn't change your Firebase identity.
 
 ## Fullscreen
 

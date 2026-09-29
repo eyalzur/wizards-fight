@@ -261,6 +261,15 @@ function formatCountdown(ms) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+function formatAgo(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 60) return 'moments ago';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
+}
+
 export function renderHud(player) {
   document.getElementById('hud-avatar').innerHTML = avatarWithRing(player.avatar, getElement(player.element).color, {
     hp: player.hp,
@@ -342,6 +351,40 @@ export function renderWizardSheet(data, callbacks) {
       </div>
       ${!shieldReady && shieldReason ? `<div class="sheet-reason">${shieldReason}</div>` : ''}`;
     if (shieldReady) document.getElementById('sheet-shield').addEventListener('click', callbacks.onShield);
+    return;
+  }
+
+  // A real player's sheet is otherwise identical to an NPC's (same
+  // structure, same Cast Spark Bolt action) but adds a "synced Xm ago" line
+  // and a callout explaining they may be offline — the NPC branch below is
+  // left untouched on purpose, only the real-player case is the surprising
+  // one that needs the explanation. Ring color (purple) carries the
+  // "real player" identity signal now that avatars use the shared ring
+  // component; shieldActive is always false here — this device has no live
+  // visibility into a remote player's shield state (see combat.js).
+  if (data.kind === 'remote') {
+    const { wizard: rp, atkSpell, canAttack, reason, dist, syncedAgoMs } = data;
+    body.innerHTML = `
+      <div class="sheet-header">
+        <span class="sheet-avatar">${avatarWithRing(rp.avatar, getElement(rp.element).color, { hp: rp.hp, maxHP: rp.maxHP, ringColor: 'var(--purple)', shieldActive: false })}</span>
+        <div>
+          <div class="sheet-name">${rp.name} <small>Lv.${rp.level}</small></div>
+          <div class="sheet-sub">${dist}m away</div>
+          <div class="sheet-sub sheet-sub-synced">synced ${formatAgo(syncedAgoMs)}</div>
+        </div>
+      </div>
+      <div class="sheet-stats">
+        <div class="bar hp-bar"><div class="bar-fill hp-fill" style="width:${pct(rp.hp, rp.maxHP)}%"></div><span class="bar-text">${rp.hp}/${rp.maxHP} HP</span></div>
+      </div>
+      <div class="sheet-remote-note">🌐 A real player — they may be offline. Spark Bolt still travels in real time.</div>
+      <div class="sheet-actions">
+        <button id="sheet-attack" class="sheet-btn attack${canAttack ? '' : ' disabled'}">
+          <span class="sheet-btn-icon">${atkSpell.icon}</span> Cast ${atkSpell.name}
+          <span class="sheet-btn-cost">${atkSpell.manaCost}💧</span>
+        </button>
+      </div>
+      ${!canAttack ? `<div class="sheet-reason">${reason}</div>` : ''}`;
+    if (canAttack) document.getElementById('sheet-attack').addEventListener('click', callbacks.onAttack);
     return;
   }
 

@@ -14,10 +14,13 @@ See also: [`docs/FEATURES.md`](docs/FEATURES.md) (what the game does),
 ## Snapshot
 
 A browser wizard-duel game on a real street map, built for kids/teens
-(roughly 13–25, boys-skewing). No backend, no accounts — everything is a
-static site on GitHub Pages, state lives in the browser's `localStorage`.
-Currently single-player against NPCs (multiplayer is explicitly deferred,
-see Roadmap).
+(roughly 13–25, boys-skewing). Still a static site on GitHub Pages with
+no accounts (anonymous device identity only) — but as of 2026-09-26 it
+has a backend, Firebase, specifically to support lightweight async
+multiplayer (see Decisions Log). Single-player against NPCs remains the
+core, always-available experience; real players are an optional overlay
+on top of it when the repo owner has a Firebase project configured (see
+`docs/ARCHITECTURE.md` "Multiplayer" and "Setup").
 
 **Live:** https://eyalzur.github.io/wizards-fight/
 **Deploy branch:** `main` (GitHub Pages → Settings → Pages → Branch: `main`)
@@ -60,8 +63,22 @@ see Roadmap).
   from a new "🔮 Runes & Powers" bottom sheet (☰ menu). Player-only; NPCs
   don't earn or spend Runes. See `docs/FEATURES.md` for exact numbers.
 - **Persistence** — wizard (including Runes balance and Powers levels) +
-  NPCs + spawn point + speed setting saved to `localStorage`. No server,
-  no accounts, nothing leaves the browser.
+  NPCs + spawn point + speed setting saved to `localStorage`. No
+  accounts, nothing leaves the browser except the optional multiplayer
+  sync below.
+- **Multiplayer (optional, needs the repo owner's own Firebase project)**
+  — real players' wizards appear on the map like NPCs (last-synced
+  position, sense-range gated, distinct purple-badge marker), with a
+  wizard sheet showing "synced Xm ago" and a note that they may be
+  offline. Casting Spark Bolt at one works like casting at an NPC (same
+  cost/cooldown/UI) but always travels at real speed and resolves on the
+  *target's* device — even much later, even if neither device was online
+  at the exact impact moment — using anonymous device identity (Firebase
+  Anonymous Auth), no accounts. NPCs are not replaced or reduced by this;
+  they remain the reliable fallback everywhere real-player density is
+  low. Any hits that landed while you were away are surfaced as one
+  summary toast on reload. See `docs/FEATURES.md` "Multiplayer" and
+  `docs/ARCHITECTURE.md` "Multiplayer" for the full mechanics.
 - **Deploy** — static site, GitHub Pages, deploys from `main`.
 
 ## Known gaps / not yet built
@@ -70,7 +87,15 @@ see Roadmap).
   been manual Playwright smoke tests run ad hoc during development (see
   `docs/QA-CHECKLIST.md` for what to check by hand until this changes).
 - No sound, no animations beyond the projectile flight and sheet slide-up.
-- No real multiplayer — "other wizards" are always NPCs.
+- Multiplayer (see "What's live now") has no live presence indicators, no
+  matchmaking, and no chat — deferred by design for v1, not an oversight
+  (see Decisions Log). It also has no reactive Counterspell window against
+  a real player's incoming attack (only Ward Shield's passive mitigation
+  applies) — that would need live syncing this v1 deliberately doesn't do.
+- Real-player density is expected to be near zero in most areas for a
+  while (this is a small hobby project, not a live service with a user
+  base) — NPCs staying as the primary opponent is intentional, not a
+  fallback that's expected to disappear soon.
 - Balance (spell numbers, XP curve, NPC aggression rates) is a first
   guess, not tuned from real play data.
 - No accessibility pass (screen reader labels, focus order, contrast
@@ -97,8 +122,14 @@ see Roadmap).
 - Revisit whether the real street map is pulling its weight once played
   at Real speed for a while, vs. a simpler abstract "nearby" view (the
   map was speculative from the start — see Decisions Log).
-- A true multiplayer backend (would end the "no backend" constraint —
-  big decision, needs its own product-design pass first).
+- Live presence / "who's online now," matchmaking, and chat for
+  multiplayer — all explicitly deferred in the 2026-09-26 multiplayer
+  work, not ruled out forever; each is its own product-design
+  conversation before being built.
+- If real-player density ever grows enough to matter, `multiplayer.js`
+  currently fetches *all* players from Firebase and filters client-side
+  by distance — fine at hobby-project scale, worth revisiting (geohash
+  bucketing or similar) before it isn't.
 
 ## Decisions log
 
@@ -156,6 +187,45 @@ without knowing why they were settled.
   a portrait randomly assigned from the same 5 looks, independent of
   element. Map tiles, the tap-to-open-sheet interaction, and all combat
   math/logic were explicitly out of scope and untouched.
+- **2026-09-26 — Multiplayer added; Firebase ends the "no backend"
+  constraint.** Real players' wizards now appear on the map alongside
+  NPCs, positioned by last-synced location and gated by the existing
+  sense-range circle; casting Spark Bolt at one works like casting at an
+  NPC, resolving on the normal real-time travel timer whether or not the
+  other player is online. This explicitly and intentionally ends the
+  project's former "no backend" rule — accepted as the cost of real
+  multiplayer, not a workaround or an oversight. **Firebase** (Realtime
+  Database + Anonymous Auth) was chosen over Firestore because the data
+  shape here — a flat per-player record plus small per-target
+  append-only "pending hit" lists — maps directly onto a JSON tree, and
+  RTDB's rule syntax is simpler to hand-write correctly for "write your
+  own record, append-only to someone else's" than Firestore's would be
+  for the same access pattern; both have a workable free tier for a
+  hobby project's expected scale. **Identity is anonymous and
+  device-generated** (Firebase Anonymous Auth uid) plus the player's
+  existing chosen display name — no email/password, no real accounts,
+  consistent with the game's existing no-accounts stance elsewhere.
+  **NPCs are not replaced** — they coexist as the reliable fallback,
+  since real-player density near any given player will often be zero.
+  Damage resolution is asymmetric by necessity: the attacker's device
+  can't compute damage against a real player (it doesn't have that
+  player's live defense/shield state), so a hit is recorded as a
+  "pending hit" and applied by the **target's own device**, whenever it
+  next runs — this avoids needing any server-side code on a backend
+  with no Cloud Functions. One consequence: there's no live "incoming
+  spell" warning (and so no Counterspell option) against a real player's
+  attack in v1 — only Ward Shield's passive mitigation carries over. Live
+  presence, matchmaking, and chat were all explicitly scoped out of v1
+  (see Known gaps/Roadmap) — this is a minimal extension of the existing
+  async-combat feel, not a social layer. **Setup step only the repo
+  owner can do:** create a Firebase project, enable Anonymous
+  Authentication and a Realtime Database, and paste real config into
+  `js/firebase-config.js` (gitignored — copy from
+  `js/firebase-config.example.js`) and the rules from
+  `firebase-rules.json` into the console — the same category of step as
+  the Google Maps API key below, just for a feature that's shipping
+  instead of one that got swapped out. Without that setup the game runs
+  exactly as it did before, single-player only.
 - **2026-09-26 — Runes & Powers shipped as a deliberately narrow first
   iteration.** Added an ongoing earn-and-spend currency (Runes, on top of
   the existing one-time XP/level track) that buys permanent Spell Power/
