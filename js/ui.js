@@ -1,18 +1,19 @@
 import { getSpell } from './spells.js';
 import { getElement } from './wizard.js';
-import { avatarSvg } from './portraits.js';
+import { avatarSvg, avatarWithRing } from './portraits.js';
 
-// 5 selectable looks built from only 3 distinct hood artworks (see
-// index.html's sprite sheet) — 2 of the 5 are the same artwork mirrored via
-// `flip`, per the product call to keep 5 visible choices without needing 5
-// distinct pieces of art. `id` is what's actually stored as `wizard.avatar`
-// (see js/portraits.js for the serialization).
+// 5 selectable looks, now 5 genuinely distinct hood artworks (see
+// index.html's sprite sheet) — this used to be only 3 distinct pieces of
+// art with 2 of the 5 choices being a `scaleX(-1)` mirror of another; that
+// read as a thin trick rather than 5 real choices, so d/e were added as
+// their own silhouettes instead. `id` is what's actually stored as
+// `wizard.avatar` (see js/portraits.js for the serialization).
 const AVATARS = [
   { id: 'portrait-hood-a', symbol: 'portrait-hood-a', flip: false },
-  { id: 'portrait-hood-a:flip', symbol: 'portrait-hood-a', flip: true },
   { id: 'portrait-hood-b', symbol: 'portrait-hood-b', flip: false },
   { id: 'portrait-hood-c', symbol: 'portrait-hood-c', flip: false },
-  { id: 'portrait-hood-c:flip', symbol: 'portrait-hood-c', flip: true },
+  { id: 'portrait-hood-d', symbol: 'portrait-hood-d', flip: false },
+  { id: 'portrait-hood-e', symbol: 'portrait-hood-e', flip: false },
 ];
 
 export function initCreateScreen(elements, onSubmit) {
@@ -261,7 +262,12 @@ function formatCountdown(ms) {
 }
 
 export function renderHud(player) {
-  document.getElementById('hud-avatar').innerHTML = avatarSvg(player.avatar, getElement(player.element).color);
+  document.getElementById('hud-avatar').innerHTML = avatarWithRing(player.avatar, getElement(player.element).color, {
+    hp: player.hp,
+    maxHP: player.maxHP,
+    ringColor: 'var(--mana)',
+    shieldActive: !!player.shieldActive,
+  });
   document.getElementById('hud-name').textContent = player.name;
   document.getElementById('hud-level').textContent = `Lv.${player.level}`;
   setBar('hp-bar-fill', player.hp, player.maxHP);
@@ -317,7 +323,7 @@ export function renderWizardSheet(data, callbacks) {
     const { wizard: w, shieldSpell, shieldActive, shieldRemainingS, shieldReady, shieldReason } = data;
     body.innerHTML = `
       <div class="sheet-header">
-        <span class="sheet-avatar self">${avatarSvg(w.avatar, getElement(w.element).color)}</span>
+        <span class="sheet-avatar">${avatarWithRing(w.avatar, getElement(w.element).color, { hp: w.hp, maxHP: w.maxHP, ringColor: 'var(--mana)', shieldActive })}</span>
         <div>
           <div class="sheet-name">${w.name} <small>Lv.${w.level}</small></div>
           <div class="sheet-sub">Your Wizard</div>
@@ -339,10 +345,10 @@ export function renderWizardSheet(data, callbacks) {
     return;
   }
 
-  const { wizard: npc, atkSpell, canAttack, reason, dist } = data;
+  const { wizard: npc, atkSpell, canAttack, reason, dist, shieldActive } = data;
   body.innerHTML = `
     <div class="sheet-header">
-      <span class="sheet-avatar">${avatarSvg(npc.avatar, getElement(npc.element).color)}</span>
+      <span class="sheet-avatar">${avatarWithRing(npc.avatar, getElement(npc.element).color, { hp: npc.hp, maxHP: npc.maxHP, ringColor: 'var(--pink)', shieldActive: !!shieldActive })}</span>
       <div>
         <div class="sheet-name">${npc.name} <small>Lv.${npc.level}</small></div>
         <div class="sheet-sub">${dist}m away</div>

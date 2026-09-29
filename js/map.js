@@ -1,5 +1,5 @@
 import { getElement } from './wizard.js';
-import { avatarSvg } from './portraits.js';
+import { avatarWithRing } from './portraits.js';
 
 let map = null;
 let playerMarker = null;
@@ -34,13 +34,27 @@ export function recenter(pos) {
   if (map) map.panTo([pos.lat, pos.lng]);
 }
 
+// `wizard.shieldActive` is an optional display-only flag main.js attaches
+// before calling this (mirroring how `casterColor` is attached to
+// projectiles below) — map.js never imports combat.js to compute it itself,
+// keeping the map.js/combat.js boundary from docs/ARCHITECTURE.md intact.
+// iconSize/iconAnchor are sized to fit the ring + shield-bubble at their
+// largest (bubble present) so the marker never resizes/jumps when a shield
+// toggles on or off — only tune these by eye against the live map, not by
+// the numbers alone.
 export function updatePlayer(pos, wizard, onPlayerClick) {
   playerClickHandler = onPlayerClick;
+  const avatarHtml = avatarWithRing(wizard.avatar, getElement(wizard.element).color, {
+    hp: wizard.hp,
+    maxHP: wizard.maxHP,
+    ringColor: 'var(--mana)',
+    shieldActive: !!wizard.shieldActive,
+  });
   const icon = L.divIcon({
     className: 'wizard-marker player-marker',
-    html: `<div class="marker-avatar player-avatar">${avatarSvg(wizard.avatar, getElement(wizard.element).color)}</div><div class="marker-label">${wizard.name}</div>`,
-    iconSize: [50, 56],
-    iconAnchor: [25, 50],
+    html: `${avatarHtml}<div class="marker-label">${wizard.name}</div>`,
+    iconSize: [64, 84],
+    iconAnchor: [32, 74],
   });
   if (!playerMarker) {
     playerMarker = L.marker([pos.lat, pos.lng], { icon, zIndexOffset: 1000 }).addTo(map);
@@ -57,10 +71,14 @@ export function updatePlayer(pos, wizard, onPlayerClick) {
 export function updateSenseCircle(pos, radiusM) {
   if (!senseCircle) {
     senseCircle = L.circle([pos.lat, pos.lng], {
+      // #8a5cf6 was the pre-desaturation --purple accent, hardcoded here
+      // rather than read from the token, so it stayed neon-bright through
+      // the v1 mature-theme pass while every CSS-token color got muted.
+      // Matched to the current --purple (#5d4a99) instead.
       radius: radiusM,
-      color: '#8a5cf6',
+      color: '#5d4a99',
       weight: 1.5,
-      fillColor: '#8a5cf6',
+      fillColor: '#5d4a99',
       fillOpacity: 0.07,
       dashArray: '4 6',
     }).addTo(map);
@@ -76,11 +94,19 @@ export function renderNpcs(npcs, onNpcClick, selectedId) {
     seen.add(npc.id);
     const defeated = npc.hp <= 0;
     const selected = npc.id === selectedId;
-    const html = `
-      <div class="marker-avatar npc-avatar${defeated ? ' defeated' : ''}${selected ? ' selected' : ''}">${avatarSvg(npc.avatar, getElement(npc.element).color)}</div>
-      <div class="marker-hp"><div class="marker-hp-fill" style="width:${Math.max(0, (npc.hp / npc.maxHP) * 100)}%"></div></div>
-      <div class="marker-label">${npc.name}</div>`;
-    const icon = L.divIcon({ className: 'wizard-marker npc-marker', html, iconSize: [46, 58], iconAnchor: [23, 50] });
+    // The old separate `.marker-hp` sliver bar under the marker is gone —
+    // the ring above is now the HP gauge, so there's no need for two
+    // competing HP indicators on the same marker.
+    const wrapClass = [selected ? 'selected' : '', defeated ? 'defeated' : ''].filter(Boolean).join(' ');
+    const avatarHtml = avatarWithRing(npc.avatar, getElement(npc.element).color, {
+      hp: npc.hp,
+      maxHP: npc.maxHP,
+      ringColor: selected ? 'var(--gold)' : 'var(--pink)',
+      shieldActive: !!npc.shieldActive,
+      wrapClass,
+    });
+    const html = `${avatarHtml}<div class="marker-label">${npc.name}</div>`;
+    const icon = L.divIcon({ className: 'wizard-marker npc-marker', html, iconSize: [64, 84], iconAnchor: [32, 74] });
     if (!npcMarkers[npc.id]) {
       const m = L.marker([npc.position.lat, npc.position.lng], { icon }).addTo(map);
       m.on('click', (e) => {

@@ -85,12 +85,12 @@ what makes the combat logic testable without a browser (see
   id, name, avatar, element, isNPC, level, xp, xpToNext,
   maxHP, hp, maxMana, mana, power, defense, senseRange,
   manaRegenMs, castTimeMult,
-  // `avatar` is a portrait symbol id, e.g. "portrait-hood-a" or
-  // "portrait-hood-a:flip" (the `:flip` suffix means render mirrored via
-  // CSS, not separate art) — see js/portraits.js and the sprite `<symbol>`s
-  // in index.html. Rendered tinted by the wizard's element color; identity
-  // (self/NPC/selected) is still encoded by the container's ring color, not
-  // the portrait itself.
+  // `avatar` is a portrait symbol id, e.g. "portrait-hood-a" (5 distinct
+  // hand-authored symbols, no mirroring) — see js/portraits.js and the
+  // sprite `<symbol>`s in index.html. Rendered tinted by the wizard's
+  // element color; the ring around the portrait (js/portraits.js:
+  // avatarWithRing) encodes identity via its color (self/NPC/selected) AND
+  // current HP via its arc length (hp/maxHP) — one component, two signals.
   spells: ['spark_bolt', 'ward_shield', 'counterspell'],  // always these 3
   cooldowns: { [spellId]: readyAtTimestamp },
   shieldBuff: null | { mitigation, expiresAt },
@@ -119,6 +119,14 @@ element color), to a shallow copy of each projectile before handing them to
 `map.renderProjectiles` — a rendering-only addition, not part of the shape
 combat.js owns or persists, so map.js can color the projectile's glow orb
 without looking up wizards by id itself.
+
+The same pattern is used for `shieldActive`: `main.js:render()` computes
+`combat.isShieldActive(wizard, now)` fresh every render and attaches it to a
+shallow display-only copy of `world.player`/each NPC before passing to
+`map.updatePlayer`/`map.renderNpcs` and `ui.renderHud` — never written onto
+the real wizard object, since that gets `saveState()`'d every 2s and a
+derived boolean would otherwise persist as stale data. `js/portraits.js:
+avatarWithRing` reads it to render (or omit) the pulsing shield-bubble.
 
 ## The game loop
 

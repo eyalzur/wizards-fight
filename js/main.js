@@ -322,7 +322,15 @@ function buildNpcSheetData(npc, now) {
   else if (!inRange) reason = `Out of range (${Math.round(dist)}m away).`;
   else if (!cdReady) reason = 'Recharging.';
   else if (!canAfford) reason = 'Not enough mana.';
-  return { kind: 'npc', wizard: npc, atkSpell: ATTACK_SPELL, canAttack, reason, dist: Math.round(dist) };
+  return {
+    kind: 'npc',
+    wizard: npc,
+    atkSpell: ATTACK_SPELL,
+    canAttack,
+    reason,
+    dist: Math.round(dist),
+    shieldActive: combat.isShieldActive(npc, now),
+  };
 }
 
 function casterColorFor(casterId) {
@@ -354,15 +362,23 @@ function render() {
     if (!visible) world.openSheet = null;
   }
 
-  map.updatePlayer(player.position, player, onPlayerClick);
+  // `shieldActive` is derived fresh every render, not stored on world.player/
+  // npc directly — those objects get saveState()'d every 2s, so mutating them
+  // would persist a stale boolean. Same pattern as `casterColor` below.
+  const playerForDisplay = { ...player, shieldActive: combat.isShieldActive(player, now) };
+  map.updatePlayer(player.position, playerForDisplay, onPlayerClick);
   map.updateSenseCircle(player.position, player.senseRange);
-  map.renderNpcs(visibleNpcs, onNpcClick, world.openSheet?.kind === 'npc' ? world.openSheet.id : null);
+  map.renderNpcs(
+    visibleNpcs.map((n) => ({ ...n, shieldActive: combat.isShieldActive(n, now) })),
+    onNpcClick,
+    world.openSheet?.kind === 'npc' ? world.openSheet.id : null
+  );
   // map.js only renders — it doesn't look up wizards by id — so projectiles
   // get a `casterColor` field attached here (rendering-only, not part of
   // combat.js's persisted projectile shape) before being handed off.
   map.renderProjectiles(world.projectiles.map((p) => ({ ...p, casterColor: casterColorFor(p.casterId) })), now);
 
-  ui.renderHud(player);
+  ui.renderHud(playerForDisplay);
   ui.setSpeedLabel(world.timeScale > combat.TIME_SCALES.real ? '⚡ Fast' : '🐢 Real');
   ui.setRunesLabel(player.runes || 0);
   ui.renderLog(world.log);

@@ -3,11 +3,11 @@ import { randomPointInAnnulus } from './geo.js';
 import { uid, pick, randInt } from './utils.js';
 
 // NPCs don't go through the create-screen avatar picker, so they get a
-// portrait assigned directly here instead: one of the 3 distinct hood
-// artworks, optionally mirrored — the same serialized `wizard.avatar`
-// format js/ui.js's AVATARS choices produce (see js/portraits.js), picked
-// at random per NPC rather than tied to their element.
-const NPC_AVATARS = ['portrait-hood-a', 'portrait-hood-a:flip', 'portrait-hood-b', 'portrait-hood-c', 'portrait-hood-c:flip'];
+// portrait assigned directly here instead: one of the 5 distinct hood
+// artworks — the same serialized `wizard.avatar` format js/ui.js's AVATARS
+// choices produce (see js/portraits.js), picked at random per NPC rather
+// than tied to their element.
+const NPC_AVATARS = ['portrait-hood-a', 'portrait-hood-b', 'portrait-hood-c', 'portrait-hood-d', 'portrait-hood-e'];
 
 const FIRST = [
   'Zed', 'Miro', 'Talon', 'Fenn', 'Iggy', 'Puck', 'Ravi', 'Suri', 'Milo', 'Nix',

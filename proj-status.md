@@ -1,6 +1,6 @@
 # Wizards Fight — Project Status
 
-Last updated: 2026-09-27
+Last updated: 2026-09-29
 
 This file is the single source of truth for "what exists, what's next, and
 why we made the calls we made." Run `/resume-proj` to get a suggested next
@@ -105,6 +105,30 @@ see Roadmap).
 Short-form history of calls that shaped the current build, newest first.
 Keeps future planning from accidentally re-litigating settled questions
 without knowing why they were settled.
+
+- **2026-09-29 — Theme iteration 2: real 5th/6th avatar art, HP-as-ring,
+  Ward Shield map VFX, smaller popups.** Direct follow-up feedback on the
+  v1 pass above. (1) The 2 mirrored avatar slots from v1 were replaced with
+  2 new hand-authored hood artworks (`portrait-hood-d`/`-e`) — all 5
+  create-screen choices are now genuinely distinct art, no more
+  `scaleX(-1)` trick (user explicitly chose "more distinct artwork" over
+  "make it a separate screen" when asked). (2) Avatar-choice thumbnails on
+  the create screen grew 56px → 72px. (3) The colored identity ring around
+  every avatar (map marker, HUD, wizard sheet) now doubles as an HP gauge —
+  an SVG arc (`stroke-dasharray`/`stroke-dashoffset` sized to `hp/maxHP`)
+  drawn on top of a dim track, arc color still carrying the old identity
+  signal (self/NPC/selected); the NPC marker's separate `.marker-hp` sliver
+  bar was removed as redundant now that the ring does that job. (4) Ward
+  Shield now has a map-visible effect — a soft pulsing translucent bubble
+  behind the ring while `isShieldActive`, in the same purple the shield
+  button already uses, pure CSS (no extra render-loop work). (5) The wizard
+  sheet and incoming-attack (defend/counterspell) cards were both shrunk
+  further, on both the attack and defend flows, per explicit user ask — text
+  size floor held at 0.68rem so nothing in the actual attack/defend decision
+  path (countdown, reason, cost) got too small to read. Also fixed two
+  leftover pre-desaturation literals the v1 token pass missed because they
+  were hardcoded rather than reading a `:root` token: the create-screen
+  background bloom and the map's sense-range circle color.
 
 - **2026-09-27 — v1 "mature" visual theme pass, deliberately a first
   iteration.** User asked for a UI theme that "feels more mature," shows

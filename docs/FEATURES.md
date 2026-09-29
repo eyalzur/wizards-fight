@@ -9,10 +9,8 @@ it here too — this is the reference planning and QA both work from.
 Screen: `#screen-create` (`index.html`, `js/ui.js:initCreateScreen`).
 
 - **Name** — free text, max 16 characters, defaults to "Wizard" if blank.
-- **Avatar** — one of 5 hooded-figure portraits (SVG, no facial features by
-  design), tinted by your chosen element. Only 3 are distinct artwork; 2 of
-  the 5 choices are one of those 3 mirrored, so there are still 5 visibly
-  different picks. Cosmetic only.
+- **Avatar** — one of 5 distinct hooded-figure portraits (SVG, no facial
+  features by design), tinted by your chosen element. Cosmetic only.
 - **Element** — one of Fire, Ice, Lightning, Nature, Arcane. Sets base
   stats (below); does **not** change which spells you start with — every
   wizard, player or NPC, knows the same 3 spells (see Spells).
@@ -52,6 +50,11 @@ street/city data, styled dark to match the theme — see
 - Tapping a wizard marker (yours or an NPC's) does **not** also trigger a
   walk — click events on markers stop propagation before reaching the
   map's click handler.
+- **Identity + HP ring** — every avatar (map marker, HUD, wizard sheet) is
+  wrapped in a ring (`js/portraits.js:avatarWithRing`) that does two jobs at
+  once: its color is identity (self = mana blue, NPC = pink/garnet, selected
+  NPC = gold) and its arc length is `hp/maxHP` — it visibly depletes as a
+  wizard takes damage, readable at a glance without opening their sheet.
 
 ## Spells
 
@@ -76,6 +79,11 @@ single-use buff, it is **not consumed** by a hit — it reduces damage from
 every hit that lands while it's active, and only goes away when its
 2-minute timer runs out (`js/combat.js:isShieldActive`). Re-casting while
 already active refreshes the timer.
+
+While active, a soft pulsing bubble renders behind the wizard's ring on the
+map, HUD, and sheet (`js/portraits.js:avatarWithRing`'s `shieldActive`
+option, pure CSS animation) — visible to anyone who can see that wizard,
+not just to the shielded player.
 
 ### Counterspell (defend — reactive) 🌀
 `manaCost 14, cooldown 20s`
