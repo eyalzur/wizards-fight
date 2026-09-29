@@ -23,10 +23,12 @@ External dependencies, all loaded via CDN, no local copies:
 - **Leaflet** 1.9.4 (`cdnjs`) — the map engine, loaded as a classic
   global-`L` script tag (see `index.html`) since that's how Leaflet
   ships.
-- **CartoDB Dark Matter tiles** (`basemaps.cartocdn.com`) — the actual
-  map imagery (real OpenStreetMap data).
+- **Esri World Dark Gray Canvas tiles** (`server.arcgisonline.com`, base +
+  reference layers) — the actual map imagery (real OpenStreetMap-derived
+  data). Chosen because it's keyless; CartoDB's basemaps started requiring
+  an API key in 2026 (see `proj-status.md` Decisions Log).
 - Google Fonts: Cinzel (headings), Nunito (body).
-- **Firebase modular SDK** (`gstatic.com`, v10) — loaded as native ESM
+- **Firebase modular SDK** (`gstatic.com`, v12) — loaded as native ESM
   `import()` statements from inside `js/multiplayer.js`, not a
   `<script>` tag in `index.html`. Firebase's modular SDK is ESM-native
   (unlike Leaflet), and `js/multiplayer.js` is itself only ever loaded
@@ -118,6 +120,10 @@ a new coupling to Firebase; `combat.js` still has no import of
   shieldBuff: null | { mitigation, expiresAt },
   position: {lat, lng} | null,
   nextManaRegen, nextHpRegen,          // internal tick bookkeeping
+  // Runes & Powers (see docs/FEATURES.md) — carried on every wizard for
+  // shape consistency with xp/level, but only ever earned/spent by the
+  // player; NPCs keep these at 0 forever.
+  runes, spellPowerLevel, spellRecoveryLevel,
   // NPC only:
   temperament, nextAiCheck, defeated, respawnAt,
 }
@@ -320,6 +326,32 @@ committed. `docs/QA-CHECKLIST.md` captures what those scripts checked, in
 a form a human can run by hand. Turning that into a real committed test
 suite is on the roadmap.
 
+## Dev/testing tooling: `?qa=1`
+
+A `?qa=1` query param on `index.html` (e.g.
+`https://.../wizards-fight/?qa=1`) unlocks a "🧪 QA Tools" entry in the ☰
+menu, for the project owner to set up test states without grinding NPC
+kills. It is a developer tool, not a player-facing feature:
+
+- Checked once at boot in `main.js` (`new URLSearchParams(location.search).has('qa')`)
+  and never written to `localStorage` — it only applies to the page load it
+  was requested on, so it can't accidentally linger after testing.
+- When the flag is absent, none of the QA DOM is ever created (no menu
+  button, no panel element) — `js/ui.js:initQaTools`/`renderQaPanel` are
+  simply never called, rather than being created-then-hidden.
+- The panel (`js/ui.js:initQaTools`) lets you set the player's Rune balance
+  to an exact number (plus +100/+1000 quick-adds) and set
+  `spellPowerLevel`/`spellRecoveryLevel` directly via +/- steppers,
+  clamped to each upgrade's existing `maxLevel` (`js/wizard.js:setUpgradeLevel`)
+  — it can jump straight to the max/"Maxed" state but never past it, since
+  the cap itself needs to stay testable as a real boundary.
+- Every QA action goes through the same `saveState`/`render` path as a
+  normal purchase (`js/wizard.js:buyUpgrade`) — no separate storage
+  mechanism, no bypass of the persistence layer.
+- There is no item/inventory/equipment system in this codebase (see
+  `proj-status.md` Decisions Log on Runes & Powers), so QA mode has nothing
+  to grant beyond Runes and the two existing upgrade levels.
+
 ## Deployment
 
 Static site, GitHub Pages, **Source: Deploy from a branch → `main` →
@@ -332,3 +364,18 @@ Actions-based deploy path (for if the repo ever switches Pages Source to
 path — if you see it fail in the Actions tab, that's expected as long as
 Pages Source is set to "Deploy from a branch"; it isn't touching
 anything.
+
+## PR previews
+
+`.github/workflows/pr-preview.yml` (`rossjrw/pr-preview-action`) gives
+every open pull request its own live URL for review before merge:
+`https://eyalzur.github.io/wizards-fight/pr-preview/pr-<number>/`. It
+redeploys on every push to the PR and posts/updates a sticky comment with
+the link. Mechanically, this works by having the action commit the PR's
+files into a `pr-preview/pr-<number>/` folder **on `main` itself** (not a
+separate `gh-pages` branch) — the simplest option given Pages already
+serves the whole `main` tree and this project has no build step to keep
+a preview folder in sync with. The action removes that folder (another
+bot commit to `main`) when the PR closes. Practical effect: `main`'s
+history includes bot commits for preview deploy/teardown alongside real
+feature commits — expected, not a mistake if you see them in `git log`.

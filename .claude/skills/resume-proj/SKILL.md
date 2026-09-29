@@ -1,9 +1,9 @@
 ---
-name: check-proj
-description: Reads proj-status.md, the docs/ folder, and open GitHub issues for Wizards Fight, then suggests what to work on next. Use when the user runs /check-proj or asks "what should we work on".
+name: resume-proj
+description: Reads proj-status.md, the docs/ folder, and open GitHub issues for Wizards Fight, then suggests what to work on next. Use when the user runs /resume-proj or asks "what should we work on".
 ---
 
-# /check-proj
+# /resume-proj
 
 Give the user a quick, honest status read and a concrete recommendation
 for what to do next — not an exhaustive report. This should take one pass

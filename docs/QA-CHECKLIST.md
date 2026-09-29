@@ -81,6 +81,33 @@ stale.
 - [ ] Player defeat shows the "Defeated!" overlay, blocks movement and
       casting for ~4s, then respawns at 60% HP/mana with a log message.
 
+## Runes & Powers
+
+- [ ] Defeating an NPC logs a `🔮 You gain {n} Runes.` line right after the
+      existing `⭐ You gain {n} XP.` line, with matching `n` (`15 +
+      npcLevel × 5`).
+- [ ] ☰ menu's `🔮 Runes: {n}` button always shows the live balance and
+      updates immediately after a kill.
+- [ ] Clicking it opens the `#powers-panel` bottom sheet (dark skin, gold
+      top border — not the log's parchment theme) showing the balance and
+      two power-cards (Spell Power, Spell Recovery).
+- [ ] Each card shows the correct level (`Lv.N/3`), effect text (`+N%
+      damage` / `N.Ns cooldown`), and either an enabled "⬆ Upgrade {cost}🔮"
+      button or a disabled one with "Need {shortfall} more Runes" — check
+      both affordable and unaffordable states.
+- [ ] Buying an upgrade debits the exact cost, increments the level, and
+      updates the displayed effect and next cost (costs follow `round(base
+      × 1.5^purchasesSoFar)` — see `docs/FEATURES.md` for the exact
+      numbers).
+- [ ] After 3 purchases, a card shows "✨ Maxed" with no upgrade button —
+      verify there's no way to buy a 4th.
+- [ ] A purchased Spell Power level visibly changes Spark Bolt's logged
+      damage number; a purchased Spell Recovery level visibly changes the
+      time between casts, not just the sheet's displayed cooldown text.
+- [ ] Reload mid-game preserves `runes`/`spellPowerLevel`/
+      `spellRecoveryLevel` (they're part of the player's persisted wizard).
+- [ ] NPCs never show a Runes balance or gain Runes on anything.
+
 ## Speed toggle & menu
 
 - [ ] ☰ opens the menu; each item (Fullscreen, Speed, Spell Log, New

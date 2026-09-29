@@ -3,7 +3,7 @@
 Last updated: 2026-09-26
 
 This file is the single source of truth for "what exists, what's next, and
-why we made the calls we made." Run `/check-proj` to get a suggested next
+why we made the calls we made." Run `/resume-proj` to get a suggested next
 task based on this file plus any open GitHub issues.
 
 See also: [`docs/FEATURES.md`](docs/FEATURES.md) (what the game does),
@@ -55,9 +55,17 @@ on top of it when the repo owner has a Firebase project configured (see
 - **Progression** — XP on NPC kill, leveling grows stats and heals you.
   Player defeat is a soft penalty (4s downtime, respawn at 60% HP/mana) —
   no permadeath.
-- **Persistence** — wizard + NPCs + spawn point + speed setting saved to
-  `localStorage`. No accounts, nothing leaves the browser except the
-  optional multiplayer sync below.
+- **Runes & Powers** — a second, ongoing earn-and-spend currency (🔮
+  Runes) alongside XP: every NPC kill grants Runes using the same formula
+  as XP. Runes buy permanent, capped, non-refundable upgrades to two
+  attributes — Spell Power (+5%/level Spark Bolt damage, cap Lv.3/+15%)
+  and Spell Recovery (−0.1s/level Spark Bolt cooldown, cap Lv.3/1.2s) —
+  from a new "🔮 Runes & Powers" bottom sheet (☰ menu). Player-only; NPCs
+  don't earn or spend Runes. See `docs/FEATURES.md` for exact numbers.
+- **Persistence** — wizard (including Runes balance and Powers levels) +
+  NPCs + spawn point + speed setting saved to `localStorage`. No
+  accounts, nothing leaves the browser except the optional multiplayer
+  sync below.
 - **Multiplayer (optional, needs the repo owner's own Firebase project)**
   — real players' wizards appear on the map like NPCs (last-synced
   position, sense-range gated, distinct purple-badge marker), with a
@@ -96,7 +104,7 @@ on top of it when the repo owner has a Firebase project configured (see
   an actual multi-minute play session end-to-end — only under the Fast
   test multiplier.
 
-## Roadmap (unordered backlog — `/check-proj` helps prioritize)
+## Roadmap (unordered backlog — `/resume-proj` helps prioritize)
 
 - Reintroduce element-specific attack spells (Fireball, Frost Shard,
   Thunder Jab, Thornwhip) and a heal spell (Minor Renewal), now that the
@@ -168,6 +176,42 @@ without knowing why they were settled.
   the Google Maps API key below, just for a feature that's shipping
   instead of one that got swapped out. Without that setup the game runs
   exactly as it did before, single-player only.
+- **2026-09-26 — Runes & Powers shipped as a deliberately narrow first
+  iteration.** Added an ongoing earn-and-spend currency (Runes, on top of
+  the existing one-time XP/level track) that buys permanent Spell Power/
+  Spell Recovery upgrades. Scope was cut on purpose, not by oversight:
+  **no equipment/inventory/carrying-capacity** (a bigger system that needs
+  its own product pass, not something to bolt on here); **no sell-back or
+  respec** (permanent purchases keep the mechanic simple — revisit only if
+  players get stuck with buyer's-remorse complaints); **per-attribute
+  caps, not a shared pool** (explicit call over a shared-pool alternative,
+  so maxing one attribute never limits the other); **only 2 attributes**
+  (Spell Power/Recovery), not range or Ward Shield timing (kept the first
+  iteration's blast radius small — those are natural next attributes to
+  add, not a signal they were rejected). Future planning on
+  currency/progression should treat these as this iteration's intentional
+  boundaries, not gaps to "finally" fix.
+- **2026-09-26 — PR preview deploys added, not an external host.** Wanted
+  a way to review a feature live before it hits `main`/production.
+  Considered Netlify/Vercel-style deploy previews, but those need a new
+  external account, which cuts against the "no backend, no extra
+  services" constraint. Used `rossjrw/pr-preview-action` instead: each PR
+  gets a real `eyalzur.github.io/wizards-fight/pr-preview/pr-<n>/` URL,
+  commented on the PR, torn down on close — no new account, stays inside
+  GitHub. Trade-off: it works by committing preview folders directly onto
+  `main` (see `docs/ARCHITECTURE.md` PR previews), so `main`'s history now
+  includes bot commits for preview deploy/teardown, not just feature work.
+- **2026-09-26 — Map tiles switched from CartoDB to Esri (keyless).**
+  CartoDB's free anonymous basemap tiles (`basemaps.cartocdn.com`) started
+  requiring an API key partway through 2026, so the live map rendered
+  with an "API KEY REQUIRED" watermark burned into every tile instead of
+  real streets. Same problem this project already rejected Google Maps
+  over (see the tile-provider decision below): a key only the repo owner
+  can provision breaks the "static site, no backend, no accounts"
+  constraint for anyone else running the code. Switched to Esri's World
+  Dark Gray Canvas tiles (base + reference layers for labels), which are
+  free and keyless. Visual style is close to the previous CartoDB Dark
+  Matter look; not pixel-identical.
 - **2026-09-26 — Combat UX rework.** Replaced the always-on spellbook
   dock + separate target-card with a single tap-to-open "wizard sheet"
   per wizard. Split defense into two mechanics (Ward Shield = proactive

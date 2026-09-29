@@ -276,7 +276,11 @@ html, body {
 
 /* Defend overlay */
 .defend-overlay {
-  position: absolute; top: 10px; left: 12px; right: 12px; z-index: 700;
+  /* Anchored below #hud (same ~56px reference point .menu-panel already
+     uses), not the screen's own top edge — it used to sit at top:10px of
+     #screen-game, which is the HUD's own top edge, so it rendered directly
+     over the wizard name/HP/mana bar instead of below it. */
+  position: absolute; top: 66px; left: 12px; right: 12px; z-index: 700;
   display: flex; flex-direction: column; gap: 8px;
 }
 .defend-overlay.hidden { display: none; }
@@ -296,6 +300,7 @@ html, body {
   background: var(--gold); color: #241448; font-weight: 800; font-size: 0.85rem;
 }
 .defend-btn.disabled { opacity: 0.4; pointer-events: none; }
+.defend-reason { margin-top: 6px; font-size: 0.78rem; color: var(--text-dim); text-align: center; }
 
 /* Down overlay */
 .down-overlay {
@@ -342,6 +347,75 @@ html, body {
 }
 .log-list { overflow-y: auto; padding: 8px 14px 14px; }
 .log-entry { font-size: 0.85rem; padding: 4px 0; border-bottom: 1px dashed rgba(58,42,26,0.15); }
+
+/* Powers panel (🔮 Runes & Powers, opened from the ☰ menu) — dark
+   sheet-panel skin with a gold top border, deliberately NOT the log
+   panel's parchment theme (this is a wizard-facing stats screen, not lore). */
+.powers-panel {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 850;
+  max-height: 70vh; overflow-y: auto;
+  background: var(--bg-panel); color: var(--text);
+  border: 1px solid var(--gold); border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.55);
+}
+.powers-panel.hidden { display: none; }
+.powers-header {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-head); font-weight: 700; font-size: 1.05rem;
+  margin-bottom: 6px;
+}
+.powers-close {
+  width: 28px; height: 28px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,0.08); color: var(--text); cursor: pointer; font-size: 0.9rem;
+}
+.powers-balance { color: var(--gold-soft); font-weight: 700; margin-bottom: 12px; }
+.powers-cards { display: flex; flex-direction: column; gap: 12px; }
+.power-card {
+  background: var(--bg-panel-2); border-radius: 14px; padding: 12px 14px;
+  border: 1px solid rgba(226,177,60,0.2);
+}
+.power-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.power-icon { font-size: 1.4rem; }
+.power-name { font-weight: 800; }
+.power-desc { font-size: 0.78rem; color: var(--text-dim); }
+.power-status { font-size: 0.85rem; color: var(--gold-soft); font-weight: 700; margin-bottom: 8px; }
+.power-buy {
+  width: 100%; padding: 10px; border-radius: 12px; border: none; cursor: pointer;
+  font-family: var(--font-head); font-weight: 700; font-size: 0.9rem;
+  color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+}
+.power-buy.disabled { opacity: 0.4; pointer-events: none; }
+.power-reason { margin-top: 6px; font-size: 0.75rem; color: var(--text-dim); text-align: center; }
+.power-maxed {
+  text-align: center; font-weight: 800; color: var(--gold-soft);
+  padding: 8px; border-radius: 12px; background: rgba(226,177,60,0.12);
+}
+
+/* QA/dev tools panel (?qa=1 only — see docs/ARCHITECTURE.md). Reuses the
+   powers-panel shell; only the innards below are QA-specific. */
+.qa-current-runes { color: var(--gold-soft); font-weight: 700; margin-bottom: 12px; }
+.qa-section {
+  background: var(--bg-panel-2); border-radius: 14px; padding: 12px 14px;
+  border: 1px solid rgba(226,177,60,0.2); margin-bottom: 12px;
+}
+.qa-label { display: block; font-size: 0.78rem; color: var(--text-dim); margin-bottom: 6px; }
+.qa-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.qa-row:first-of-type { margin-top: 0; }
+.qa-row input[type="number"] {
+  flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.15); background: var(--bg-panel);
+  color: var(--text); font-family: var(--font-body); font-size: 0.9rem;
+}
+.qa-row .power-buy { flex: 1; padding: 8px 10px; font-size: 0.85rem; }
+.qa-step {
+  width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
+  font-family: var(--font-head); font-weight: 700; font-size: 1.1rem;
+  color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+}
+.qa-step.disabled { opacity: 0.35; pointer-events: none; }
+.qa-level-value { flex: 1; text-align: center; font-weight: 800; color: var(--gold-soft); }
 
 @media (min-width: 720px) {
   .create-card { max-width: 560px; }

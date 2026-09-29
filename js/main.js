@@ -1,5 +1,5 @@
 import { loadState, saveState, clearState } from './state.js';
-import { ELEMENTS, createWizard } from './wizard.js';
+import { ELEMENTS, createWizard, POWER_UPGRADE, RECOVERY_UPGRADE, upgradeCost, canUpgrade, buyUpgrade, spellCooldownSeconds, setUpgradeLevel } from './wizard.js';
 import { createNpc } from './npc.js';
 import { getSpell } from './spells.js';
 import * as geo from './geo.js';
@@ -17,6 +17,11 @@ const DEFAULT_CENTER = { lat: 40.758, lng: -73.9855 }; // fallback demo spot if 
 const NPC_COUNT = 9;
 const ATTACK_SPELL = getSpell('spark_bolt');
 const SHIELD_SPELL = getSpell('ward_shield');
+
+// Dev/testing tool, gated behind a URL flag, checked once at boot — never
+// persisted, so it only applies to the page load it was requested on (see
+// docs/ARCHITECTURE.md "Dev/testing tooling: ?qa=1").
+const QA_MODE = new URLSearchParams(location.search).has('qa');
 
 let world = null;
 let lastSaveAt = 0;
@@ -83,6 +88,10 @@ function startGame(player, center) {
 }
 
 function resumeGame(saved) {
+  // Defensive defaults for saves written before Runes & Powers existed.
+  saved.player.runes = saved.player.runes || 0;
+  saved.player.spellPowerLevel = saved.player.spellPowerLevel || 0;
+  saved.player.spellRecoveryLevel = saved.player.spellRecoveryLevel || 0;
   world = {
     player: saved.player,
     npcs: saved.npcs || [],
@@ -122,6 +131,7 @@ function boot() {
       saveState(world);
       render();
     },
+    onPowersToggle: ui.togglePowersPanel,
     onLogToggle: ui.toggleLog,
     onReset: () => {
       if (window.confirm('Start over with a brand new wizard? This erases your current wizard.')) {
@@ -130,6 +140,14 @@ function boot() {
       }
     },
   });
+  if (QA_MODE) {
+    ui.initQaTools({
+      onSetRunes: onQaSetRunes,
+      onAddRunes: onQaAddRunes,
+      onSetPowerLevel: onQaSetPowerLevel,
+      onSetRecoveryLevel: onQaSetRecoveryLevel,
+    });
+  }
   setInterval(gameTick, 250);
   render();
   bootstrapMultiplayer();
@@ -289,6 +307,86 @@ function onCounterspell(projectileId) {
   render();
 }
 
+function onBuyPower() {
+  const res = buyUpgrade(POWER_UPGRADE, world.player);
+  ui.toast(res.ok ? '💥 Spell Power increased!' : res.reason);
+  saveState(world);
+  render();
+}
+
+function onBuyRecovery() {
+  const res = buyUpgrade(RECOVERY_UPGRADE, world.player);
+  ui.toast(res.ok ? '⏳ Spell Recovery increased!' : res.reason);
+  saveState(world);
+  render();
+}
+
+// ---------- QA/dev tooling (?qa=1 only) ----------
+// Sets the exact value typed/clicked, still going through the same
+// saveState/render path as a normal purchase — no separate storage.
+function onQaSetRunes(n) {
+  world.player.runes = Math.max(0, Math.round(n) || 0);
+  saveState(world);
+  render();
+}
+
+function onQaAddRunes(n) {
+  world.player.runes = Math.max(0, (world.player.runes || 0) + n);
+  saveState(world);
+  render();
+}
+
+function onQaSetPowerLevel(level) {
+  setUpgradeLevel(POWER_UPGRADE, world.player, level);
+  saveState(world);
+  render();
+}
+
+function onQaSetRecoveryLevel(level) {
+  setUpgradeLevel(RECOVERY_UPGRADE, world.player, level);
+  saveState(world);
+  render();
+}
+
+function buildQaData() {
+  const player = world.player;
+  return {
+    runes: player.runes || 0,
+    power: { level: player.spellPowerLevel || 0, maxLevel: POWER_UPGRADE.maxLevel, label: POWER_UPGRADE.label, icon: POWER_UPGRADE.icon },
+    recovery: { level: player.spellRecoveryLevel || 0, maxLevel: RECOVERY_UPGRADE.maxLevel, label: RECOVERY_UPGRADE.label, icon: RECOVERY_UPGRADE.icon },
+  };
+}
+
+function buildUpgradeCardData(upgrade, effectText) {
+  const player = world.player;
+  const maxed = !canUpgrade(upgrade, player);
+  const cost = maxed ? null : upgradeCost(upgrade, player);
+  const canAfford = !maxed && (player.runes || 0) >= cost;
+  return {
+    icon: upgrade.icon,
+    name: upgrade.label,
+    desc: upgrade.desc,
+    level: player[upgrade.field] || 0,
+    maxLevel: upgrade.maxLevel,
+    effectText,
+    maxed,
+    cost,
+    canAfford,
+    shortfall: maxed ? 0 : Math.max(0, cost - (player.runes || 0)),
+  };
+}
+
+function buildPowersData() {
+  const player = world.player;
+  const powerPct = Math.round((player.spellPowerLevel || 0) * POWER_UPGRADE.perLevelBonus * 100);
+  const cooldownS = +spellCooldownSeconds(ATTACK_SPELL.cooldown, player).toFixed(1);
+  return {
+    runes: player.runes || 0,
+    power: buildUpgradeCardData(POWER_UPGRADE, `+${powerPct}% damage`),
+    recovery: buildUpgradeCardData(RECOVERY_UPGRADE, `${cooldownS}s cooldown`),
+  };
+}
+
 function buildSelfSheetData(now) {
   const p = world.player;
   const shieldActive = combat.isShieldActive(p, now);
@@ -386,7 +484,12 @@ function render() {
 
   ui.renderHud(player);
   ui.setSpeedLabel(world.timeScale > combat.TIME_SCALES.real ? '⚡ Fast' : '🐢 Real');
+  ui.setRunesLabel(player.runes || 0);
   ui.renderLog(world.log);
+  ui.renderPowersPanel(buildPowersData(), { onBuyPower, onBuyRecovery });
+  if (QA_MODE) {
+    ui.renderQaPanel(buildQaData(), { onSetPowerLevel: onQaSetPowerLevel, onSetRecoveryLevel: onQaSetRecoveryLevel });
+  }
 
   let sheetData = null;
   if (world.openSheet?.kind === 'self') sheetData = buildSelfSheetData(now);

@@ -1,6 +1,6 @@
 import { getSpell } from './spells.js';
 import { distanceMeters } from './geo.js';
-import { growLevel } from './wizard.js';
+import { growLevel, spellPowerMultiplier, spellCooldownSeconds } from './wizard.js';
 import { respawnNpc } from './npc.js';
 import { uid, log, pick, randRange } from './utils.js';
 
@@ -35,7 +35,9 @@ export function castAttack(caster, target, spellId, world, now) {
     return { ok: false, reason: `${target.name} is out of range for ${spell.name}.` };
   }
   caster.mana -= spell.manaCost;
-  caster.cooldowns[spell.id] = now + spell.cooldown * 1000;
+  // Spell Recovery (Runes & Powers, see wizard.js) permanently shaves time
+  // off the caster's own cooldown for whatever attack spell they cast.
+  caster.cooldowns[spell.id] = now + spellCooldownSeconds(spell.cooldown, caster) * 1000;
   const castMs = spell.castTime * 1000 * (caster.castTimeMult || 1);
   // Casts against a real player always travel at real speed, regardless of
   // the local Fast/Real testing toggle — a device's own speed preference
@@ -132,7 +134,10 @@ function resolveImpact(world, projectile, now) {
       casterId: world.myUid || (caster ? caster.id : 'unknown'),
       casterName: caster ? caster.name : 'A rival wizard',
       spellId: projectile.spellId,
-      casterPower: caster ? caster.power : 1,
+      // Includes the caster's Spell Power Rune bonus (see spellPowerMultiplier
+      // in wizard.js) — only the caster's own device knows that multiplier,
+      // so it has to be baked in here rather than recomputed by the target.
+      casterPower: caster ? caster.power * spellPowerMultiplier(caster) : 1,
       impactAt: now,
     });
     log(world, `${spell.icon} ${spell.name} rockets into the distance toward ${projectile.targetName || 'your rival'} — it should strike home any moment now.`);
@@ -144,7 +149,10 @@ function resolveImpact(world, projectile, now) {
     log(world, `The ${spell.name} fizzles out — no one left to strike.`);
     return;
   }
-  let dmg = Math.max(1, Math.round(spell.power * (caster ? caster.power : 1) - (target.defense || 0)));
+  // Spell Power (Runes & Powers, see wizard.js) permanently multiplies the
+  // caster's own `power` stat, the same way it already multiplies spell.power.
+  const powerMult = caster ? caster.power * spellPowerMultiplier(caster) : 1;
+  let dmg = Math.max(1, Math.round(spell.power * powerMult - (target.defense || 0)));
   let note = '';
   if (isShieldActive(target, now)) {
     dmg = Math.round(dmg * (1 - target.shieldBuff.mitigation));
@@ -194,6 +202,11 @@ function handleDefeat(world, wizard, killer, now) {
       const xpGain = 15 + wizard.level * 5;
       killer.xp += xpGain;
       log(world, `⭐ You gain ${xpGain} XP.`);
+      // Runes mirror the XP formula exactly (same defeated-NPC level) — see
+      // docs/FEATURES.md "Runes & Powers" for why they're a separate track.
+      const runeGain = xpGain;
+      killer.runes = (killer.runes || 0) + runeGain;
+      log(world, `🔮 You gain ${runeGain} Runes.`);
       checkLevelUp(world, killer);
     }
   } else {
