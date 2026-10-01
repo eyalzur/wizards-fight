@@ -86,7 +86,8 @@ rather than waiting for the spell's scheduled impact
 ## Speed setting (Fast / Real)
 
 ☰ menu → ⚡/🐢 toggle. Multiplies Spark Bolt's travel speed by 30x when
-"Fast" (default), 1x when "Real". Only travel time is scaled — cast time,
+"Fast", 1x when "Real" (**Real is the default for new wizards**; existing
+saves keep their stored setting). Only travel time is scaled — cast time,
 cooldowns, mana regen, and NPC aggression timing are unaffected. Persisted
 to `localStorage` (`world.timeScale`).
 
@@ -152,16 +153,17 @@ not tuned from play data.**
   (disabled and labelled "Filling…" while the pot is under 1).
 - **Fast scales income:** while the page is open and ⚡ Fast is on, income is
   multiplied by 30 (the multiplier is applied as time passes, never at
-  collect time, so toggling Fast cannot retroactively change the pot). **Fast
-  is the default speed, so a brand-new wizard currently earns at ×30**
-  (about 285 💎/min at level 1); the Treasury card says so in pink. Time the
+  collect time, so toggling Fast cannot retroactively change the pot). **New
+  wizards start at Real (1x)**: about 9.5 💎/min at level 1, so the first
+  wand (100 💎) takes roughly 10 minutes. Fast stays a toggle (about 285
+  💎/min at level 1); the Treasury card says so in pink. Time the
   page was closed (or a tab was throttled/asleep: any tick gap over 2s)
   accrues at the Real rate only. A clock set backwards earns nothing for
   that gap. The pot is saved with a timestamp so income continues across
   reloads.
 - **Kill bonus:** defeating an NPC adds `3 + npcLevel` 💎 straight to your
   balance (not the pot, not scaled by Fast).
-- **Shop** (wizard sheet → 🛍️ Crystal Shop, or ☰ → 💎 Shop): one equipped
+- **Shop** (wizard sheet → 🛍️ icon button, or ☰ → 💎 Shop): one equipped
   item per slot, strict tier order within a slot, no downgrades, full price,
   no refunds. Buying is two taps ("Tap again to buy" for 3s) and the item is
   equipped immediately. Gear modifiers are added on top of element and level
