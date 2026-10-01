@@ -48,7 +48,11 @@ pass — see "When to use an agent" below.
    If the change reverses or complicates an earlier decision, add a line
    to the Decisions Log — future planning depends on knowing *why*, not
    just *what*.
-8. **Deploy.** Push to `main`. It's live within a minute or two.
+8. **Review it live before merging.** Open a PR — it gets its own preview
+   URL automatically (commented on the PR, see `docs/ARCHITECTURE.md` PR
+   previews) so the change can be clicked through for real, on the actual
+   deployed page, before it reaches production.
+9. **Deploy.** Merge to `main`. It's live within a minute or two.
 
 ## Bug workflow
 
@@ -71,13 +75,14 @@ pass — see "When to use an agent" below.
    fixed is worth one line in `proj-status.md`'s Decisions Log if the fix
    changed a documented behavior or number; a pure implementation bug
    (typo, off-by-one) with no behavior change isn't worth logging.
-6. **Deploy.** Push to `main`.
+6. **Deploy.** Open a PR to eyeball the fix on its preview URL (see
+   Feature workflow step 8), then merge to `main`.
 
 ## When to use an agent
 
 - **`product-designer`** — before building anything where "should we even
   do this" is a real question, or when the roadmap needs re-prioritizing.
-  This is also what `/check-proj` leans on for its recommendation.
+  This is also what `/resume-proj` leans on for its recommendation.
 - **`ui-designer`** — before any new screen, panel, or interaction
   pattern; also useful as a second opinion on whether a UI change fits
   the established theme before it's built.

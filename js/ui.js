@@ -1,11 +1,25 @@
 import { getSpell } from './spells.js';
+import { getElement } from './wizard.js';
+import { avatarSvg, avatarWithRing } from './portraits.js';
 
-const AVATARS = ['🧙‍♂️', '🧙‍♀️', '🧙', '🧝‍♂️', '🧝‍♀️'];
+// 5 selectable looks, now 5 genuinely distinct hood artworks (see
+// index.html's sprite sheet) — this used to be only 3 distinct pieces of
+// art with 2 of the 5 choices being a `scaleX(-1)` mirror of another; that
+// read as a thin trick rather than 5 real choices, so d/e were added as
+// their own silhouettes instead. `id` is what's actually stored as
+// `wizard.avatar` (see js/portraits.js for the serialization).
+const AVATARS = [
+  { id: 'portrait-hood-a', symbol: 'portrait-hood-a', flip: false },
+  { id: 'portrait-hood-b', symbol: 'portrait-hood-b', flip: false },
+  { id: 'portrait-hood-c', symbol: 'portrait-hood-c', flip: false },
+  { id: 'portrait-hood-d', symbol: 'portrait-hood-d', flip: false },
+  { id: 'portrait-hood-e', symbol: 'portrait-hood-e', flip: false },
+];
 
 export function initCreateScreen(elements, onSubmit) {
   const avatarWrap = document.getElementById('avatar-options');
   avatarWrap.innerHTML = AVATARS.map(
-    (a, i) => `<label class="avatar-choice"><input type="radio" name="avatar" value="${a}" ${i === 0 ? 'checked' : ''}><span>${a}</span></label>`
+    (a, i) => `<label class="avatar-choice"><input type="radio" name="avatar" value="${a.id}" ${i === 0 ? 'checked' : ''}><span>${avatarSvg(a.id)}</span></label>`
   ).join('');
 
   const elWrap = document.getElementById('element-options');
@@ -13,7 +27,7 @@ export function initCreateScreen(elements, onSubmit) {
     .map(
       (e, i) => `<label class="element-choice" style="--el-color:${e.color}">
         <input type="radio" name="element" value="${e.id}" ${i === 0 ? 'checked' : ''}>
-        <span class="element-icon">${e.icon}</span>
+        <svg class="element-icon"><use href="#${e.symbolId}"></use></svg>
         <span class="element-label">${e.label}</span>
         <span class="element-desc">${e.desc}</span>
       </label>`
@@ -27,7 +41,7 @@ export function initCreateScreen(elements, onSubmit) {
     document.documentElement.requestFullscreen?.().catch(() => {});
     const fd = new FormData(ev.target);
     const name = (fd.get('name') || '').toString().trim().slice(0, 16) || 'Wizard';
-    const avatar = fd.get('avatar') || '🧙';
+    const avatar = fd.get('avatar') || 'portrait-hood-a';
     const elementId = fd.get('element') || 'fire';
     onSubmit({ name, avatar, elementId });
   });
@@ -38,7 +52,7 @@ export function showGameScreen() {
   document.getElementById('screen-game').classList.add('active');
 }
 
-export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onLogToggle, onReset, onShop, onGemsTap }) {
+export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onPowersToggle, onLogToggle, onReset, onShop, onGemsTap }) {
   document.getElementById('btn-locate').addEventListener('click', onLocate);
 
   const menuPanel = document.getElementById('menu-panel');
@@ -46,6 +60,7 @@ export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onLogToggle, on
     <button id="menu-fullscreen">⛶ Fullscreen</button>
     <button id="menu-shop">💎 Shop</button>
     <button id="menu-speed">⚡ Fast</button>
+    <button id="menu-powers">🔮 Runes: 0</button>
     <button id="menu-log">📜 Spell Log</button>
     <button id="menu-reset" class="menu-danger">🔄 New Wizard</button>
   `;
@@ -60,6 +75,10 @@ export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onLogToggle, on
   });
   document.getElementById('hud-gems').addEventListener('click', onGemsTap);
   document.getElementById('menu-speed').addEventListener('click', onSpeedToggle);
+  document.getElementById('menu-powers').addEventListener('click', () => {
+    onPowersToggle();
+    menuPanel.classList.add('hidden');
+  });
   document.getElementById('menu-log').addEventListener('click', () => {
     onLogToggle();
     menuPanel.classList.add('hidden');
@@ -71,6 +90,9 @@ export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onLogToggle, on
   document.getElementById('btn-log-close').addEventListener('click', () => {
     document.getElementById('log-panel').classList.add('hidden');
   });
+  document.getElementById('btn-powers-close').addEventListener('click', () => {
+    document.getElementById('powers-panel').classList.add('hidden');
+  });
 }
 
 export function setSpeedLabel(text) {
@@ -78,8 +100,145 @@ export function setSpeedLabel(text) {
   if (el) el.textContent = text;
 }
 
+export function setRunesLabel(n) {
+  const el = document.getElementById('menu-powers');
+  if (el) el.textContent = `🔮 Runes: ${n}`;
+}
+
+// The bottom-sheet panels (log, powers, and — QA-mode-only — qa) all sit in
+// the same screen area at the same z-index, so leaving one open while
+// opening another would visually stack them and let the hidden one's DOM
+// intercept clicks meant for the one on top. Only one is ever shown at a
+// time; `qa-panel` is looked up defensively since it doesn't exist outside
+// ?qa=1.
+function closeAllBottomPanels() {
+  document.getElementById('log-panel').classList.add('hidden');
+  document.getElementById('powers-panel').classList.add('hidden');
+  document.getElementById('qa-panel')?.classList.add('hidden');
+}
+
+function toggleBottomPanel(id) {
+  const panel = document.getElementById(id);
+  const wasHidden = panel.classList.contains('hidden');
+  closeAllBottomPanels();
+  if (wasHidden) panel.classList.remove('hidden');
+}
+
 export function toggleLog() {
-  document.getElementById('log-panel').classList.toggle('hidden');
+  toggleBottomPanel('log-panel');
+}
+
+export function togglePowersPanel() {
+  toggleBottomPanel('powers-panel');
+}
+
+// Two stacked power-cards (Spell Power, Spell Recovery) inside #powers-panel.
+// `data` is plain numbers/strings computed by main.js from wizard.js's
+// upgrade helpers — this function only renders and wires clicks.
+export function renderPowersPanel(data, callbacks) {
+  document.getElementById('powers-balance').innerHTML = `Balance: <strong>${data.runes}</strong> 🔮 Runes`;
+  const cardsEl = document.getElementById('powers-cards');
+  cardsEl.innerHTML = renderPowerCard(data.power, 'btn-buy-power') + renderPowerCard(data.recovery, 'btn-buy-recovery');
+  if (!data.power.maxed && data.power.canAfford) {
+    document.getElementById('btn-buy-power').addEventListener('click', callbacks.onBuyPower);
+  }
+  if (!data.recovery.maxed && data.recovery.canAfford) {
+    document.getElementById('btn-buy-recovery').addEventListener('click', callbacks.onBuyRecovery);
+  }
+}
+
+function renderPowerCard(card, btnId) {
+  return `
+    <div class="power-card">
+      <div class="power-card-head">
+        <span class="power-icon">${card.icon}</span>
+        <div>
+          <div class="power-name">${card.name}</div>
+          <div class="power-desc">${card.desc}</div>
+        </div>
+      </div>
+      <div class="power-status">Lv.${card.level}/${card.maxLevel} · ${card.effectText}</div>
+      ${
+        card.maxed
+          ? `<div class="power-maxed">✨ Maxed</div>`
+          : `<button id="${btnId}" class="power-buy${card.canAfford ? '' : ' disabled'}">⬆ Upgrade ${card.cost}🔮</button>
+             ${!card.canAfford ? `<div class="power-reason">Need ${card.shortfall} more Runes</div>` : ''}`
+      }
+    </div>`;
+}
+
+// ---------- QA/dev tooling (?qa=1 only — see docs/ARCHITECTURE.md) ----------
+// initQaTools is only ever called by main.js when the ?qa=1 flag is set, so
+// when it isn't, none of this DOM ever gets created — no menu entry, no
+// panel, nothing to find by inspecting the page.
+export function initQaTools(callbacks) {
+  const menuPanel = document.getElementById('menu-panel');
+  const menuBtn = document.createElement('button');
+  menuBtn.id = 'menu-qa';
+  menuBtn.textContent = '🧪 QA Tools';
+  menuPanel.appendChild(menuBtn);
+  menuBtn.addEventListener('click', () => {
+    toggleBottomPanel('qa-panel');
+    menuPanel.classList.add('hidden');
+  });
+
+  const panel = document.createElement('div');
+  panel.id = 'qa-panel';
+  panel.className = 'powers-panel hidden';
+  panel.innerHTML = `
+    <div class="powers-header">🧪 QA Tools <button id="qa-close" class="powers-close">✕</button></div>
+    <div class="qa-current-runes" id="qa-current-runes"></div>
+    <div class="qa-section">
+      <label class="qa-label">Set Runes to exactly</label>
+      <div class="qa-row">
+        <input id="qa-runes-input" type="number" min="0" step="1" placeholder="e.g. 500" />
+        <button id="qa-runes-set" class="power-buy">Set</button>
+      </div>
+      <div class="qa-row">
+        <button id="qa-runes-add-100" class="power-buy">+100</button>
+        <button id="qa-runes-add-1000" class="power-buy">+1000</button>
+        <button id="qa-runes-infinite" class="power-buy">♾️ Infinite</button>
+      </div>
+    </div>
+    <div class="qa-section" id="qa-power-row"></div>
+    <div class="qa-section" id="qa-recovery-row"></div>
+  `;
+  document.getElementById('screen-game').appendChild(panel);
+
+  document.getElementById('qa-close').addEventListener('click', () => panel.classList.add('hidden'));
+  document.getElementById('qa-runes-set').addEventListener('click', () => {
+    const raw = document.getElementById('qa-runes-input').value;
+    callbacks.onSetRunes(Number(raw));
+  });
+  document.getElementById('qa-runes-add-100').addEventListener('click', () => callbacks.onAddRunes(100));
+  document.getElementById('qa-runes-add-1000').addEventListener('click', () => callbacks.onAddRunes(1000));
+  document.getElementById('qa-runes-infinite').addEventListener('click', () => callbacks.onSetInfiniteRunes());
+}
+
+// Rebuilds the current-balance text and the two level-stepper rows every
+// render (like renderPowersPanel does for its buy buttons) — deliberately
+// does NOT touch #qa-runes-input so the player's in-progress typing in that
+// field survives the game loop's 250ms re-renders.
+export function renderQaPanel(data, callbacks) {
+  const panel = document.getElementById('qa-panel');
+  if (!panel) return; // ?qa=1 not set — nothing was ever created
+  document.getElementById('qa-current-runes').textContent = `Current: ${data.runes} 🔮 Runes`;
+  renderQaLevelRow('qa-power-row', 'qa-power', data.power, callbacks.onSetPowerLevel);
+  renderQaLevelRow('qa-recovery-row', 'qa-recovery', data.recovery, callbacks.onSetRecoveryLevel);
+}
+
+function renderQaLevelRow(sectionId, idPrefix, info, onSet) {
+  const el = document.getElementById(sectionId);
+  el.innerHTML = `
+    <label class="qa-label">${info.icon} ${info.label} level</label>
+    <div class="qa-row">
+      <button id="${idPrefix}-minus" class="qa-step${info.level <= 0 ? ' disabled' : ''}">−</button>
+      <span class="qa-level-value">Lv.${info.level}/${info.maxLevel}</span>
+      <button id="${idPrefix}-plus" class="qa-step${info.level >= info.maxLevel ? ' disabled' : ''}">+</button>
+    </div>
+  `;
+  if (info.level > 0) document.getElementById(`${idPrefix}-minus`).addEventListener('click', () => onSet(info.level - 1));
+  if (info.level < info.maxLevel) document.getElementById(`${idPrefix}-plus`).addEventListener('click', () => onSet(info.level + 1));
 }
 
 export function toast(msg) {
@@ -110,8 +269,22 @@ function formatCountdown(ms) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+function formatAgo(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 60) return 'moments ago';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
+}
+
 export function renderHud(player, { potReady = false, fast = false } = {}) {
-  document.getElementById('hud-avatar').textContent = player.avatar;
+  document.getElementById('hud-avatar').innerHTML = avatarWithRing(player.avatar, getElement(player.element).color, {
+    hp: player.hp,
+    maxHP: player.maxHP,
+    ringColor: 'var(--mana)',
+    shieldActive: !!player.shieldActive,
+  });
   document.getElementById('hud-name').textContent = player.name;
   document.getElementById('hud-level').textContent = `Lv.${player.level}`;
   setBar('hp-bar-fill', player.hp, player.maxHP);
@@ -183,7 +356,7 @@ function renderSelfSheet(el, data, callbacks) {
       <div class="sheet-panel">
         <button class="sheet-close" id="sheet-close">✕</button>
         <div class="sheet-header">
-          <span class="sheet-avatar self">${w.avatar}</span>
+          <span class="sheet-avatar self" id="sheet-avatar"></span>
           <div style="min-width:0">
             <div class="sheet-name">${w.name} <small>Lv.${w.level}</small></div>
             <div class="sheet-sub sheet-gear">${gear.wand ? `${gear.wand.icon} ${gear.wand.name}` : '🪄 No wand'} · ${gear.robe ? `${gear.robe.icon} ${gear.robe.name}` : '🧥 No robe'}</div>
@@ -216,21 +389,24 @@ function renderSelfSheet(el, data, callbacks) {
     hpPct: pct(w.hp, w.maxHP),
     mpPct: pct(w.mana, w.maxMana),
     pot: treasury.potWhole,
+    avatar: avatarWithRing(w.avatar, getElement(w.element).color, { hp: w.hp, maxHP: w.maxHP, ringColor: 'var(--mana)', shieldActive }),
     shield: shieldActive ? `🛡️ Ward active — ${data.shieldRemainingS}s left` : 'No ward raised',
   };
   // Structure key: same markup with every live number blanked. The shield
   // status text is live, but its active/idle flag is part of the key via the
   // markup (class + button label).
-  const key = build({ hp: '', mp: '', hpPct: 0, mpPct: 0, pot: '', shield: '' });
+  const key = build({ hp: '', mp: '', hpPct: 0, mpPct: 0, pot: '', shield: '', avatar: '' });
   if (key !== sheetKey || !el.firstElementChild) {
     sheetKey = key;
     el.innerHTML = build(live);
+    document.getElementById('sheet-avatar').innerHTML = live.avatar;
     document.getElementById('sheet-close').addEventListener('click', callbacks.onClose);
     document.getElementById('sheet-shop').addEventListener('click', callbacks.onOpenShop);
     if (treasury.canCollect) document.getElementById('sheet-collect').addEventListener('click', callbacks.onCollect);
     if (shieldReady) document.getElementById('sheet-shield').addEventListener('click', callbacks.onShield);
     return;
   }
+  document.getElementById('sheet-avatar').innerHTML = live.avatar;
   setText('sheet-pot', String(live.pot));
   setText('sheet-hp-text', live.hp);
   setText('sheet-mp-text', live.mp);
@@ -313,31 +489,73 @@ export function renderWizardSheet(data, callbacks) {
     renderShopSheet(el, data, callbacks);
     return;
   }
-  sheetKey = null;
+  // NPC / remote sheets: the shell is only (re)created when the target
+  // changes so its entrance animation doesn't replay every tick.
+  const key = data.kind === 'remote' ? `remote:${data.wizard.id}` : `npc:${data.wizard.id}`;
+  if (key !== sheetKey || !el.firstElementChild) {
+    sheetKey = key;
+    el.innerHTML = `
+      <div class="sheet-panel">
+        <button class="sheet-close" id="sheet-close">✕</button>
+        <div id="sheet-body"></div>
+      </div>`;
+    document.getElementById('sheet-close').addEventListener('click', callbacks.onClose);
+  }
+  const body = document.getElementById('sheet-body');
 
-  const { wizard: npc, atkSpell, canAttack, reason, dist } = data;
-  el.innerHTML = `
-    <div class="sheet-panel">
-      <button class="sheet-close" id="sheet-close">✕</button>
+  // A real player's sheet is otherwise identical to an NPC's (same
+  // structure, same Cast Spark Bolt action) but adds a "synced Xm ago" line
+  // and a callout explaining they may be offline — the NPC branch below is
+  // left untouched on purpose, only the real-player case is the surprising
+  // one that needs the explanation. Ring color (purple) carries the
+  // "real player" identity signal now that avatars use the shared ring
+  // component; shieldActive is always false here — this device has no live
+  // visibility into a remote player's shield state (see combat.js).
+  if (data.kind === 'remote') {
+    const { wizard: rp, atkSpell, canAttack, reason, dist, syncedAgoMs } = data;
+    body.innerHTML = `
       <div class="sheet-header">
-        <span class="sheet-avatar">${npc.avatar}</span>
+        <span class="sheet-avatar">${avatarWithRing(rp.avatar, getElement(rp.element).color, { hp: rp.hp, maxHP: rp.maxHP, ringColor: 'var(--purple)', shieldActive: false })}</span>
         <div>
-          <div class="sheet-name">${npc.name} <small>Lv.${npc.level}</small></div>
+          <div class="sheet-name">${rp.name} <small>Lv.${rp.level}</small></div>
           <div class="sheet-sub">${dist}m away</div>
+          <div class="sheet-sub sheet-sub-synced">synced ${formatAgo(syncedAgoMs)}</div>
         </div>
       </div>
       <div class="sheet-stats">
-        <div class="bar hp-bar"><div class="bar-fill hp-fill" style="width:${pct(npc.hp, npc.maxHP)}%"></div><span class="bar-text">${npc.hp}/${npc.maxHP} HP</span></div>
+        <div class="bar hp-bar"><div class="bar-fill hp-fill" style="width:${pct(rp.hp, rp.maxHP)}%"></div><span class="bar-text">${rp.hp}/${rp.maxHP} HP</span></div>
       </div>
+      <div class="sheet-remote-note">🌐 A real player — they may be offline. Spark Bolt still travels in real time.</div>
       <div class="sheet-actions">
         <button id="sheet-attack" class="sheet-btn attack${canAttack ? '' : ' disabled'}">
           <span class="sheet-btn-icon">${atkSpell.icon}</span> Cast ${atkSpell.name}
           <span class="sheet-btn-cost">${atkSpell.manaCost}💧</span>
         </button>
       </div>
-      ${!canAttack ? `<div class="sheet-reason">${reason}</div>` : ''}
-    </div>`;
-  document.getElementById('sheet-close').addEventListener('click', callbacks.onClose);
+      ${!canAttack ? `<div class="sheet-reason">${reason}</div>` : ''}`;
+    if (canAttack) document.getElementById('sheet-attack').addEventListener('click', callbacks.onAttack);
+    return;
+  }
+
+  const { wizard: npc, atkSpell, canAttack, reason, dist, shieldActive } = data;
+  body.innerHTML = `
+    <div class="sheet-header">
+      <span class="sheet-avatar">${avatarWithRing(npc.avatar, getElement(npc.element).color, { hp: npc.hp, maxHP: npc.maxHP, ringColor: 'var(--pink)', shieldActive: !!shieldActive })}</span>
+      <div>
+        <div class="sheet-name">${npc.name} <small>Lv.${npc.level}</small></div>
+        <div class="sheet-sub">${dist}m away</div>
+      </div>
+    </div>
+    <div class="sheet-stats">
+      <div class="bar hp-bar"><div class="bar-fill hp-fill" style="width:${pct(npc.hp, npc.maxHP)}%"></div><span class="bar-text">${npc.hp}/${npc.maxHP} HP</span></div>
+    </div>
+    <div class="sheet-actions">
+      <button id="sheet-attack" class="sheet-btn attack${canAttack ? '' : ' disabled'}">
+        <span class="sheet-btn-icon">${atkSpell.icon}</span> Cast ${atkSpell.name}
+        <span class="sheet-btn-cost">${atkSpell.manaCost}💧</span>
+      </button>
+    </div>
+    ${!canAttack ? `<div class="sheet-reason">${reason}</div>` : ''}`;
   if (canAttack) document.getElementById('sheet-attack').addEventListener('click', callbacks.onAttack);
 }
 
@@ -358,7 +576,10 @@ export function renderDefendPrompts(incoming, player, now, onCounter) {
       const msLeft = Math.max(0, p.impactTime - now);
       const totalMs = Math.max(1, p.impactTime - p.travelStart);
       const barPct = pct(msLeft, totalMs);
-      const ready = (player.cooldowns[counterSpell.id] || 0) <= now && player.mana >= counterSpell.manaCost;
+      const onCooldown = (player.cooldowns[counterSpell.id] || 0) > now;
+      const lowMana = player.mana < counterSpell.manaCost;
+      const ready = !onCooldown && !lowMana;
+      const reason = lowMana ? 'Not enough mana.' : onCooldown ? 'Still recharging.' : '';
       return `<div class="defend-card">
         <div class="defend-title">⚠️ Incoming ${spell.icon} ${spell.name}! (${formatCountdown(msLeft)})</div>
         <div class="defend-timer"><div class="defend-timer-fill" style="width:${barPct}%"></div></div>
@@ -367,6 +588,7 @@ export function renderDefendPrompts(incoming, player, now, onCounter) {
             ${counterSpell.icon} Counterspell <span class="sheet-btn-cost">${counterSpell.manaCost}💧</span>
           </button>
         </div>
+        ${!ready ? `<div class="defend-reason">${reason}</div>` : ''}
       </div>`;
     })
     .join('');

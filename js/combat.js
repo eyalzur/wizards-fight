@@ -1,6 +1,6 @@
 import { getSpell } from './spells.js';
 import { distanceMeters } from './geo.js';
-import { growLevel } from './wizard.js';
+import { growLevel, spellPowerMultiplier, spellCooldownSeconds } from './wizard.js';
 import { respawnNpc } from './npc.js';
 import { awardKillBonus } from './economy.js';
 import { COUNTER_MIN_MULT } from './sign.js';
@@ -38,9 +38,15 @@ export function castAttack(caster, target, spellId, world, now, powerMult = 1) {
     return { ok: false, reason: `${target.name} is out of range for ${spell.name}.` };
   }
   caster.mana -= spell.manaCost;
-  caster.cooldowns[spell.id] = now + spell.cooldown * 1000;
+  // Spell Recovery (Runes & Powers, see wizard.js) permanently shaves time
+  // off the caster's own cooldown for whatever attack spell they cast.
+  caster.cooldowns[spell.id] = now + spellCooldownSeconds(spell.cooldown, caster) * 1000;
   const castMs = spell.castTime * 1000 * (caster.castTimeMult || 1);
-  const travelMs = ((dist / spell.speed) * 1000) / (world.timeScale || TIME_SCALES.real);
+  // Casts against a real player always travel at real speed, regardless of
+  // the local Fast/Real testing toggle — a device's own speed preference
+  // shouldn't let it cheat another player's travel-time window.
+  const scale = target.isRemote ? TIME_SCALES.real : (world.timeScale || TIME_SCALES.real);
+  const travelMs = ((dist / spell.speed) * 1000) / scale;
   const projectile = {
     id: uid(),
     casterId: caster.id,
@@ -53,9 +59,13 @@ export function castAttack(caster, target, spellId, world, now, powerMult = 1) {
     impactTime: now + castMs + travelMs,
     powerMult,
     resolved: false,
+    isRemoteTarget: !!target.isRemote,
+    targetName: target.isRemote ? target.name : undefined,
   };
   world.projectiles.push(projectile);
-  log(world, `${caster.avatar} ${caster.name} hurls ${spell.icon} ${spell.name} at ${target.name}!`);
+  // No caster.avatar prefix here (unlike before the v1 theme pass): avatar
+  // is now a portrait symbol id, not something with a plain-text form.
+  log(world, `${caster.name} hurls ${spell.icon} ${spell.name} at ${target.name}!`);
   if (target.isNPC) maybeNpcDefend(target, projectile, now, world);
   return { ok: true, projectile };
 }
@@ -118,15 +128,44 @@ function maybeNpcDefend(npc, projectile, now, world) {
   if (shield && !isShieldActive(npc, now)) castShield(npc, shield.id, now);
 }
 
+// A cast against a real player can't be resolved here: this device doesn't
+// have authoritative knowledge of the target's live defense/shield state
+// (that only exists on their own device), and there's no server to ask.
+// Instead, record what the *target's own client* needs to work out the
+// damage itself next time it's running (see applyPendingHit below) — this
+// keeps combat.js free of any network code; main.js does the actual
+// Firebase write by draining world.outgoingHits after each tick.
 function resolveImpact(world, projectile, now) {
+  const spell = getSpell(projectile.spellId);
+  if (projectile.isRemoteTarget) {
+    const caster = findWizard(world, projectile.casterId);
+    if (!world.outgoingHits) world.outgoingHits = [];
+    world.outgoingHits.push({
+      targetId: projectile.targetId,
+      casterId: world.myUid || (caster ? caster.id : 'unknown'),
+      casterName: caster ? caster.name : 'A rival wizard',
+      spellId: projectile.spellId,
+      // Includes the caster's Spell Power Rune bonus (see spellPowerMultiplier
+      // in wizard.js) — only the caster's own device knows that multiplier,
+      // so it has to be baked in here rather than recomputed by the target.
+      // The sign-drawing multiplier (sign.js) is baked in for the same reason.
+      casterPower: (caster ? caster.power * spellPowerMultiplier(caster) : 1) * (projectile.powerMult ?? 1),
+      impactAt: now,
+    });
+    log(world, `${spell.icon} ${spell.name} rockets into the distance toward ${projectile.targetName || 'your rival'} — it should strike home any moment now.`);
+    return;
+  }
   const caster = findWizard(world, projectile.casterId);
   const target = findWizard(world, projectile.targetId);
-  const spell = getSpell(projectile.spellId);
   if (!target || target.hp <= 0) {
     log(world, `The ${spell.name} fizzles out — no one left to strike.`);
     return;
   }
-  let dmg = Math.max(1, Math.round(spell.power * (caster ? caster.power : 1) * (projectile.powerMult ?? 1) - (target.defense || 0)));
+  // Spell Power (Runes & Powers, see wizard.js) permanently multiplies the
+  // caster's own `power` stat; the sign-drawing multiplier (sign.js) scales
+  // this one cast on top of that.
+  const powerMult = (caster ? caster.power * spellPowerMultiplier(caster) : 1) * (projectile.powerMult ?? 1);
+  let dmg = Math.max(1, Math.round(spell.power * powerMult - (target.defense || 0)));
   let note = '';
   if (isShieldActive(target, now)) {
     dmg = Math.round(dmg * (1 - target.shieldBuff.mitigation));
@@ -135,6 +174,36 @@ function resolveImpact(world, projectile, now) {
   target.hp = Math.max(0, target.hp - dmg);
   log(world, `${spell.icon} ${spell.name} strikes ${target.name} for ${dmg} damage!${note}`);
   if (target.hp <= 0) handleDefeat(world, target, caster, now);
+}
+
+// The other half of the remote-attack flow: this device is the target, and
+// is applying a hit that was recorded (by the attacker's device, via
+// resolveImpact above) against world.player at some earlier, possibly much
+// earlier, real time. Uses the *target's own* live defense/shieldBuff at
+// `now`, exactly like a local resolveImpact would — the target's device is
+// the only one with authoritative knowledge of that state, which is the
+// whole reason this isn't resolved on the attacker's side.
+export function applyPendingHit(world, hit, now) {
+  const target = world.player;
+  const spell = getSpell(hit.spellId);
+  const icon = spell ? spell.icon : '✨';
+  const name = spell ? spell.name : 'a spell';
+  const power = spell ? spell.power : 8;
+  const casterName = hit.casterName || 'A rival wizard';
+  if (target.hp <= 0) {
+    log(world, `${icon} ${casterName}'s ${name} fizzles — you're already down.`);
+    return { dmg: 0 };
+  }
+  let dmg = Math.max(1, Math.round(power * (hit.casterPower || 1) - (target.defense || 0)));
+  let note = '';
+  if (isShieldActive(target, now)) {
+    dmg = Math.round(dmg * (1 - target.shieldBuff.mitigation));
+    note = ` 🛡️ Softened by your ward!`;
+  }
+  target.hp = Math.max(0, target.hp - dmg);
+  log(world, `${icon} ${casterName}'s ${name} strikes you for ${dmg} damage!${note}`);
+  if (target.hp <= 0) handleDefeat(world, target, null, now);
+  return { dmg };
 }
 
 function handleDefeat(world, wizard, killer, now) {
@@ -148,6 +217,11 @@ function handleDefeat(world, wizard, killer, now) {
       log(world, `⭐ You gain ${xpGain} XP.`);
       const gems = awardKillBonus(killer, wizard.level);
       log(world, `💎 You find ${gems} Mana Crystals.`);
+      // Runes mirror the XP formula exactly (same defeated-NPC level) — see
+      // docs/FEATURES.md "Runes & Powers" for why they're a separate track.
+      const runeGain = xpGain;
+      killer.runes = (killer.runes || 0) + runeGain;
+      log(world, `🔮 You gain ${runeGain} Runes.`);
       checkLevelUp(world, killer);
     }
   } else {
@@ -172,6 +246,7 @@ function checkLevelUp(world, wizard) {
 }
 
 export function tick(world, now) {
+  if (!world.outgoingHits) world.outgoingHits = [];
   for (const w of [world.player, ...world.npcs]) {
     if (w.hp <= 0) continue;
     if (now >= w.nextManaRegen) {

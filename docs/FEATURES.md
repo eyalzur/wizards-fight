@@ -9,7 +9,8 @@ it here too — this is the reference planning and QA both work from.
 Screen: `#screen-create` (`index.html`, `js/ui.js:initCreateScreen`).
 
 - **Name** — free text, max 16 characters, defaults to "Wizard" if blank.
-- **Avatar** — one of 🧙‍♂️ 🧙‍♀️ 🧙 🧝‍♂️ 🧝‍♀️. Cosmetic only.
+- **Avatar** — one of 5 distinct hooded-figure portraits (SVG, no facial
+  features by design), tinted by your chosen element. Cosmetic only.
 - **Element** — one of Fire, Ice, Lightning, Nature, Arcane. Sets base
   stats (below); does **not** change which spells you start with — every
   wizard, player or NPC, knows the same 3 spells (see Spells).
@@ -49,6 +50,11 @@ street/city data, styled dark to match the theme — see
 - Tapping a wizard marker (yours or an NPC's) does **not** also trigger a
   walk — click events on markers stop propagation before reaching the
   map's click handler.
+- **Identity + HP ring** — every avatar (map marker, HUD, wizard sheet) is
+  wrapped in a ring (`js/portraits.js:avatarWithRing`) that does two jobs at
+  once: its color is identity (self = mana blue, NPC = pink/garnet, selected
+  NPC = gold) and its arc length is `hp/maxHP` — it visibly depletes as a
+  wizard takes damage, readable at a glance without opening their sheet.
 
 ## Spells
 
@@ -73,6 +79,11 @@ single-use buff, it is **not consumed** by a hit — it reduces damage from
 every hit that lands while it's active, and only goes away when its
 2-minute timer runs out (`js/combat.js:isShieldActive`). Re-casting while
 already active refreshes the timer.
+
+While active, a soft pulsing bubble renders behind the wizard's ring on the
+map, HUD, and sheet (`js/portraits.js:avatarWithRing`'s `shieldActive`
+option, pure CSS animation) — visible to anyone who can see that wizard,
+not just to the shielded player.
 
 ### Counterspell (defend — reactive) 🌀
 `manaCost 14, cooldown 20s`
@@ -105,6 +116,51 @@ instead of the old always-on spellbook:
 
 Tapping empty map closes an open sheet before it tries to move you there.
 
+## Multiplayer (real players)
+
+`js/multiplayer.js`, backed by Firebase Realtime Database + Anonymous
+Auth. **Optional and off by default** — it only activates if the repo
+owner has set up their own Firebase project and filled in
+`js/firebase-config.js` (see `docs/ARCHITECTURE.md` "Multiplayer" and
+"Setup"); without that, the game is exactly the single-player experience
+described everywhere else in this document.
+
+When active, other real players' wizards appear on the map the same way
+NPCs do — inside your sense-range circle, with an HP bar and name label —
+positioned by wherever their device last synced its location, which can
+be a little stale (each device pushes its own position roughly every 6s
+while playing, and refreshes the list of nearby players roughly every
+15s). They're visually distinct from both you and NPCs: a purple accent
+(reusing the Ward Shield color) plus a small persistent badge dot on the
+marker, so you can tell a real player apart from an NPC before tapping.
+
+Tapping a real player's marker opens the same wizard sheet as an NPC —
+name, level, distance, HP bar, Cast Spark Bolt button with the same
+disabled-reasons — plus two additions:
+- A second line reading "synced Xm ago", so it's clear how fresh their
+  position/HP is.
+- A permanent note: *"A real player — they may be offline. Spark Bolt
+  still travels in real time."*
+
+Casting Spark Bolt at a real player costs the same mana, has the same
+cooldown, and travels at the same real-world speed as casting at an NPC —
+**always at real speed**, regardless of your own ⚡ Fast/🐢 Real toggle,
+so you can't use your own testing setting to shortcut another player's
+travel-time window. Unlike an NPC hit, a hit on a real player doesn't
+resolve on your screen — it's recorded for their device to apply next
+time it's running (even if that's minutes or hours later), using *their*
+current HP/defense/Ward Shield state at that moment, not a guess made on
+your end. Ward Shield still reduces a hit like this normally; there is
+currently no live "incoming spell" warning (and therefore no
+Counterspell option) for an attack from another real player, since that
+would need always-on live syncing this v1 deliberately doesn't do.
+
+**Attacked while away.** If one or more real players' Spark Bolts landed
+on you while the game wasn't open, the next time you open it you'll see
+one toast summarizing it (e.g. "While you were away, Ari the Bold hit you
+for 9 damage total. See the Spell Log for details.") rather than one
+toast per hit, with the full detail in the Spell Log as usual.
+
 ## NPCs
 
 `js/npc.js`. 9 spawned per game session, scattered in an annulus from
@@ -113,6 +169,8 @@ half spawn outside your initial sense range, so moving around to find
 more is meaningful. Each NPC gets:
 
 - A random element (affecting their stats the same as the player).
+- A random avatar portrait (independent of element — one of the same 5
+  looks the create screen offers, not tied to the NPC's element).
 - A level within ±1 of the player's level.
 - A random name from a first-name + title generator (e.g. "Dash
   Sunforge").
@@ -131,7 +189,9 @@ cooldowns and shield cleared.
 
 ## Progression
 
-- Defeating an NPC grants `15 + npcLevel × 5` XP.
+- Defeating an NPC grants `15 + npcLevel × 5` XP, and the same amount in
+  🔮 Runes (see Runes & Powers below) — a separate, permanent-purchase
+  currency track alongside level-up XP, not a replacement for it.
 - Leveling (`js/wizard.js:growLevel`) adds `+12 maxHP, +6 maxMana, +0.05
   power`, fully heals, and scales the next level's XP requirement by
   1.35x.
@@ -184,6 +244,37 @@ duel simulation against same-level NPCs (random elements) gives roughly a
 attack rarely. Later tiers (Starwood, Aurora, Archmage's Scepter / Starsilk,
 Aurora Mantle, Archmage Vestments), potions and element gear are not built.
 
+## Runes & Powers
+
+`js/wizard.js` owns the numbers; `js/combat.js` applies them at cast time;
+`js/ui.js`/`js/main.js` render the ☰ menu → 🔮 Runes: {n} button and the
+"🔮 Runes & Powers" bottom sheet it opens.
+
+- **Earning Runes** — every NPC kill grants `15 + npcLevel × 5` Runes
+  (`npcLevel` = the *defeated NPC's* level), the exact same formula and
+  input as XP. Logged right after the XP line: `🔮 You gain {n} Runes.`
+  Player-only: NPCs never earn or spend Runes.
+- **Spell Power 💥** — permanently multiplies Spark Bolt's (and any future
+  attack spell's) damage via the caster's own `power` stat, the same way
+  `spell.power` is already multiplied by it. **+5% per level, cap Lv.3
+  (+15% total)** — chosen to land in the same ballpark as one normal
+  level-up's `+0.05 power` (≈5% relative gain on the base 1.0 power stat),
+  without being an order of magnitude bigger.
+- **Spell Recovery ⏳** — permanently reduces Spark Bolt's cooldown.
+  **−0.1s per level, cap Lv.3 (1.5s → 1.2s, a 20% reduction)**, with a
+  defensive floor of 0.5s baked into the formula (not reachable at the
+  current cap, but guards future tuning from ever hitting 0 or negative).
+- **Cost** — `cost = round(base × 1.5^purchasesSoFar)`, the same
+  exponential shape as the level-up XP curve (`xpToNext × 1.35`), just its
+  own base/rate per attribute:
+  - Spell Power: base 40 → costs 40, 60, 90 (190 total to max).
+  - Spell Recovery: base 35 → costs 35, 53, 79 (167 total to max).
+- **Permanent, no sell-back** — purchases only ever go up; there is no
+  respec/refund path, by design (see `proj-status.md` Decisions Log).
+- Each attribute is capped independently (a "per-attribute cap," not a
+  shared pool) — maxing Spell Power doesn't affect what Spell Recovery
+  costs or how far it can go, and vice versa.
+
 ## Persistence
 
 `js/state.js`. On every meaningful action (cast, walk finished) and every
@@ -194,6 +285,13 @@ crystals, pot, `lastAccrualAt` and equipment) are written to
 and which sheet is open are **not** persisted — they reset on reload,
 which is a deliberate simplification (see `docs/ARCHITECTURE.md` for
 what that means for reload-mid-fight edge cases).
+
+If multiplayer is set up (see above), your device's Firebase anonymous
+identity and the list of nearby real players are **not** part of this
+`localStorage` save either — identity comes from Firebase's own
+persistence, and the nearby-players list is always re-fetched fresh.
+Nothing multiplayer-related is lost by clearing this game's own save,
+and "New Wizard" doesn't change your Firebase identity.
 
 ## Fullscreen
 
