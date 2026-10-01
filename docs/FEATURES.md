@@ -163,7 +163,7 @@ not tuned from play data.**
   reloads.
 - **Kill bonus:** defeating an NPC adds `3 + npcLevel` 💎 straight to your
   balance (not the pot, not scaled by Fast).
-- **Shop** (wizard sheet → 🛍️ Crystal Shop, or ☰ → 💎 Shop): one equipped
+- **Shop** (wizard sheet → 🛍️ icon button, or ☰ → 💎 Shop): one equipped
   item per slot, strict tier order within a slot, no downgrades, full price,
   no refunds. Buying is two taps ("Tap again to buy" for 3s) and the item is
   equipped immediately. Gear modifiers are added on top of element and level

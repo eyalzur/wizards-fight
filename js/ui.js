@@ -184,20 +184,22 @@ function renderSelfSheet(el, data, callbacks) {
         <button class="sheet-close" id="sheet-close">✕</button>
         <div class="sheet-header">
           <span class="sheet-avatar self">${w.avatar}</span>
-          <div>
+          <div style="min-width:0">
             <div class="sheet-name">${w.name} <small>Lv.${w.level}</small></div>
-            <div class="sheet-sub">Your Wizard</div>
+            <div class="sheet-sub sheet-gear">${gear.wand ? `${gear.wand.icon} ${gear.wand.name}` : '🪄 No wand'} · ${gear.robe ? `${gear.robe.icon} ${gear.robe.name}` : '🧥 No robe'}</div>
           </div>
         </div>
         <div class="sheet-stats">
           <div class="bar hp-bar"><div id="sheet-hp-fill" class="bar-fill hp-fill" style="width:${live.hpPct}%"></div><span id="sheet-hp-text" class="bar-text">${live.hp}</span></div>
           <div class="bar mana-bar"><div id="sheet-mp-fill" class="bar-fill mana-fill" style="width:${live.mpPct}%"></div><span id="sheet-mp-text" class="bar-text">${live.mp}</span></div>
         </div>
-        <div class="sheet-gear">${gear.wand ? `${gear.wand.icon} ${gear.wand.name}` : '🪄 No wand'} · ${gear.robe ? `${gear.robe.icon} ${gear.robe.name}` : '🧥 No robe'}</div>
         <div class="treasury">
-          <div class="treasury-top"><span class="treasury-label">Treasury</span><span class="treasury-amount">💎 <b id="sheet-pot">${live.pot}</b> ready</span></div>
-          <div class="treasury-rate${treasury.fast ? ' fast' : ''}">${treasury.fast ? `⚡ ×${treasury.scale} Fast · +${fmtRate(treasury.ratePerMin)} 💎/min` : `+${fmtRate(treasury.ratePerMin)} 💎/min`}</div>
+          <div class="treasury-info">
+            <div class="treasury-amount">💎 <b id="sheet-pot">${live.pot}</b> ready</div>
+            <div class="treasury-rate${treasury.fast ? ' fast' : ''}">${treasury.fast ? `⚡ ×${treasury.scale} Fast · +${fmtRate(treasury.ratePerMin)} 💎/min` : `+${fmtRate(treasury.ratePerMin)} 💎/min`}</div>
+          </div>
           <button id="sheet-collect" class="sheet-btn collect${treasury.canCollect ? '' : ' disabled'}">${treasury.canCollect ? '💎 Collect' : 'Filling…'}</button>
+          <button id="sheet-shop" class="sheet-btn secondary icon" aria-label="Crystal Shop" title="Crystal Shop">🛍️</button>
         </div>
         <div class="sheet-shield-status${shieldActive ? ' active' : ''}" id="sheet-shield-status">${live.shield}</div>
         <div class="sheet-actions">
@@ -207,9 +209,6 @@ function renderSelfSheet(el, data, callbacks) {
           </button>
         </div>
         ${!shieldReady && shieldReason ? `<div class="sheet-reason">${shieldReason}</div>` : ''}
-        <div class="sheet-actions sheet-actions-2">
-          <button id="sheet-shop" class="sheet-btn secondary">🛍️ Crystal Shop</button>
-        </div>
       </div>`;
   const live = {
     hp: `${w.hp}/${w.maxHP} HP`,

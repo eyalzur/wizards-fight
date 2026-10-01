@@ -148,5 +148,10 @@ stale.
       get-attacked → counter/shield → defeat/respawn cycle.
 - [ ] Works at phone width (~400px) — no horizontal scroll, sheet and
       overlays stay usable.
+- [ ] Short viewports (360x560 and 360x480): tap your wizard; the self
+      sheet stays under ~45% of the screen height, your marker is not
+      hidden behind it, and Collect, the 🛍️ Shop icon and Ward Shield are
+      each one tap (44px targets, none clipped). The NPC and Shop sheets
+      still render. At 480px tall the idle rate line is hidden by design.
 - [ ] `docs/FEATURES.md` numbers still match `js/spells.js`/`js/wizard.js`
       after any balance change.
