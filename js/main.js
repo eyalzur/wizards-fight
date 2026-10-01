@@ -7,6 +7,7 @@ import * as combat from './combat.js';
 import * as map from './map.js';
 import * as ui from './ui.js';
 import * as economy from './economy.js';
+import { openSignPad } from './signpad.js';
 import { uid } from './utils.js';
 
 const DEFAULT_CENTER = { lat: 40.758, lng: -73.9855 }; // fallback demo spot if location is denied
@@ -187,27 +188,51 @@ function onNpcClick(npcId) {
 }
 
 function onSheetAttack(npc) {
-  const res = combat.castAttack(world.player, npc, ATTACK_SPELL.id, world, Date.now());
-  if (!res.ok) ui.toast(res.reason);
-  else world.openSheet = null;
-  saveState(world);
-  render();
+  const spell = ATTACK_SPELL;
+  const chk = combat.canCastSpell(world.player, spell, Date.now());
+  if (!chk.ok) { ui.toast(chk.reason); return; }
+  openSignPad({
+    title: `${spell.icon} ${spell.name}`,
+    onDone: (mult) => {
+      const res = combat.castAttack(world.player, npc, spell.id, world, Date.now(), mult);
+      if (!res.ok) ui.toast(res.reason);
+      else world.openSheet = null;
+      saveState(world);
+      render();
+    },
+  });
 }
 
 function onSheetShield() {
-  const res = combat.castShield(world.player, SHIELD_SPELL.id, Date.now());
-  if (!res.ok) ui.toast(res.reason);
-  else ui.toast(`${SHIELD_SPELL.icon} Your ward shimmers to life.`);
-  saveState(world);
-  render();
+  const chk = combat.canCastSpell(world.player, SHIELD_SPELL, Date.now());
+  if (!chk.ok) { ui.toast(chk.reason); return; }
+  openSignPad({
+    title: `${SHIELD_SPELL.icon} ${SHIELD_SPELL.name}`,
+    onDone: (mult) => {
+      const res = combat.castShield(world.player, SHIELD_SPELL.id, Date.now(), mult);
+      if (!res.ok) ui.toast(res.reason);
+      else ui.toast(`${SHIELD_SPELL.icon} Your ward shimmers to life.`);
+      saveState(world);
+      render();
+    },
+  });
 }
 
 function onCounterspell(projectileId) {
-  const projectile = world.projectiles.find((p) => p.id === projectileId);
-  const res = combat.castCounterspell(world.player, projectile, 'counterspell', world, Date.now());
-  if (!res.ok) ui.toast(res.reason);
-  saveState(world);
-  render();
+  const spell = getSpell('counterspell');
+  const chk = combat.canCastSpell(world.player, spell, Date.now());
+  if (!chk.ok) { ui.toast(chk.reason); return; }
+  openSignPad({
+    title: `${spell.icon} ${spell.name}`,
+    onDone: (mult) => {
+      const projectile = world.projectiles.find((p) => p.id === projectileId);
+      const res = combat.castCounterspell(world.player, projectile, spell.id, world, Date.now(), mult);
+      if (!res.ok) ui.toast(res.reason);
+      else if (res.fizzled) ui.toast('🌀 Counterspell fizzled — sloppy sign!');
+      saveState(world);
+      render();
+    },
+  });
 }
 
 function openShop(slot = 'wand') {

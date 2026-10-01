@@ -3,6 +3,7 @@ import { distanceMeters } from './geo.js';
 import { growLevel } from './wizard.js';
 import { respawnNpc } from './npc.js';
 import { awardKillBonus } from './economy.js';
+import { COUNTER_MIN_MULT } from './sign.js';
 import { uid, log, pick, randRange } from './utils.js';
 
 const TEMPERAMENT_AGGRO = { passive: 0.06, neutral: 0.16, aggressive: 0.32 };
@@ -25,7 +26,8 @@ export function canCastSpell(wizard, spell, now) {
   return { ok: true };
 }
 
-export function castAttack(caster, target, spellId, world, now) {
+// powerMult comes from the sign drawing (see sign.js); NPCs cast at 1.
+export function castAttack(caster, target, spellId, world, now, powerMult = 1) {
   const spell = getSpell(spellId);
   if (!spell || spell.type !== 'attack') return { ok: false, reason: 'That spell cannot be used to attack.' };
   const chk = canCastSpell(caster, spell, now);
@@ -49,6 +51,7 @@ export function castAttack(caster, target, spellId, world, now) {
     castStart: now,
     travelStart: now + castMs,
     impactTime: now + castMs + travelMs,
+    powerMult,
     resolved: false,
   };
   world.projectiles.push(projectile);
@@ -59,14 +62,14 @@ export function castAttack(caster, target, spellId, world, now) {
 
 // Proactive stance: raise it ahead of time; it's not consumed by any single
 // hit, only by its own expiry (see isShieldActive).
-export function castShield(wizard, spellId, now) {
+export function castShield(wizard, spellId, now, powerMult = 1) {
   const spell = getSpell(spellId);
   if (!spell || spell.type !== 'shield') return { ok: false, reason: 'That spell cannot shield you.' };
   const chk = canCastSpell(wizard, spell, now);
   if (!chk.ok) return chk;
   wizard.mana -= spell.manaCost;
   wizard.cooldowns[spell.id] = now + spell.cooldown * 1000;
-  wizard.shieldBuff = { mitigation: spell.mitigation, expiresAt: now + spell.buffDuration };
+  wizard.shieldBuff = { mitigation: Math.min(0.9, spell.mitigation * powerMult), expiresAt: now + spell.buffDuration };
   return { ok: true };
 }
 
@@ -76,7 +79,8 @@ export function isShieldActive(wizard, now) {
 
 // Reactive counter: negates one specific incoming projectile outright,
 // resolved immediately rather than waiting for its scheduled impact.
-export function castCounterspell(wizard, projectile, spellId, world, now) {
+// A sloppy sign (powerMult below COUNTER_MIN_MULT) spends the mana but fizzles.
+export function castCounterspell(wizard, projectile, spellId, world, now, powerMult = 1) {
   const spell = getSpell(spellId);
   if (!spell || spell.type !== 'dispel') return { ok: false, reason: 'That spell cannot counter a curse.' };
   if (!projectile || projectile.resolved || projectile.targetId !== wizard.id) {
@@ -86,6 +90,10 @@ export function castCounterspell(wizard, projectile, spellId, world, now) {
   if (!chk.ok) return chk;
   wizard.mana -= spell.manaCost;
   wizard.cooldowns[spell.id] = now + spell.cooldown * 1000;
+  if (powerMult < COUNTER_MIN_MULT) {
+    log(world, `🌀 ${wizard.name}'s Counterspell fizzles — the sign was too sloppy!`);
+    return { ok: true, fizzled: true };
+  }
   projectile.resolved = true;
   const caster = findWizard(world, projectile.casterId);
   const atkSpell = getSpell(projectile.spellId);
@@ -118,7 +126,7 @@ function resolveImpact(world, projectile, now) {
     log(world, `The ${spell.name} fizzles out — no one left to strike.`);
     return;
   }
-  let dmg = Math.max(1, Math.round(spell.power * (caster ? caster.power : 1) - (target.defense || 0)));
+  let dmg = Math.max(1, Math.round(spell.power * (caster ? caster.power : 1) * (projectile.powerMult ?? 1) - (target.defense || 0)));
   let note = '';
   if (isShieldActive(target, now)) {
     dmg = Math.round(dmg * (1 - target.shieldBuff.mitigation));

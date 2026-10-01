@@ -423,3 +423,28 @@ html, body {
   .create-card { max-width: 560px; }
   .element-options { grid-template-columns: 1fr 1fr 1fr; }
 }
+
+/* Sign drawing pad */
+.sign-pad {
+  position: absolute; inset: 0; z-index: 980;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 4, 20, 0.85);
+}
+.sign-card {
+  background: var(--bg-panel); border: 1px solid var(--gold);
+  border-radius: 16px; padding: 14px; width: min(340px, calc(100vw - 24px));
+  text-align: center;
+}
+.sign-title { font-family: var(--font-head); font-weight: 800; font-size: 1.05rem; }
+.sign-hint { font-size: 0.8rem; color: var(--text-dim); margin: 4px 0 8px; }
+.sign-canvas {
+  width: 100%; aspect-ratio: 1; touch-action: none; cursor: crosshair;
+  background: rgba(255,255,255,0.04); border-radius: 12px;
+}
+.sign-result { min-height: 1.4em; margin: 8px 0; font-weight: 800; color: var(--gold); }
+.sign-actions { display: flex; gap: 8px; justify-content: center; }
+.sign-btn {
+  padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.25);
+  background: transparent; color: inherit; font-weight: 800; cursor: pointer;
+}
+.sign-btn.primary { background: var(--gold); color: #241448; border-color: var(--gold); }
