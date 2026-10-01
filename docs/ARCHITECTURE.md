@@ -50,6 +50,9 @@ js/
   spells.js        SPELLS array + getSpell(id) — the only place spell
                    numbers live
   wizard.js        ELEMENTS, stat math, createWizard(), growLevel()
+  economy.js       Mana Crystals: the ECONOMY + GEAR number tables, pot
+                   accrual, collect, kill bonus, buy/equip, save
+                   normalization. Game logic, no DOM
   npc.js           NPC name/temperament generation, createNpc(),
                    respawnNpc()
   combat.js        castAttack/castShield/castCounterspell, tick() —
@@ -79,7 +82,7 @@ js/
 ```
 
 The dependency direction is one-way: `main.js` imports and orchestrates
-everything else; `combat.js`, `wizard.js`, `npc.js`, `geo.js`, `spells.js`
+everything else; `combat.js`, `wizard.js`, `npc.js`, `geo.js`, `spells.js`, `economy.js`
 never import `map.js`, `ui.js`, or `multiplayer.js` (game logic doesn't
 know about the DOM or the network). `map.js` and `ui.js` never import
 `combat.js` or `multiplayer.js` (rendering doesn't know game rules or
@@ -105,7 +108,7 @@ a new coupling to Firebase; `combat.js` still has no import of
   projectiles: [...],   // in-flight spells, see below
   outgoingHits: [...],  // pending Firebase writes, drained every tick — see Multiplayer
   log: [string, ...],   // newest first, capped at 60
-  openSheet: null | { kind: 'self' } | { kind: 'npc', id } | { kind: 'remote', id },
+  openSheet: null | { kind: 'self' } | { kind: 'npc', id } | { kind: 'remote', id } | { kind: 'shop', slot },
   playerDown: bool, playerRespawnAt: timestamp | null,
   spawnCenter: {lat, lng},  // original spawn point, used for NPC respawns
   maxWalkMeters: 250,
@@ -132,6 +135,12 @@ a new coupling to Firebase; `combat.js` still has no import of
   shieldBuff: null | { mitigation, expiresAt },
   position: {lat, lng} | null,
   nextManaRegen, nextHpRegen,          // internal tick bookkeeping
+  // Player only (economy.js:normalizeEconomy fills these for old saves):
+  gems,                                // Mana Crystal balance (integer)
+  pot, lastAccrualAt,                  // Treasury (float) + epoch ms of last accrual
+  equipment: { wand: id|null, robe: id|null },
+  gearApplied: { power, maxHP, defense }, // how much of the fields above is gear
+  seenPotHint,                         // one-time "crystals are gathering" toast shown
   // Runes & Powers (see docs/FEATURES.md) — carried on every wizard for
   // shape consistency with xp/level, but only ever earned/spent by the
   // player; NPCs keep these at 0 forever.
@@ -316,6 +325,28 @@ into one dispatcher — the last time spells were more generic
 (`castDefend` handling both mitigate and dodge types), it produced dead
 code paths once the spell roster changed. See `proj-status.md` Decisions
 Log.
+
+## Economy and gear
+
+`economy.js` owns it. `wizard.power/maxHP/defense` hold the **effective**
+values (element + level + gear) so `combat.js` needs no gear awareness;
+`gearApplied` records the gear share so `syncGear` can swap bonuses
+idempotently, and `growLevel` keeps working because it just adds to the same
+fields. Never edit those three fields for gear any other way.
+
+Income is timestamp-based: `main.js:gameTick` calls `economy.accrue(player,
+now, timeScale)` each tick. The Fast multiplier applies only to the first 2s
+of a tick gap (a live foreground tick is 250ms); longer gaps (closed page,
+sleep, throttled tab) accrue at 1x. Negative gaps earn nothing. `combat.js`
+imports `economy.awardKillBonus` for the kill reward; `main.js` notices the
+balance rise and shows the "+N 💎" pop. Gear is a flat catalog (`GEAR`) with
+`slot`, `tier`, `price`, `mods`; adding tiers or slots is adding rows.
+
+**Sheet re-rendering:** `render()` runs every 250ms, and replacing `innerHTML`
+that often swallows taps. `ui.js` rebuilds the self and shop sheets only when
+their structure changes (a key string), and patches live numbers (pot, HP,
+mana, ward timer) in place. The shop's "tap again to buy" state lives in
+`main.js`, not the DOM.
 
 ## State persistence
 

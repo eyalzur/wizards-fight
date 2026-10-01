@@ -2,6 +2,8 @@ import { getSpell } from './spells.js';
 import { distanceMeters } from './geo.js';
 import { growLevel, spellPowerMultiplier, spellCooldownSeconds } from './wizard.js';
 import { respawnNpc } from './npc.js';
+import { awardKillBonus } from './economy.js';
+import { COUNTER_MIN_MULT } from './sign.js';
 import { uid, log, pick, randRange } from './utils.js';
 
 const TEMPERAMENT_AGGRO = { passive: 0.06, neutral: 0.16, aggressive: 0.32 };
@@ -24,7 +26,8 @@ export function canCastSpell(wizard, spell, now) {
   return { ok: true };
 }
 
-export function castAttack(caster, target, spellId, world, now) {
+// powerMult comes from the sign drawing (see sign.js); NPCs cast at 1.
+export function castAttack(caster, target, spellId, world, now, powerMult = 1) {
   const spell = getSpell(spellId);
   if (!spell || spell.type !== 'attack') return { ok: false, reason: 'That spell cannot be used to attack.' };
   const chk = canCastSpell(caster, spell, now);
@@ -54,6 +57,7 @@ export function castAttack(caster, target, spellId, world, now) {
     castStart: now,
     travelStart: now + castMs,
     impactTime: now + castMs + travelMs,
+    powerMult,
     resolved: false,
     isRemoteTarget: !!target.isRemote,
     targetName: target.isRemote ? target.name : undefined,
@@ -68,14 +72,14 @@ export function castAttack(caster, target, spellId, world, now) {
 
 // Proactive stance: raise it ahead of time; it's not consumed by any single
 // hit, only by its own expiry (see isShieldActive).
-export function castShield(wizard, spellId, now) {
+export function castShield(wizard, spellId, now, powerMult = 1) {
   const spell = getSpell(spellId);
   if (!spell || spell.type !== 'shield') return { ok: false, reason: 'That spell cannot shield you.' };
   const chk = canCastSpell(wizard, spell, now);
   if (!chk.ok) return chk;
   wizard.mana -= spell.manaCost;
   wizard.cooldowns[spell.id] = now + spell.cooldown * 1000;
-  wizard.shieldBuff = { mitigation: spell.mitigation, expiresAt: now + spell.buffDuration };
+  wizard.shieldBuff = { mitigation: Math.min(0.9, spell.mitigation * powerMult), expiresAt: now + spell.buffDuration };
   return { ok: true };
 }
 
@@ -85,7 +89,8 @@ export function isShieldActive(wizard, now) {
 
 // Reactive counter: negates one specific incoming projectile outright,
 // resolved immediately rather than waiting for its scheduled impact.
-export function castCounterspell(wizard, projectile, spellId, world, now) {
+// A sloppy sign (powerMult below COUNTER_MIN_MULT) spends the mana but fizzles.
+export function castCounterspell(wizard, projectile, spellId, world, now, powerMult = 1) {
   const spell = getSpell(spellId);
   if (!spell || spell.type !== 'dispel') return { ok: false, reason: 'That spell cannot counter a curse.' };
   if (!projectile || projectile.resolved || projectile.targetId !== wizard.id) {
@@ -95,6 +100,10 @@ export function castCounterspell(wizard, projectile, spellId, world, now) {
   if (!chk.ok) return chk;
   wizard.mana -= spell.manaCost;
   wizard.cooldowns[spell.id] = now + spell.cooldown * 1000;
+  if (powerMult < COUNTER_MIN_MULT) {
+    log(world, `🌀 ${wizard.name}'s Counterspell fizzles — the sign was too sloppy!`);
+    return { ok: true, fizzled: true };
+  }
   projectile.resolved = true;
   const caster = findWizard(world, projectile.casterId);
   const atkSpell = getSpell(projectile.spellId);
@@ -139,7 +148,8 @@ function resolveImpact(world, projectile, now) {
       // Includes the caster's Spell Power Rune bonus (see spellPowerMultiplier
       // in wizard.js) — only the caster's own device knows that multiplier,
       // so it has to be baked in here rather than recomputed by the target.
-      casterPower: caster ? caster.power * spellPowerMultiplier(caster) : 1,
+      // The sign-drawing multiplier (sign.js) is baked in for the same reason.
+      casterPower: (caster ? caster.power * spellPowerMultiplier(caster) : 1) * (projectile.powerMult ?? 1),
       impactAt: now,
     });
     log(world, `${spell.icon} ${spell.name} rockets into the distance toward ${projectile.targetName || 'your rival'} — it should strike home any moment now.`);
@@ -152,8 +162,9 @@ function resolveImpact(world, projectile, now) {
     return;
   }
   // Spell Power (Runes & Powers, see wizard.js) permanently multiplies the
-  // caster's own `power` stat, the same way it already multiplies spell.power.
-  const powerMult = caster ? caster.power * spellPowerMultiplier(caster) : 1;
+  // caster's own `power` stat; the sign-drawing multiplier (sign.js) scales
+  // this one cast on top of that.
+  const powerMult = (caster ? caster.power * spellPowerMultiplier(caster) : 1) * (projectile.powerMult ?? 1);
   let dmg = Math.max(1, Math.round(spell.power * powerMult - (target.defense || 0)));
   let note = '';
   if (isShieldActive(target, now)) {
@@ -204,6 +215,8 @@ function handleDefeat(world, wizard, killer, now) {
       const xpGain = 15 + wizard.level * 5;
       killer.xp += xpGain;
       log(world, `⭐ You gain ${xpGain} XP.`);
+      const gems = awardKillBonus(killer, wizard.level);
+      log(world, `💎 You find ${gems} Mana Crystals.`);
       // Runes mirror the XP formula exactly (same defeated-NPC level) — see
       // docs/FEATURES.md "Runes & Powers" for why they're a separate track.
       const runeGain = xpGain;

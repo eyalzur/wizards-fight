@@ -1,6 +1,6 @@
 # Wizards Fight — Project Status
 
-Last updated: 2026-09-29
+Last updated: 2026-10-01
 
 This file is the single source of truth for "what exists, what's next, and
 why we made the calls we made." Run `/resume-proj` to get a suggested next
@@ -45,6 +45,13 @@ on top of it when the repo owner has a Firebase project configured (see
     per-hit).
   - **Counterspell** (defend) — reactive: cast during the incoming-curse
     alert to negate that *specific* spell outright.
+- **Sign drawing** — every cast (Spark Bolt, Ward Shield, Counterspell) opens
+  a pad showing the ⭐ Star Sigil (a one-stroke pentagram); the player redraws
+  it and similarity (position/size/direction-independent) maps to a ×0.5–×1.5
+  power multiplier (attack damage, shield mitigation). A Counterspell needs
+  ×1.0+ or it fizzles (mana still spent). NPCs cast at ×1. Scoring in
+  `js/sign.js`, overlay in `js/signpad.js`. Only one sign so far; thresholds
+  are first guesses.
 - **Combat UX** — tapping any wizard (yourself or an NPC) opens a
   contextual bottom sheet with their stats and the one relevant action
   (Attack for NPCs, Raise Shield for yourself). No always-on spellbook.
@@ -66,6 +73,11 @@ on top of it when the repo owner has a Firebase project configured (see
   NPCs + spawn point + speed setting saved to `localStorage`. No
   accounts, nothing leaves the browser except the optional multiplayer
   sync below.
+- **Mana Crystals economy (Phase 1)** — 💎 passive income into an uncapped
+  Treasury pot (scaled by ⚡ Fast while the page is open), a small kill
+  bonus, and a Crystal Shop selling 2 wand tiers and 2 robe tiers that make
+  you stronger than same-level NPCs. Numbers in `docs/FEATURES.md` are
+  first guesses.
 - **Multiplayer (optional, needs the repo owner's own Firebase project)**
   — real players' wizards appear on the map like NPCs (last-synced
   position, sense-range gated, distinct purple-badge marker), with a
@@ -106,6 +118,17 @@ on top of it when the repo owner has a Firebase project configured (see
 
 ## Roadmap (unordered backlog — `/resume-proj` helps prioritize)
 
+Mana Crystals economy phases (Phase 1 is live, see above):
+- **Phase 2** — 📍 walk income (crystals for really moving around) and the
+  full 5-tier ladder per slot (Starwood, Aurora, Archmage's Scepter /
+  Starsilk, Aurora Mantle, Archmage Vestments) with level gates. Also decide
+  whether to default new wizards to Real speed (see Decisions log).
+- **Phase 3** — potion slots (heal, mana, power boost).
+- **Phase 4** — element-specific gear and wands that unlock element spells.
+  Also tune numbers from real play data.
+- Deferred: map-marker gear glyphs.
+
+
 - Reintroduce element-specific attack spells (Fireball, Frost Shard,
   Thunder Jab, Thornwhip) and a heal spell (Minor Renewal), now that the
   1-attack/2-defend baseline is proven — see Decisions Log for why they
@@ -137,6 +160,37 @@ Short-form history of calls that shaped the current build, newest first.
 Keeps future planning from accidentally re-litigating settled questions
 without knowing why they were settled.
 
+- **2026-10-01 — Sign drawing powers every cast; merged with Runes & Powers
+  and multiplayer.** Spark Bolt, Ward Shield and Counterspell each open a
+  pad where the player redraws the ⭐ Star Sigil; similarity sets a ×0.5–×1.5
+  multiplier (Counterspell fizzles below ×1.0). It stacks multiplicatively
+  with gear, level and Spell Power, and is baked into the pending-hit
+  `casterPower` for remote targets (so a real player's hit reflects the
+  drawing). The branch carrying the Mana Crystals economy was merged into
+  `main` after `main` had gained Runes & Powers, multiplayer and the theme
+  pass, by explicit user choice to keep **both** economies: 💎 buys gear,
+  🔮 Runes buy permanent Spell Power / Recovery. Whether two currencies is
+  one too many is an open product question once both can be played together.
+- **2026-10-01 — Mana Crystals economy (Phase 1).** Added a 💎 currency so
+  the player gets stronger through bought gear (wand = power, robe = max HP
+  plus +1 defense) rather than only level; income is passive (Treasury pot)
+  plus a small kill bonus (`3 + npcLevel`). Two calls were made by the user
+  **against the product-designer's recommendation**: (1) ⚡ Fast scales
+  income (the designer wanted income independent of the testing toggle,
+  because a debug speed multiplier that is also the default makes the
+  economy trivially fast and hides real pacing; mitigated by applying the
+  multiplier at accrual time, 1x for closed-page time, and surfacing "×30"
+  in the Treasury card), and (2) the pot is uncapped (the designer wanted a
+  cap so the pot rewards returning regularly and doesn't pile up unbounded;
+  with Fast on, an idle open tab accrues quickly). Flat defense is kept
+  small (+1) because damage is `round(10 × power − defense)`; value goes
+  into max HP instead. Editing the device clock to farm income is a known,
+  accepted risk (no backend to check against). RESOLVED (same
+  day): the user approved defaulting new wizards to Real (1x) so the first
+  wand takes about 10 minutes; Fast remains a toggle and existing saves
+  keep their stored setting. Corrupted saves are also sanitized on load
+  (bad `gearApplied` recomputed, numeric-string gems coerced, an offline
+  anchor of 0 or older than 30 days earns no credit).
 - **2026-09-29 — Theme iteration 2: real 5th/6th avatar art, HP-as-ring,
   Ward Shield map VFX, smaller popups.** Direct follow-up feedback on the
   v1 pass above. (1) The 2 mirrored avatar slots from v1 were replaced with
@@ -275,7 +329,7 @@ without knowing why they were settled.
 - **2026-09-26 — Spell travel slowed to real minutes.** V1 had spells
   arrive in 1–10 seconds, which trivialized the defend mechanic. Speed
   is now tuned for real minutes at "Real" time scale, with a "Fast"
-  (30x) multiplier for testing. Default is Fast while we're actively
+  (30x) multiplier for testing. Default was Fast while we're actively
   iterating; flip to Real to feel the intended pace.
 - **2026-09-26 — Map tiles switched to CartoDB Dark Matter, not Google
   Maps.** Google Maps needs a billing-enabled API key that only the repo

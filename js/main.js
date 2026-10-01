@@ -6,6 +6,8 @@ import * as geo from './geo.js';
 import * as combat from './combat.js';
 import * as map from './map.js';
 import * as ui from './ui.js';
+import * as economy from './economy.js';
+import { openSignPad } from './signpad.js';
 import * as multiplayer from './multiplayer.js';
 import { uid } from './utils.js';
 
@@ -17,6 +19,12 @@ const DEFAULT_CENTER = { lat: 40.758, lng: -73.9855 }; // fallback demo spot if 
 const NPC_COUNT = 9;
 const ATTACK_SPELL = getSpell('spark_bolt');
 const SHIELD_SPELL = getSpell('ward_shield');
+const BUY_CONFIRM_MS = 3000;
+const FLASH_MS = 800;
+
+let shopConfirm = null; // { itemId, expiresAt } — the "tap again to buy" state lives here, not in the DOM
+let shopFlash = null; // { itemId, until }
+let lastGems = 0;
 
 // Dev/testing tool, gated behind a URL flag, checked once at boot — never
 // persisted, so it only applies to the page load it was requested on (see
@@ -54,6 +62,7 @@ function locate(onOk, onFail) {
 
 function onCreateWizard({ name, avatar, elementId }) {
   const player = createWizard({ id: uid(), name, avatar, element: elementId, isNPC: false });
+  economy.normalizeEconomy(player, Date.now());
   locate(
     (pos) => {
       player.position = pos;
@@ -80,7 +89,7 @@ function startGame(player, center) {
     playerRespawnAt: null,
     spawnCenter: { ...center },
     maxWalkMeters: 250,
-    timeScale: combat.TIME_SCALES.fast,
+    timeScale: combat.TIME_SCALES.real,
     multiplayerEnabled: false,
     myUid: null,
   };
@@ -92,6 +101,9 @@ function startGame(player, center) {
 }
 
 function resumeGame(saved) {
+  // Old saves lack the economy fields; this fills them in and credits time the
+  // page was closed at the Real (1x) rate only.
+  economy.normalizeEconomy(saved.player, Date.now());
   // Defensive defaults for saves written before Runes & Powers existed.
   saved.player.runes = saved.player.runes || 0;
   saved.player.spellPowerLevel = saved.player.spellPowerLevel || 0;
@@ -108,7 +120,7 @@ function resumeGame(saved) {
     playerRespawnAt: saved.player.hp <= 0 ? Date.now() + 3000 : null,
     spawnCenter: saved.spawnCenter || saved.player.position,
     maxWalkMeters: 250,
-    timeScale: saved.timeScale || combat.TIME_SCALES.fast,
+    timeScale: saved.timeScale || combat.TIME_SCALES.real,
     multiplayerEnabled: false,
     myUid: null,
   };
@@ -137,6 +149,11 @@ function boot() {
     },
     onPowersToggle: ui.togglePowersPanel,
     onLogToggle: ui.toggleLog,
+    onShop: () => openShop(),
+    onGemsTap: () => {
+      world.openSheet = { kind: 'self' };
+      render();
+    },
     onReset: () => {
       if (window.confirm('Start over with a brand new wizard? This erases your current wizard.')) {
         clearState();
@@ -144,6 +161,7 @@ function boot() {
       }
     },
   });
+  lastGems = world.player.gems;
   if (QA_MODE) {
     ui.initQaTools({
       onSetRunes: onQaSetRunes,
@@ -286,30 +304,123 @@ function onRemoteClick(remoteId) {
 }
 
 function onSheetAttack(npc) {
-  const res = combat.castAttack(world.player, npc, ATTACK_SPELL.id, world, Date.now());
-  if (!res.ok) ui.toast(res.reason);
-  else world.openSheet = null;
-  saveState(world);
-  syncSelfIfEnabled();
-  render();
+  const spell = ATTACK_SPELL;
+  const chk = combat.canCastSpell(world.player, spell, Date.now());
+  if (!chk.ok) { ui.toast(chk.reason); return; }
+  openSignPad({
+    title: `${spell.icon} ${spell.name}`,
+    onDone: (mult) => {
+      const res = combat.castAttack(world.player, npc, spell.id, world, Date.now(), mult);
+      if (!res.ok) ui.toast(res.reason);
+      else world.openSheet = null;
+      saveState(world);
+      syncSelfIfEnabled();
+      render();
+    },
+  });
 }
 
 function onSheetShield() {
-  const res = combat.castShield(world.player, SHIELD_SPELL.id, Date.now());
-  if (!res.ok) ui.toast(res.reason);
-  else ui.toast(`${SHIELD_SPELL.icon} Your ward shimmers to life.`);
+  const chk = combat.canCastSpell(world.player, SHIELD_SPELL, Date.now());
+  if (!chk.ok) { ui.toast(chk.reason); return; }
+  openSignPad({
+    title: `${SHIELD_SPELL.icon} ${SHIELD_SPELL.name}`,
+    onDone: (mult) => {
+      const res = combat.castShield(world.player, SHIELD_SPELL.id, Date.now(), mult);
+      if (!res.ok) ui.toast(res.reason);
+      else ui.toast(`${SHIELD_SPELL.icon} Your ward shimmers to life.`);
+      saveState(world);
+      render();
+    },
+  });
+}
+
+function onCounterspell(projectileId) {
+  const spell = getSpell('counterspell');
+  const chk = combat.canCastSpell(world.player, spell, Date.now());
+  if (!chk.ok) { ui.toast(chk.reason); return; }
+  openSignPad({
+    title: `${spell.icon} ${spell.name}`,
+    onDone: (mult) => {
+      const projectile = world.projectiles.find((p) => p.id === projectileId);
+      const res = combat.castCounterspell(world.player, projectile, spell.id, world, Date.now(), mult);
+      if (!res.ok) ui.toast(res.reason);
+      else if (res.fizzled) ui.toast('🌀 Counterspell fizzled — sloppy sign!');
+      saveState(world);
+      render();
+    },
+  });
+}
+
+function openShop(slot = 'wand') {
+  shopConfirm = null;
+  world.openSheet = { kind: 'shop', slot };
+  render();
+}
+
+function onCollect() {
+  const n = economy.collectPot(world.player);
+  if (n > 0) {
+    lastGems = world.player.gems;
+    ui.showGemPop(n);
+  }
   saveState(world);
   syncSelfIfEnabled();
   render();
 }
 
-function onCounterspell(projectileId) {
-  const projectile = world.projectiles.find((p) => p.id === projectileId);
-  const res = combat.castCounterspell(world.player, projectile, 'counterspell', world, Date.now());
-  if (!res.ok) ui.toast(res.reason);
+function onShopSlot(slot) {
+  shopConfirm = null;
+  world.openSheet = { kind: 'shop', slot };
+  render();
+}
+
+function onShopBuy(itemId) {
+  const now = Date.now();
+  if (!(shopConfirm && shopConfirm.itemId === itemId && now < shopConfirm.expiresAt)) {
+    shopConfirm = { itemId, expiresAt: now + BUY_CONFIRM_MS };
+    render();
+    return;
+  }
+  shopConfirm = null;
+  const res = economy.buyGear(world.player, itemId);
+  if (!res.ok) {
+    ui.toast(res.reason);
+  } else {
+    lastGems = world.player.gems;
+    shopFlash = { itemId, until: now + FLASH_MS };
+    ui.toast(`${res.item.icon} ${res.item.name} equipped · ${ui.describeMods(res.item.mods)}`);
+    world.log.unshift(`🛍️ You buy ${res.item.icon} ${res.item.name}.`);
+  }
   saveState(world);
   syncSelfIfEnabled();
   render();
+}
+
+function buildShopData(now) {
+  const p = world.player;
+  const slot = world.openSheet.slot;
+  const items = economy.gearInSlot(slot);
+  const confirmId = shopConfirm && now < shopConfirm.expiresAt ? shopConfirm.itemId : null;
+  const flashId = shopFlash && now < shopFlash.until ? shopFlash.itemId : null;
+  return {
+    kind: 'shop',
+    balance: p.gems,
+    slot,
+    slots: economy.GEAR_SLOTS,
+    intro: !p.equipment.wand && !p.equipment.robe,
+    rows: items.map((item) => {
+      const st = economy.gearState(p, item);
+      return {
+        item,
+        ...st,
+        delta: st.over ? economy.gearDelta(item, st.over) : {},
+        tiers: items.length,
+        confirming: confirmId === item.id,
+        flash: flashId === item.id,
+      };
+    }),
+  };
 }
 
 function onBuyPower() {
@@ -414,6 +525,14 @@ function buildSelfSheetData(now) {
     shieldRemainingS: shieldActive ? Math.ceil((p.shieldBuff.expiresAt - now) / 1000) : 0,
     shieldReady,
     shieldReason,
+    gear: { wand: economy.equippedGear(p, 'wand'), robe: economy.equippedGear(p, 'robe') },
+    treasury: {
+      potWhole: economy.potWhole(p),
+      canCollect: economy.potWhole(p) >= 1,
+      ratePerMin: economy.potRatePerMin(p.level) * world.timeScale,
+      fast: world.timeScale > combat.TIME_SCALES.real,
+      scale: world.timeScale,
+    },
   };
 }
 
@@ -473,9 +592,17 @@ function gameTick() {
   if (!world) return;
   const now = Date.now();
   combat.tick(world, now);
+  economy.accrue(world.player, now, world.timeScale);
+  const p = world.player;
+  if (!p.seenPotHint && economy.potWhole(p) >= 1) {
+    p.seenPotHint = true;
+    ui.toast('💎 Mana Crystals are gathering! Tap 💎 to collect.');
+  }
+  if (p.gems > lastGems) ui.showGemPop(p.gems - lastGems); // kill bonus
+  lastGems = p.gems;
   drainOutgoingHits();
   render();
-  if (now - lastSaveAt > 2000) {
+  if (Math.abs(now - lastSaveAt) > 2000) {
     saveState(world);
     lastSaveAt = now;
   }
@@ -518,7 +645,7 @@ function render() {
   // combat.js's persisted projectile shape) before being handed off.
   map.renderProjectiles(world.projectiles.map((p) => ({ ...p, casterColor: casterColorFor(p.casterId) })), now);
 
-  ui.renderHud(playerForDisplay);
+  ui.renderHud(playerForDisplay, { potReady: economy.potWhole(player) >= 1, fast: world.timeScale > combat.TIME_SCALES.real });
   ui.setSpeedLabel(world.timeScale > combat.TIME_SCALES.real ? '⚡ Fast' : '🐢 Real');
   ui.setRunesLabel(player.runes || 0);
   ui.renderLog(world.log);
@@ -529,6 +656,7 @@ function render() {
 
   let sheetData = null;
   if (world.openSheet?.kind === 'self') sheetData = buildSelfSheetData(now);
+  else if (world.openSheet?.kind === 'shop') sheetData = buildShopData(now);
   else if (world.openSheet?.kind === 'npc') {
     const npc = world.npcs.find((n) => n.id === world.openSheet.id);
     if (npc) sheetData = buildNpcSheetData(npc, now);
@@ -543,6 +671,10 @@ function render() {
     },
     onAttack: sheetData?.kind === 'npc' || sheetData?.kind === 'remote' ? () => onSheetAttack(sheetData.wizard) : null,
     onShield: onSheetShield,
+    onCollect,
+    onOpenShop: () => openShop(),
+    onShopSlot,
+    onShopBuy,
   });
 
   const incoming = world.projectiles.filter((p) => !p.resolved && p.targetId === player.id && p.casterId !== player.id);

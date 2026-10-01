@@ -119,6 +119,47 @@ stale.
 - [ ] New Wizard asks for confirmation, then clears `localStorage` and
       reloads to the creation screen.
 
+## Mana Crystals economy
+
+- [ ] HUD chip shows "💎 N"; gold dot appears when the pot has at least 1;
+      ⚡ appears on the chip only while Fast is on. Tapping the chip opens
+      your wizard sheet.
+- [ ] First time the pot reaches 1: one toast "Mana Crystals are gathering!"
+      (never again, including after reload).
+- [ ] Treasury card: pot number ticks up live; rate line reads
+      "+X 💎/min" at Real, pink "⚡ ×30 Fast · +X 💎/min" at Fast
+      (X = (8 + 1.5 × level) × scale). Collect is disabled and says
+      "Filling…" at 0; otherwise Collect moves the whole number to your
+      balance, a "+N 💎" pop floats from the chip, and the chip bumps.
+- [ ] Taps on Collect and on shop price buttons register reliably while the
+      game ticks (tap 10 times; none lost).
+- [ ] Shop opens from the sheet button and from ☰ → 💎 Shop. Intro line shows
+      until the first purchase. Wand/Robe tabs switch lists.
+- [ ] Row states: unaffordable (muted button, progress bar, "Need N more 💎"),
+      affordable (gold button), locked tier 2 ("Buy Willow Wand first", 🔒),
+      equipped (gold border, "Equipped"), lower tier owned ("Owned", dimmed).
+      Buyable rows show "+X over your <item>".
+- [ ] Buy: first tap turns the button to "Tap again to buy" and it stays that
+      way for 3s despite re-renders, then reverts; second tap inside 3s buys,
+      deducts the full price, auto-equips, flashes the row, toasts
+      "<icon> <name> equipped · +N stat". Switching tabs cancels a pending
+      confirm.
+- [ ] Derived stats: after buying, HP/Power on the sheet and in combat reflect
+      the gear (wand +power; robe +max HP, +1 def). Level up afterwards and
+      confirm gear bonus is still included.
+- [ ] Saves: reload keeps gems, pot, equipment. An OLD save with none of the
+      new fields (delete gems/pot/lastAccrualAt/equipment in localStorage)
+      loads with 0 💎, no gear, and unchanged stats.
+- [ ] Closed-page time accrues at 1x only: set `lastAccrualAt` 10 minutes back
+      in the save, reload at Fast: the pot gains about 10 × (8 + 1.5 × level),
+      not ×30.
+- [ ] Clock going backwards (e.g. set system time 1h back while playing):
+      pot does not drop, no console errors, saving still happens.
+- [ ] Fast on/off: switching changes income going forward only; the existing
+      pot does not jump when toggling.
+- [ ] Kill bonus: defeating an NPC adds `3 + npcLevel` 💎 to the balance (not
+      the pot), shows the pop, and logs "You find N Mana Crystals".
+
 ## Multiplayer (only if a Firebase project is configured — see docs/ARCHITECTURE.md "Multiplayer")
 
 Skip this whole section if `js/firebase-config.js` doesn't exist or still
@@ -191,5 +232,10 @@ that matters in that case.
       get-attacked → counter/shield → defeat/respawn cycle.
 - [ ] Works at phone width (~400px) — no horizontal scroll, sheet and
       overlays stay usable.
+- [ ] Short viewports (360x560 and 360x480): tap your wizard; the self
+      sheet stays under ~45% of the screen height, your marker is not
+      hidden behind it, and Collect, the 🛍️ Shop icon and Ward Shield are
+      each one tap (44px targets, none clipped). The NPC and Shop sheets
+      still render. At 480px tall the idle rate line is hidden by design.
 - [ ] `docs/FEATURES.md` numbers still match `js/spells.js`/`js/wizard.js`
       after any balance change.
