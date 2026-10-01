@@ -128,8 +128,12 @@ without knowing why they were settled.
   with Fast on, an idle open tab accrues quickly). Flat defense is kept
   small (+1) because damage is `round(10 × power − defense)`; value goes
   into max HP instead. Editing the device clock to farm income is a known,
-  accepted risk (no backend to check against). OPEN: Fast is still the
-  default speed, so new wizards earn at ×30 until someone flips it.
+  accepted risk (no backend to check against). RESOLVED (same
+  day): the user approved defaulting new wizards to Real (1x) so the first
+  wand takes about 10 minutes; Fast remains a toggle and existing saves
+  keep their stored setting. Corrupted saves are also sanitized on load
+  (bad `gearApplied` recomputed, numeric-string gems coerced, an offline
+  anchor of 0 or older than 30 days earns no credit).
 - **2026-09-26 — Combat UX rework.** Replaced the always-on spellbook
   dock + separate target-card with a single tap-to-open "wizard sheet"
   per wizard. Split defense into two mechanics (Ward Shield = proactive
@@ -143,7 +147,7 @@ without knowing why they were settled.
 - **2026-09-26 — Spell travel slowed to real minutes.** V1 had spells
   arrive in 1–10 seconds, which trivialized the defend mechanic. Speed
   is now tuned for real minutes at "Real" time scale, with a "Fast"
-  (30x) multiplier for testing. Default is Fast while we're actively
+  (30x) multiplier for testing. Default was Fast while we're actively
   iterating; flip to Real to feel the intended pace.
 - **2026-09-26 — Map tiles switched to CartoDB Dark Matter, not Google
   Maps.** Google Maps needs a billing-enabled API key that only the repo

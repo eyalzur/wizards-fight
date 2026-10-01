@@ -72,7 +72,7 @@ function startGame(player, center) {
     playerRespawnAt: null,
     spawnCenter: { ...center },
     maxWalkMeters: 250,
-    timeScale: combat.TIME_SCALES.fast,
+    timeScale: combat.TIME_SCALES.real,
   };
   for (let i = 0; i < NPC_COUNT; i++) {
     world.npcs.push(createNpc({ id: uid(), center, minR: 60, maxR: player.senseRange * 2, playerLevel: player.level }));
@@ -95,7 +95,7 @@ function resumeGame(saved) {
     playerRespawnAt: saved.player.hp <= 0 ? Date.now() + 3000 : null,
     spawnCenter: saved.spawnCenter || saved.player.position,
     maxWalkMeters: 250,
-    timeScale: saved.timeScale || combat.TIME_SCALES.fast,
+    timeScale: saved.timeScale || combat.TIME_SCALES.real,
   };
   world.log.push(`🌙 Welcome back, ${world.player.name}.`);
   boot();

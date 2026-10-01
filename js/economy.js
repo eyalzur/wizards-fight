@@ -11,7 +11,8 @@ export const ECONOMY = {
   // foreground page ticks every 250ms). Any longer gap (closed page, sleeping
   // laptop, throttled background tab) accrues at the Real 1x rate.
   liveGapCapMs: 2000,
-  killBonusBase: 3,       // kill bonus = base + npcLevel, straight to balance, never scaled
+  maxOfflineMs: 30 * 24 * 3600 * 1000, // an anchor older than this is treated as corrupted: no credit
+  killBonusBase: 3,      // kill bonus = base + npcLevel, straight to balance, never scaled
 };
 
 // slot ids, in the order the shop shows them
@@ -167,15 +168,31 @@ export function buyGear(wizard, itemId) {
 // fields (old saves have none of them) so existing wizards load with 0 💎 and
 // no gear. Offline time accrues at the Real 1x rate only.
 export function normalizeEconomy(wizard, now) {
-  wizard.gems = Number.isFinite(wizard.gems) ? Math.max(0, Math.floor(wizard.gems)) : 0;
-  wizard.pot = Number.isFinite(wizard.pot) ? Math.max(0, wizard.pot) : 0;
-  const hadAnchor = Number.isFinite(wizard.lastAccrualAt);
+  const gems = Number(wizard.gems); // numeric strings like "50" are kept
+  wizard.gems = Number.isFinite(gems) ? Math.max(0, Math.floor(gems)) : 0;
+  const pot = Number(wizard.pot);
+  wizard.pot = Number.isFinite(pot) ? Math.max(0, pot) : 0;
+  // A missing, non-positive or implausibly old anchor is treated as corrupted:
+  // re-anchor to now with no credit.
+  const hadAnchor =
+    Number.isFinite(wizard.lastAccrualAt) &&
+    wizard.lastAccrualAt > 0 &&
+    now - wizard.lastAccrualAt <= ECONOMY.maxOfflineMs;
   wizard.equipment = { wand: null, robe: null, ...(wizard.equipment || {}) };
   for (const slot of GEAR_SLOTS) {
     const item = getGear(wizard.equipment[slot.id]);
     if (!item || item.slot !== slot.id) wizard.equipment[slot.id] = null;
   }
   wizard.seenPotHint = !!wizard.seenPotHint;
+  // gearApplied must be a plain object of finite numbers, else treat it as
+  // (a brand-new wizard has none, and gets {0,0,0} here since equipment is empty)
+  // already-applied (recomputed from equipment) so syncGear can never produce
+  // NaN and never double-counts gear into power/maxHP/defense.
+  const ga = wizard.gearApplied;
+  const gaOk =
+    ga && typeof ga === 'object' && !Array.isArray(ga) &&
+    ['power', 'maxHP', 'defense'].every((k) => Number.isFinite(ga[k]));
+  if (!gaOk) wizard.gearApplied = gearBonus(wizard.equipment);
   syncGear(wizard);
   if (!hadAnchor) wizard.lastAccrualAt = now;
   accrue(wizard, now, 1);
