@@ -365,8 +365,11 @@ kills. It is a developer tool, not a player-facing feature:
   button, no panel element) — `js/ui.js:initQaTools`/`renderQaPanel` are
   simply never called, rather than being created-then-hidden.
 - The panel (`js/ui.js:initQaTools`) lets you set the player's Rune balance
-  to an exact number (plus +100/+1000 quick-adds) and set
-  `spellPowerLevel`/`spellRecoveryLevel` directly via +/- steppers,
+  to an exact number (plus +100/+1000/♾️ Infinite quick-sets — Infinite sets
+  a plain large number, `QA_INFINITE_RUNES` in `main.js`, not literal
+  `Infinity`, so every existing cost/affordability check keeps working
+  unchanged) and set `spellPowerLevel`/`spellRecoveryLevel` directly via
+  +/- steppers,
   clamped to each upgrade's existing `maxLevel` (`js/wizard.js:setUpgradeLevel`)
   — it can jump straight to the max/"Maxed" state but never past it, since
   the cap itself needs to stay testable as a real boundary.

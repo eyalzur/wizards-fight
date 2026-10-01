@@ -191,6 +191,7 @@ export function initQaTools(callbacks) {
       <div class="qa-row">
         <button id="qa-runes-add-100" class="power-buy">+100</button>
         <button id="qa-runes-add-1000" class="power-buy">+1000</button>
+        <button id="qa-runes-infinite" class="power-buy">♾️ Infinite</button>
       </div>
     </div>
     <div class="qa-section" id="qa-power-row"></div>
@@ -205,6 +206,7 @@ export function initQaTools(callbacks) {
   });
   document.getElementById('qa-runes-add-100').addEventListener('click', () => callbacks.onAddRunes(100));
   document.getElementById('qa-runes-add-1000').addEventListener('click', () => callbacks.onAddRunes(1000));
+  document.getElementById('qa-runes-infinite').addEventListener('click', () => callbacks.onSetInfiniteRunes());
 }
 
 // Rebuilds the current-balance text and the two level-stepper rows every

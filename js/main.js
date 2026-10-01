@@ -22,6 +22,10 @@ const SHIELD_SPELL = getSpell('ward_shield');
 // persisted, so it only applies to the page load it was requested on (see
 // docs/ARCHITECTURE.md "Dev/testing tooling: ?qa=1").
 const QA_MODE = new URLSearchParams(location.search).has('qa');
+// Not literal Infinity — a plain number keeps every existing cost/affordability
+// check (`>=`, subtraction, display formatting) working unchanged, and this is
+// far beyond what any current or planned upgrade could ever cost.
+const QA_INFINITE_RUNES = 999999999;
 
 let world = null;
 let lastSaveAt = 0;
@@ -144,6 +148,7 @@ function boot() {
     ui.initQaTools({
       onSetRunes: onQaSetRunes,
       onAddRunes: onQaAddRunes,
+      onSetInfiniteRunes: onQaSetInfiniteRunes,
       onSetPowerLevel: onQaSetPowerLevel,
       onSetRecoveryLevel: onQaSetRecoveryLevel,
     });
@@ -332,6 +337,12 @@ function onQaSetRunes(n) {
 
 function onQaAddRunes(n) {
   world.player.runes = Math.max(0, (world.player.runes || 0) + n);
+  saveState(world);
+  render();
+}
+
+function onQaSetInfiniteRunes() {
+  world.player.runes = QA_INFINITE_RUNES;
   saveState(world);
   render();
 }
