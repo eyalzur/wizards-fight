@@ -15,7 +15,11 @@ export const MAX_MULT = 1.5;
 export const COUNTER_MIN_MULT = 1.0;
 
 const SAMPLES = 64;
-const TOLERANCE = 0.12; // mean distance (in sign-sized units) at which score hits 0
+// Mean shape distance (in sign-sized units): at or below GOOD_DIST the score is
+// 1, at or above BAD_DIST it is 0, linear in between. Tuned so careful tracing
+// lands ~85-100%, an average hand ~55%, and a sloppy scribble under 25%.
+const GOOD_DIST = 0.025;
+const BAD_DIST = 0.075;
 
 export function scoreToMultiplier(score) {
   return MIN_MULT + (MAX_MULT - MIN_MULT) * Math.max(0, Math.min(1, score));
@@ -67,10 +71,17 @@ function meanNearest(from, to) {
 // Position, size and drawing direction/start don't matter; only the shape.
 // Both directions are checked, so missing parts of the sign or stray extra
 // lines both lower the score.
-export function scoreDrawing(strokes, sign = SIGN) {
+export function distanceToScore(d) {
+  return Math.max(0, Math.min(1, (BAD_DIST - d) / (BAD_DIST - GOOD_DIST)));
+}
+
+export function drawingDistance(strokes, sign = SIGN) {
   const drawn = normalize(resample(strokes, SAMPLES));
   const ref = normalize(resample(sign.strokes, SAMPLES));
-  if (!drawn || !ref) return 0;
-  const d = (meanNearest(drawn, ref) + meanNearest(ref, drawn)) / 2;
-  return Math.max(0, 1 - d / TOLERANCE);
+  if (!drawn || !ref) return Infinity;
+  return (meanNearest(drawn, ref) + meanNearest(ref, drawn)) / 2;
+}
+
+export function scoreDrawing(strokes, sign = SIGN) {
+  return distanceToScore(drawingDistance(strokes, sign));
 }
