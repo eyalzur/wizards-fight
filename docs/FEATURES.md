@@ -138,11 +138,56 @@ cooldowns and shield cleared.
   actions blocked), then respawn at 60% of max HP/mana. No stat loss, no
   item loss — there's nothing to lose.
 
+## Mana Crystals, Treasury and Shop (Phase 1)
+
+`js/economy.js` holds every number below. **All numbers are first guesses,
+not tuned from play data.**
+
+- **Currency:** Mana Crystals 💎. HUD chip "💎 N" next to your name (gold dot
+  when the Treasury has crystals to collect, ⚡ while Fast is on); tapping it
+  opens your own wizard sheet.
+- **Treasury (passive income):** crystals accrue into a pot at
+  `8 + 1.5 × wizard level` per real minute at Real (1x) speed. The pot has
+  **no cap**. Collect it with the gold Collect button on your wizard sheet
+  (disabled and labelled "Filling…" while the pot is under 1).
+- **Fast scales income:** while the page is open and ⚡ Fast is on, income is
+  multiplied by 30 (the multiplier is applied as time passes, never at
+  collect time, so toggling Fast cannot retroactively change the pot). **Fast
+  is the default speed, so a brand-new wizard currently earns at ×30**
+  (about 285 💎/min at level 1); the Treasury card says so in pink. Time the
+  page was closed (or a tab was throttled/asleep: any tick gap over 2s)
+  accrues at the Real rate only. A clock set backwards earns nothing for
+  that gap. The pot is saved with a timestamp so income continues across
+  reloads.
+- **Kill bonus:** defeating an NPC adds `3 + npcLevel` 💎 straight to your
+  balance (not the pot, not scaled by Fast).
+- **Shop** (wizard sheet → 🛍️ Crystal Shop, or ☰ → 💎 Shop): one equipped
+  item per slot, strict tier order within a slot, no downgrades, full price,
+  no refunds. Buying is two taps ("Tap again to buy" for 3s) and the item is
+  equipped immediately. Gear modifiers are added on top of element and level
+  stats and survive level-ups.
+
+| Item | Slot | Tier | Price | Effect |
+|------|------|------|-------|--------|
+| Willow Wand | 🪄 wand | 1 | 100 💎 | +0.08 power |
+| Moonstone Wand | 🪄 wand | 2 | 350 💎 | +0.18 power (replaces tier 1's bonus, not added to it) |
+| Apprentice Robe | 🧥 robe | 1 | 100 💎 | +15 max HP, +1 defense |
+| Moonweave Robe | 🧥 robe | 2 | 350 💎 | +30 max HP, +1 defense |
+
+Balance reasoning: damage is `round(10 × power − defense)` (min 1), so
+defense stays at +1 and the value goes into max HP. A simple equal-hit-rate
+duel simulation against same-level NPCs (random elements) gives roughly a
+70% win rate with both tier-1 items and 80-85% with both tier-2 items
+(no gear: 50%). Real fights favor the player more than that, because NPCs
+attack rarely. Later tiers (Starwood, Aurora, Archmage's Scepter / Starsilk,
+Aurora Mantle, Archmage Vestments), potions and element gear are not built.
+
 ## Persistence
 
 `js/state.js`. On every meaningful action (cast, walk finished) and every
 2 seconds during play, the player's wizard, the NPC roster, the original
-spawn point, and the time-scale setting are written to
+spawn point, and the time-scale setting (the player's record includes
+crystals, pot, `lastAccrualAt` and equipment) are written to
 `localStorage['wizardsfight_save_v1']`. Projectiles in flight, the log,
 and which sheet is open are **not** persisted — they reset on reload,
 which is a deliberate simplification (see `docs/ARCHITECTURE.md` for

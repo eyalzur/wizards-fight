@@ -2,6 +2,7 @@ import { getSpell } from './spells.js';
 import { distanceMeters } from './geo.js';
 import { growLevel } from './wizard.js';
 import { respawnNpc } from './npc.js';
+import { awardKillBonus } from './economy.js';
 import { uid, log, pick, randRange } from './utils.js';
 
 const TEMPERAMENT_AGGRO = { passive: 0.06, neutral: 0.16, aggressive: 0.32 };
@@ -137,6 +138,8 @@ function handleDefeat(world, wizard, killer, now) {
       const xpGain = 15 + wizard.level * 5;
       killer.xp += xpGain;
       log(world, `⭐ You gain ${xpGain} XP.`);
+      const gems = awardKillBonus(killer, wizard.level);
+      log(world, `💎 You find ${gems} Mana Crystals.`);
       checkLevelUp(world, killer);
     }
   } else {

@@ -6,12 +6,19 @@ import * as geo from './geo.js';
 import * as combat from './combat.js';
 import * as map from './map.js';
 import * as ui from './ui.js';
+import * as economy from './economy.js';
 import { uid } from './utils.js';
 
 const DEFAULT_CENTER = { lat: 40.758, lng: -73.9855 }; // fallback demo spot if location is denied
 const NPC_COUNT = 9;
 const ATTACK_SPELL = getSpell('spark_bolt');
 const SHIELD_SPELL = getSpell('ward_shield');
+const BUY_CONFIRM_MS = 3000;
+const FLASH_MS = 800;
+
+let shopConfirm = null; // { itemId, expiresAt } — the "tap again to buy" state lives here, not in the DOM
+let shopFlash = null; // { itemId, until }
+let lastGems = 0;
 
 let world = null;
 let lastSaveAt = 0;
@@ -40,6 +47,7 @@ function locate(onOk, onFail) {
 
 function onCreateWizard({ name, avatar, elementId }) {
   const player = createWizard({ id: uid(), name, avatar, element: elementId, isNPC: false });
+  economy.normalizeEconomy(player, Date.now());
   locate(
     (pos) => {
       player.position = pos;
@@ -74,6 +82,9 @@ function startGame(player, center) {
 }
 
 function resumeGame(saved) {
+  // Old saves lack the economy fields; this fills them in and credits time the
+  // page was closed at the Real (1x) rate only.
+  economy.normalizeEconomy(saved.player, Date.now());
   world = {
     player: saved.player,
     npcs: saved.npcs || [],
@@ -110,6 +121,11 @@ function boot() {
       render();
     },
     onLogToggle: ui.toggleLog,
+    onShop: () => openShop(),
+    onGemsTap: () => {
+      world.openSheet = { kind: 'self' };
+      render();
+    },
     onReset: () => {
       if (window.confirm('Start over with a brand new wizard? This erases your current wizard.')) {
         clearState();
@@ -117,6 +133,7 @@ function boot() {
       }
     },
   });
+  lastGems = world.player.gems;
   setInterval(gameTick, 250);
   render();
 }
@@ -193,6 +210,75 @@ function onCounterspell(projectileId) {
   render();
 }
 
+function openShop(slot = 'wand') {
+  shopConfirm = null;
+  world.openSheet = { kind: 'shop', slot };
+  render();
+}
+
+function onCollect() {
+  const n = economy.collectPot(world.player);
+  if (n > 0) {
+    lastGems = world.player.gems;
+    ui.showGemPop(n);
+  }
+  saveState(world);
+  render();
+}
+
+function onShopSlot(slot) {
+  shopConfirm = null;
+  world.openSheet = { kind: 'shop', slot };
+  render();
+}
+
+function onShopBuy(itemId) {
+  const now = Date.now();
+  if (!(shopConfirm && shopConfirm.itemId === itemId && now < shopConfirm.expiresAt)) {
+    shopConfirm = { itemId, expiresAt: now + BUY_CONFIRM_MS };
+    render();
+    return;
+  }
+  shopConfirm = null;
+  const res = economy.buyGear(world.player, itemId);
+  if (!res.ok) {
+    ui.toast(res.reason);
+  } else {
+    lastGems = world.player.gems;
+    shopFlash = { itemId, until: now + FLASH_MS };
+    ui.toast(`${res.item.icon} ${res.item.name} equipped · ${ui.describeMods(res.item.mods)}`);
+    world.log.unshift(`🛍️ You buy ${res.item.icon} ${res.item.name}.`);
+  }
+  saveState(world);
+  render();
+}
+
+function buildShopData(now) {
+  const p = world.player;
+  const slot = world.openSheet.slot;
+  const items = economy.gearInSlot(slot);
+  const confirmId = shopConfirm && now < shopConfirm.expiresAt ? shopConfirm.itemId : null;
+  const flashId = shopFlash && now < shopFlash.until ? shopFlash.itemId : null;
+  return {
+    kind: 'shop',
+    balance: p.gems,
+    slot,
+    slots: economy.GEAR_SLOTS,
+    intro: !p.equipment.wand && !p.equipment.robe,
+    rows: items.map((item) => {
+      const st = economy.gearState(p, item);
+      return {
+        item,
+        ...st,
+        delta: st.over ? economy.gearDelta(item, st.over) : {},
+        tiers: items.length,
+        confirming: confirmId === item.id,
+        flash: flashId === item.id,
+      };
+    }),
+  };
+}
+
 function buildSelfSheetData(now) {
   const p = world.player;
   const shieldActive = combat.isShieldActive(p, now);
@@ -209,6 +295,14 @@ function buildSelfSheetData(now) {
     shieldRemainingS: shieldActive ? Math.ceil((p.shieldBuff.expiresAt - now) / 1000) : 0,
     shieldReady,
     shieldReason,
+    gear: { wand: economy.equippedGear(p, 'wand'), robe: economy.equippedGear(p, 'robe') },
+    treasury: {
+      potWhole: economy.potWhole(p),
+      canCollect: economy.potWhole(p) >= 1,
+      ratePerMin: economy.potRatePerMin(p.level) * world.timeScale,
+      fast: world.timeScale > combat.TIME_SCALES.real,
+      scale: world.timeScale,
+    },
   };
 }
 
@@ -231,8 +325,16 @@ function gameTick() {
   if (!world) return;
   const now = Date.now();
   combat.tick(world, now);
+  economy.accrue(world.player, now, world.timeScale);
+  const p = world.player;
+  if (!p.seenPotHint && economy.potWhole(p) >= 1) {
+    p.seenPotHint = true;
+    ui.toast('💎 Mana Crystals are gathering! Tap 💎 to collect.');
+  }
+  if (p.gems > lastGems) ui.showGemPop(p.gems - lastGems); // kill bonus
+  lastGems = p.gems;
   render();
-  if (now - lastSaveAt > 2000) {
+  if (Math.abs(now - lastSaveAt) > 2000) {
     saveState(world);
     lastSaveAt = now;
   }
@@ -255,12 +357,13 @@ function render() {
   map.renderNpcs(visibleNpcs, onNpcClick, world.openSheet?.kind === 'npc' ? world.openSheet.id : null);
   map.renderProjectiles(world.projectiles, now);
 
-  ui.renderHud(player);
+  ui.renderHud(player, { potReady: economy.potWhole(player) >= 1, fast: world.timeScale > combat.TIME_SCALES.real });
   ui.setSpeedLabel(world.timeScale > combat.TIME_SCALES.real ? '⚡ Fast' : '🐢 Real');
   ui.renderLog(world.log);
 
   let sheetData = null;
   if (world.openSheet?.kind === 'self') sheetData = buildSelfSheetData(now);
+  else if (world.openSheet?.kind === 'shop') sheetData = buildShopData(now);
   else if (world.openSheet?.kind === 'npc') {
     const npc = world.npcs.find((n) => n.id === world.openSheet.id);
     if (npc) sheetData = buildNpcSheetData(npc, now);
@@ -272,6 +375,10 @@ function render() {
     },
     onAttack: sheetData?.kind === 'npc' ? () => onSheetAttack(sheetData.wizard) : null,
     onShield: onSheetShield,
+    onCollect,
+    onOpenShop: () => openShop(),
+    onShopSlot,
+    onShopBuy,
   });
 
   const incoming = world.projectiles.filter((p) => !p.resolved && p.targetId === player.id && p.casterId !== player.id);

@@ -1,6 +1,6 @@
 # Wizards Fight — Project Status
 
-Last updated: 2026-09-26
+Last updated: 2026-10-01
 
 This file is the single source of truth for "what exists, what's next, and
 why we made the calls we made." Run `/check-proj` to get a suggested next
@@ -54,6 +54,11 @@ see Roadmap).
   no permadeath.
 - **Persistence** — wizard + NPCs + spawn point + speed setting saved to
   `localStorage`. No server, no accounts, nothing leaves the browser.
+- **Mana Crystals economy (Phase 1)** — 💎 passive income into an uncapped
+  Treasury pot (scaled by ⚡ Fast while the page is open), a small kill
+  bonus, and a Crystal Shop selling 2 wand tiers and 2 robe tiers that make
+  you stronger than same-level NPCs. Numbers in `docs/FEATURES.md` are
+  first guesses.
 - **Deploy** — static site, GitHub Pages, deploys from `main`.
 
 ## Known gaps / not yet built
@@ -72,6 +77,17 @@ see Roadmap).
   test multiplier.
 
 ## Roadmap (unordered backlog — `/check-proj` helps prioritize)
+
+Mana Crystals economy phases (Phase 1 is live, see above):
+- **Phase 2** — 📍 walk income (crystals for really moving around) and the
+  full 5-tier ladder per slot (Starwood, Aurora, Archmage's Scepter /
+  Starsilk, Aurora Mantle, Archmage Vestments) with level gates. Also decide
+  whether to default new wizards to Real speed (see Decisions log).
+- **Phase 3** — potion slots (heal, mana, power boost).
+- **Phase 4** — element-specific gear and wands that unlock element spells.
+  Also tune numbers from real play data.
+- Deferred: map-marker gear glyphs.
+
 
 - Reintroduce element-specific attack spells (Fireball, Frost Shard,
   Thunder Jab, Thornwhip) and a heal spell (Minor Renewal), now that the
@@ -98,6 +114,22 @@ Short-form history of calls that shaped the current build, newest first.
 Keeps future planning from accidentally re-litigating settled questions
 without knowing why they were settled.
 
+- **2026-10-01 — Mana Crystals economy (Phase 1).** Added a 💎 currency so
+  the player gets stronger through bought gear (wand = power, robe = max HP
+  plus +1 defense) rather than only level; income is passive (Treasury pot)
+  plus a small kill bonus (`3 + npcLevel`). Two calls were made by the user
+  **against the product-designer's recommendation**: (1) ⚡ Fast scales
+  income (the designer wanted income independent of the testing toggle,
+  because a debug speed multiplier that is also the default makes the
+  economy trivially fast and hides real pacing; mitigated by applying the
+  multiplier at accrual time, 1x for closed-page time, and surfacing "×30"
+  in the Treasury card), and (2) the pot is uncapped (the designer wanted a
+  cap so the pot rewards returning regularly and doesn't pile up unbounded;
+  with Fast on, an idle open tab accrues quickly). Flat defense is kept
+  small (+1) because damage is `round(10 × power − defense)`; value goes
+  into max HP instead. Editing the device clock to farm income is a known,
+  accepted risk (no backend to check against). OPEN: Fast is still the
+  default speed, so new wizards earn at ×30 until someone flips it.
 - **2026-09-26 — Combat UX rework.** Replaced the always-on spellbook
   dock + separate target-card with a single tap-to-open "wizard sheet"
   per wizard. Split defense into two mechanics (Ward Shield = proactive
