@@ -1,7 +1,7 @@
 // DOM for the sign-drawing overlay. Scoring lives in sign.js.
 // Flow: WATCH (the sign is drawn point by point) -> the sign vanishes ->
 // DRAW (from memory, against a level-based timer) -> RESULT.
-import { SIGN, scoreDrawing, scoreToMultiplier, drawTimeMs } from './sign.js';
+import { SIGN, BAND, scoreDrawing, scoreToMultiplier, drawTimeMs } from './sign.js';
 
 const RESULT_MS = 1100;
 const MIN_POINTS = 8;
@@ -9,7 +9,7 @@ const DEMO_MS = 2600; // pen travels the whole sign in this long
 const HOLD_MS = 450; // finished sign stays visible this long...
 const FADE_MS = 600; // ...then fades out
 
-const PAD = 28; // small margin: the sign fills most of the pad so there is room to be precise
+const PAD = 40;
 
 // Points along the sign's strokes, with cumulative arc length, for the demo pen.
 function buildPath(S) {
@@ -48,7 +48,7 @@ export function openSignPad({ title, level = 1, onDone }) {
     <div class="sign-card">
       <div class="sign-title">${title}</div>
       <div class="sign-hint"></div>
-      <canvas class="sign-canvas" width="420" height="420"></canvas>
+      <canvas class="sign-canvas" width="300" height="300"></canvas>
       <div class="sign-result" aria-live="polite">&nbsp;</div>
       <div class="sign-actions">
         <button type="button" class="sign-btn" data-act="clear" disabled>↺ Clear</button>
@@ -65,6 +65,7 @@ export function openSignPad({ title, level = 1, onDone }) {
   const castBtn = el.querySelector('[data-act=cast]');
   const S = canvas.width;
   const path = buildPath(S);
+  const bandPx = 2 * BAND * (S - 2 * PAD);
 
   let phase = 'watch'; // watch | draw | result
   let phaseStart = performance.now();
@@ -94,16 +95,18 @@ export function openSignPad({ title, level = 1, onDone }) {
       const trail = penAt(path, d);
       // Fade out once the pen is done and the hold has passed.
       const alpha = t <= DEMO_MS + HOLD_MS ? 1 : Math.max(0, 1 - (t - DEMO_MS - HOLD_MS) / FADE_MS);
-      strokePath(trail, 12, 'rgba(255, 214, 102, 0.25)', alpha); // glow
-      strokePath(trail, 6, '#ffd666', alpha);
+      // The wide band is the real tolerance (BAND each side of the line): ink
+      // anywhere inside it counts as on the sign.
+      strokePath(trail, bandPx, 'rgba(255, 214, 102, 0.35)', alpha);
+      strokePath(trail, 4, '#ffd666', alpha);
       if (t <= DEMO_MS + HOLD_MS) {
         const pen = trail[trail.length - 1];
         ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(pen.x, pen.y, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(pen.x, pen.y, 7, 0, Math.PI * 2); ctx.fill();
       }
       if (t >= DEMO_MS + HOLD_MS + FADE_MS) startDraw(now);
     } else {
-      for (const st of strokes) strokePath(st, 8, '#8ff');
+      for (const st of strokes) strokePath(st, 6, '#8ff');
       if (phase === 'draw') {
         const left = Math.max(0, drawMs - t);
         // The Cast button is the countdown: green -> yellow -> red as the

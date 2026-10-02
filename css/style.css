@@ -587,7 +587,7 @@ html, body {
 }
 .sign-card {
   background: var(--bg-panel); border: 1px solid var(--gold);
-  border-radius: 16px; padding: 12px; width: min(460px, calc(100vw - 12px));
+  border-radius: 16px; padding: 14px; width: min(340px, calc(100vw - 24px));
   text-align: center;
 }
 .sign-title { font-family: var(--font-head); font-weight: 800; font-size: 1.05rem; }
