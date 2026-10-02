@@ -139,6 +139,7 @@ a new coupling to Firebase; `combat.js` still has no import of
   gems,                                // Mana Crystal balance (integer)
   pot, lastAccrualAt,                  // Treasury (float) + epoch ms of last accrual
   equipment: { wand: id|null, robe: id|null },
+  gearLevels: { wand: 0..10, robe: 0..10 }, // upgrade level of the equipped item per slot (0 if empty)
   gearApplied: { power, maxHP, defense }, // how much of the fields above is gear
   seenPotHint,                         // one-time "crystals are gathering" toast shown
   // Runes & Powers (see docs/FEATURES.md) — carried on every wizard for
@@ -378,7 +379,15 @@ of a tick gap (a live foreground tick is 250ms); longer gaps (closed page,
 sleep, throttled tab) accrue at 1x. Negative gaps earn nothing. `combat.js`
 imports `economy.awardKillBonus` for the kill reward; `main.js` notices the
 balance rise and shows the "+N 💎" pop. Gear is a flat catalog (`GEAR`) with
-`slot`, `tier`, `price`, `mods`; adding tiers or slots is adding rows.
+`slot`, `tier`, `price`, `mods` (base) and `upgrade` (per-level bonus); adding
+tiers or slots is adding rows. Upgrades: `gearLevels[slot]` is the level of the
+equipped item (reset to 0 when a new tier is bought); `gearBonus(equipment,
+levels)` = mods + level x upgrade, still applied only through `syncGear`.
+`upgradeGear`/`upgradeState`/`upgradeCost` and the `upgrade*` keys of `ECONOMY`
+hold the rules and numbers; `normalizeEconomy` clamps `gearLevels` to
+0..`upgradeMaxLevel` (missing/corrupt -> 0), so old saves load unchanged. The
+upgrade confirm uses `shopConfirm` with id `up:<slot>`. `combat.js` clamps a
+shielded hit to at least 1 damage so no gear stack makes a wizard immune.
 
 **Sheet re-rendering:** `render()` runs every 250ms, and replacing `innerHTML`
 that often swallows taps. `ui.js` rebuilds the self and shop sheets only when

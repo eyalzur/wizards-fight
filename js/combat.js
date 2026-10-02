@@ -168,7 +168,7 @@ function resolveImpact(world, projectile, now) {
   let dmg = Math.max(1, Math.round(spell.power * powerMult - (target.defense || 0)));
   let note = '';
   if (isShieldActive(target, now)) {
-    dmg = Math.round(dmg * (1 - target.shieldBuff.mitigation));
+    dmg = Math.max(1, Math.round(dmg * (1 - target.shieldBuff.mitigation))); // a hit never drops below 1, even through a ward
     note = ` 🛡️ Softened by ${target.name}'s ward!`;
   }
   target.hp = Math.max(0, target.hp - dmg);
@@ -197,7 +197,7 @@ export function applyPendingHit(world, hit, now) {
   let dmg = Math.max(1, Math.round(power * (hit.casterPower || 1) - (target.defense || 0)));
   let note = '';
   if (isShieldActive(target, now)) {
-    dmg = Math.round(dmg * (1 - target.shieldBuff.mitigation));
+    dmg = Math.max(1, Math.round(dmg * (1 - target.shieldBuff.mitigation))); // a hit never drops below 1, even through a ward
     note = ` 🛡️ Softened by your ward!`;
   }
   target.hp = Math.max(0, target.hp - dmg);

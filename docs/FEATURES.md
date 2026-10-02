@@ -230,7 +230,7 @@ cooldowns and shield cleared.
   actions blocked), then respawn at 60% of max HP/mana. No stat loss, no
   item loss — there's nothing to lose.
 
-## Mana Crystals, Treasury and Shop (Phase 1)
+## Mana Crystals, Treasury and Shop (Phase 1, 5-tier ladder + upgrades)
 
 `js/economy.js` holds every number below. **All numbers are first guesses,
 not tuned from play data.**
@@ -255,25 +255,74 @@ not tuned from play data.**
 - **Kill bonus:** defeating an NPC adds `3 + npcLevel` 💎 straight to your
   balance (not the pot, not scaled by Fast).
 - **Shop** (wizard sheet → 🛍️ Shop button, or ☰ → 💎 Crystal Shop): one equipped
-  item per slot, strict tier order within a slot, no downgrades, full price,
-  no refunds. Buying is two taps ("Tap again to buy" for 3s) and the item is
-  equipped immediately. Gear modifiers are added on top of element and level
-  stats and survive level-ups.
+  item per slot, strict tier order within a slot (5 tiers per slot), no
+  downgrades, full price, no refunds, no level gates. Buying is two taps
+  ("Tap again to buy" for 3s) and the item is equipped immediately (at +0).
+  Gear modifiers are added on top of element and level stats and survive
+  level-ups. When a lower tier is equipped, higher-tier rows show the stat
+  difference "vs your <item> +n" (it can be negative if you heavily upgraded
+  the lower tier).
 
-| Item | Slot | Tier | Price | Effect |
-|------|------|------|-------|--------|
-| Willow Wand | 🪄 wand | 1 | 100 💎 | +0.08 power |
-| Moonstone Wand | 🪄 wand | 2 | 350 💎 | +0.18 power (replaces tier 1's bonus, not added to it) |
-| Apprentice Robe | 🧥 robe | 1 | 100 💎 | +15 max HP, +1 defense |
-| Moonweave Robe | 🧥 robe | 2 | 350 💎 | +30 max HP, +1 defense |
+| Item | Slot | Tier | Price | Base effect (+0) | Per upgrade level | At +10 |
+|------|------|------|-------|------------------|-------------------|--------|
+| Willow Wand | 🪄 wand | 1 | 100 💎 | +0.08 power | +0.02 power | +0.28 power |
+| Moonstone Wand | 🪄 wand | 2 | 350 💎 | +0.18 power | +0.05 power | +0.68 power |
+| Starwood Wand | 🪄 wand | 3 | 900 💎 | +0.40 power | +0.15 power | +1.90 power |
+| Aurora Wand | 🪄 wand | 4 | 2200 💎 | +0.80 power | +0.50 power | +5.80 power |
+| Archmage's Scepter | 🪄 wand | 5 | 5000 💎 | +1.50 power | +1.40 power | +15.50 power |
+| Apprentice Robe | 🧥 robe | 1 | 100 💎 | +15 max HP, +1 def | +1 max HP | +25 HP, +1 def |
+| Moonweave Robe | 🧥 robe | 2 | 350 💎 | +30 max HP, +1 def | +2 max HP | +50 HP, +1 def |
+| Starsilk Robe | 🧥 robe | 3 | 900 💎 | +60 max HP, +2 def | +6 max HP, +0.1 def | +120 HP, +3 def |
+| Aurora Mantle | 🧥 robe | 4 | 2200 💎 | +110 max HP, +3 def | +15 max HP, +0.25 def | +260 HP, +5.5 def |
+| Archmage Vestments | 🧥 robe | 5 | 5000 💎 | +180 max HP, +4 def | +40 max HP, +0.5 def | +580 HP, +9 def |
+
+A tier's bonus replaces the previous tier's (not added to it). Base player
+power is about 4.5 (so a +1 power is about +22% damage).
+
+### Item upgrades ("enhancing", +1 to +10)
+
+The equipped item of each slot can be upgraded from +0 up to **+10** with 💎
+from its Shop row (an Upgrade strip appears on the equipped row: level, what
+the next level adds, price, and a button). **Fully deterministic: no failure
+chance, no randomness, no downgrade.** Same two-tap confirm as buying ("Tap
+again to upgrade" for 3s). Each level adds the item's per-level bonus (table
+above) on top of its base and applies immediately (HP rises by the extra max
+HP too). The step from +n to +n+1 costs
+`round(price × 0.06 × 1.4^n)` 💎:
+
+| Item (tier) | Steps +1..+10 | Total to +10 |
+|-------------|---------------|--------------|
+| T1 (100) | 6, 8, 12, 16, 23, 32, 45, 63, 89, 124 | 418 |
+| T2 (350) | 21, 29, 41, 58, 81, 113, 158, 221, 310, 434 | 1,466 |
+| T3 (900) | 54, 76, 106, 148, 207, 290, 407, 569, 797, 1,116 | 3,770 |
+| T4 (2200) | 132, 185, 259, 362, 507, 710, 994, 1,391, 1,948, 2,727 | 9,215 |
+| T5 (5000) | 300, 420, 588, 823, 1,152, 1,613, 2,259, 3,162, 4,427, 6,198 | 20,942 |
+
+Upgrade levels belong to the equipped item: buying the next tier equips it at
++0 and the old item's upgrades are lost (no refund), so the cheap low-tier
+upgrades are the only "wasted" spend. The self sheet shows levels ("Aurora Wand
++4"); a maxed row shows "MAX". Upgrade levels are saved with the player
+(`gearLevels`), clamped to 0..10 on load; old saves load at +0.
+
+Max gear (T5 wand +10 and T5 robe +10) adds +15.5 power, +580 max HP and +9
+defense: about 21 total power (about 200 damage per Spark Bolt at a perfect
+sign), 680+ max HP at level 1. Every hit, even through Ward Shield, still does
+at least 1 damage (the shield rounding no longer drops a hit to 0).
 
 Balance reasoning: damage is `round(10 × power − defense)` (min 1), so
-defense stays at +1 and the value goes into max HP. A simple equal-hit-rate
-duel simulation against same-level NPCs (random elements) gives roughly a
-70% win rate with both tier-1 items and 80-85% with both tier-2 items
-(no gear: 50%). Real fights favor the player more than that, because NPCs
-attack rarely. Later tiers (Starwood, Aurora, Archmage's Scepter / Starsilk,
-Aurora Mantle, Archmage Vestments), potions and element gear are not built.
+defense is kept small next to max HP, but T5 +10 (9 def, plus 3 for Ice)
+cuts a level-1 NPC bolt from about 10 to about 1-2. In a duel Monte Carlo
+(real wizards, random NPC element/temperament, +/-1 level), even ungeared
+the player already wins about 100% of same-level fights (player damage has a
+4.5x multiplier), so win rate is not the discriminator; bolts-to-kill and
+damage taken are. T5/T5 +10: every NPC at Lv.1-20 dies in at most 2 bolts at
+a perfect sign (all at Lv.1-5, 38% in one bolt at Lv.10), and the player
+takes about 0-3 HP per fight. All numbers are first guesses.
+
+**Multiplayer interaction:** gear and upgrades feed `wizard.power` /
+`maxHP` / `defense`, and these are what the Firebase sync sends and what a
+remote Spark Bolt uses. See the PvP note in `proj-status.md` (a maxed avatar
+hits a real player for far more than they can currently survive).
 
 ## Runes & Powers
 

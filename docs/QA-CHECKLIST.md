@@ -146,11 +146,34 @@ stale.
       "<icon> <name> equipped · +N stat". Switching tabs cancels a pending
       confirm.
 - [ ] Derived stats: after buying, HP/Power on the sheet and in combat reflect
-      the gear (wand +power; robe +max HP, +1 def). Level up afterwards and
+      the gear (wand +power; robe +max HP, +def). Level up afterwards and
       confirm gear bonus is still included.
 - [ ] Saves: reload keeps gems, pot, equipment. An OLD save with none of the
       new fields (delete gems/pot/lastAccrualAt/equipment in localStorage)
       loads with 0 💎, no gear, and unchanged stats.
+- [ ] 5 tiers per slot: Willow/Moonstone/Starwood/Aurora Wand/Archmage's
+      Scepter and Apprentice/Moonweave/Starsilk/Aurora Mantle/Archmage
+      Vestments; each locked until the previous is owned. The list scrolls
+      (header and tabs stay put) and opens with the equipped row in view.
+      Buyable rows read "<stats> vs your <item> +n" (may be negative).
+- [ ] Upgrade (equipped row only): shows "Upgrade +n/10", "Next +n+1: <bonus>",
+      progress pips and a 44px button with the cost. First tap -> "Tap again to
+      upgrade" (3s, survives re-renders, tab switch cancels), second tap spends
+      exactly the cost, level +1, stats rise immediately (robe HP goes up too),
+      toast + log line. Double-tapping fast charges once. Tapping 10 times
+      with spare funds never loses a tap.
+- [ ] Upgrade unaffordable: button disabled/muted with a progress bar under
+      the info (no tap does anything). Equip a higher tier: it starts at +0.
+- [ ] Upgrade max: at +10 the strip shows "MAX" with all pips filled and no
+      button. Self sheet gear line shows levels ("Aurora Wand +4").
+- [ ] Upgrade persistence: reload keeps levels and stats (no double-applied
+      bonus); level-up afterwards keeps the gear bonus. OLD save (equipment
+      present, no `gearLevels`) loads at +0 with unchanged stats; corrupt
+      values ("abc", -4, 99, null) clamp to 0..10 without console errors.
+- [ ] Shop at 360x640 and 390x850: 5 rows, upgrade strip fits, text >= 12px,
+      one overlay at a time, reduced-motion respected (no flash).
+- [ ] With max gear a hit still deals at least 1 damage, also through an
+      active Ward Shield; HP never goes NaN/negative.
 - [ ] Closed-page time accrues at 1x only: set `lastAccrualAt` 10 minutes back
       in the save, reload at Fast: the pot gains about 10 × (8 + 1.5 × level),
       not ×30.

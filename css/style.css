@@ -525,9 +525,24 @@ html, body {
 .shop-list { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .shop-row {
   --tier: var(--mana);
-  display: flex; align-items: center; gap: 10px; padding: 10px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px;
   background: var(--bg-panel-2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius);
+  flex-shrink: 0;
 }
+/* Upgrade strip inside the equipped row: info on the left, 44px button right. */
+.shop-upgrade {
+  flex: 0 0 100%; display: flex; align-items: center; gap: 10px;
+  padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1);
+}
+.up-info { flex: 1; min-width: 0; }
+.up-title { font-size: 0.78rem; font-weight: 800; color: var(--text); }
+.up-next { font-size: 0.75rem; color: var(--gold-soft); font-weight: 700; }
+.up-pips { display: flex; gap: 3px; margin-top: 4px; }
+.up-pips i { flex: 1; max-width: 18px; height: 5px; border-radius: 2px; background: rgba(255,255,255,0.15); }
+.up-pips i.on { background: var(--tier); }
+.up-btn { min-width: 112px; }
+.up-max { font-size: 0.9rem; padding: 0 8px; }
+.shop-upgrade.maxed .up-pips i.on { background: var(--gold); }
 .shop-row[data-tier="2"] { --tier: var(--purple); }
 .shop-row[data-tier="3"] { --tier: var(--pink); }
 .shop-row[data-tier="4"] { --tier: var(--gold); }

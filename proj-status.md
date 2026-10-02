@@ -1,6 +1,6 @@
 # Wizards Fight — Project Status
 
-Last updated: 2026-10-01
+Last updated: 2026-10-02
 
 This file is the single source of truth for "what exists, what's next, and
 why we made the calls we made." Run `/resume-proj` to get a suggested next
@@ -84,9 +84,10 @@ on top of it when the repo owner has a Firebase project configured (see
   sync below.
 - **Mana Crystals economy (Phase 1)** — 💎 passive income into an uncapped
   Treasury pot (scaled by ⚡ Fast while the page is open), a small kill
-  bonus, and a Crystal Shop selling 2 wand tiers and 2 robe tiers that make
-  you stronger than same-level NPCs. Numbers in `docs/FEATURES.md` are
-  first guesses.
+  bonus, and a Crystal Shop selling 5 wand tiers and 5 robe tiers, each
+  upgradable +1..+10 with 💎 (deterministic, no gambling), so a maxed avatar
+  is overwhelmingly stronger than same-level NPCs. Numbers in
+  `docs/FEATURES.md` are first guesses.
 - **Multiplayer (optional, needs the repo owner's own Firebase project)**
   — real players' wizards appear on the map like NPCs (last-synced
   position, sense-range gated, distinct purple-badge marker), with a
@@ -128,10 +129,11 @@ on top of it when the repo owner has a Firebase project configured (see
 ## Roadmap (unordered backlog — `/resume-proj` helps prioritize)
 
 Mana Crystals economy phases (Phase 1 is live, see above):
-- **Phase 2** — 📍 walk income (crystals for really moving around) and the
-  full 5-tier ladder per slot (Starwood, Aurora, Archmage's Scepter /
-  Starsilk, Aurora Mantle, Archmage Vestments) with level gates. Also decide
-  whether to default new wizards to Real speed (see Decisions log).
+- **Phase 2** — 📍 walk income (crystals for really moving around). The
+  5-tier ladder per slot and item upgrades are DONE (2026-10-02); level
+  gates for the ladder were not added. New wizards already default to Real.
+- Open: PvP scaling — a maxed avatar one-shots real players (see Decisions log
+  2026-10-02); needs a product decision (cap/ignore gear vs real players).
 - **Phase 3** — potion slots (heal, mana, power boost).
 - **Phase 4** — element-specific gear and wands that unlock element spells.
   Also tune numbers from real play data.
@@ -168,6 +170,25 @@ Mana Crystals economy phases (Phase 1 is live, see above):
 Short-form history of calls that shaped the current build, newest first.
 Keeps future planning from accidentally re-litigating settled questions
 without knowing why they were settled.
+
+- **2026-10-02 — Item upgrades added; the user wants a dominant avatar.**
+  The 5-tier gear ladder (Phase 2) is complete and each equipped item can be
+  upgraded +1..+10 with 💎 (cost `price x 0.06 x 1.4^n`). The user explicitly
+  asked to "make my avatar very very strong", which SUPERSEDES the earlier
+  tuning target (clearly stronger, ~75-85% win rate, never above ~+60%): a
+  maxed T5 wand + robe (+15.5 power, +580 max HP, +9 defense) kills same-level
+  NPCs in 1-2 bolts and takes about 0-3 damage per fight. Upgrades are
+  deterministic: no failure chance, no randomness, no gambling (kids/teens
+  audience). Defense stays modest (max +9) next to the damage formula, value
+  goes into max HP; every hit still does at least 1 (combat.js now also
+  clamps shielded hits to 1, previously a strong ward could round 1 to 0).
+  No level gates were added (kept trivial). Income unchanged: max grind is
+  roughly 40+ hours at Real speed (see FEATURES). **Open PvP issue, not
+  changed:** gear feeds `power`, which is what a remote Spark Bolt carries
+  (`casterPower`), so a maxed avatar (about 200 damage per bolt) one-shots
+  real players (about 100-300 HP); the target's defense is their own. Needs
+  a product decision (cap/ignore gear vs real players) before multiplayer
+  is used with strong gear.
 
 - **2026-10-02 — UI layering redesign (stack, not float).** A phone
   screenshot showed the ☰ menu open over the incoming-spell banner, which

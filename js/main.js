@@ -433,6 +433,29 @@ function onShopBuy(itemId) {
   render();
 }
 
+function onShopUpgrade(slot) {
+  const now = Date.now();
+  const key = `up:${slot}`;
+  if (!(shopConfirm && shopConfirm.itemId === key && now < shopConfirm.expiresAt)) {
+    shopConfirm = { itemId: key, expiresAt: now + BUY_CONFIRM_MS };
+    render();
+    return;
+  }
+  shopConfirm = null;
+  const res = economy.upgradeGear(world.player, slot);
+  if (!res.ok) {
+    ui.toast(res.reason);
+  } else {
+    lastGems = world.player.gems;
+    shopFlash = { itemId: res.item.id, until: now + FLASH_MS };
+    ui.toast(`${res.item.icon} ${res.item.name} +${res.level} · ${ui.describeMods(res.item.upgrade)}`);
+    world.log.unshift(`⬆️ You upgrade ${res.item.icon} ${res.item.name} to +${res.level}.`);
+  }
+  saveState(world);
+  syncSelfIfEnabled();
+  render();
+}
+
 function buildShopData(now) {
   const p = world.player;
   const slot = world.openSheet.slot;
@@ -447,10 +470,17 @@ function buildShopData(now) {
     intro: !p.equipment.wand && !p.equipment.robe,
     rows: items.map((item) => {
       const st = economy.gearState(p, item);
+      const isEquipped = st.state === 'equipped';
+      const up = isEquipped ? economy.upgradeState(p, slot) : null;
       return {
         item,
         ...st,
-        delta: st.over ? economy.gearDelta(item, st.over) : {},
+        up,
+        upConfirming: !!up && confirmId === `up:${slot}`,
+        // current total (base + upgrades) for the equipped row
+        totalMods: isEquipped ? economy.gearBonus({ [slot]: item.id }, { [slot]: up.level }) : null,
+        delta: st.over ? economy.gearDelta(item, st.over, economy.gearLevel(p, slot)) : {},
+        overLevel: economy.gearLevel(p, slot),
         tiers: items.length,
         confirming: confirmId === item.id,
         flash: flashId === item.id,
@@ -561,7 +591,10 @@ function buildSelfSheetData(now) {
     shieldRemainingS: shieldActive ? Math.ceil((p.shieldBuff.expiresAt - now) / 1000) : 0,
     shieldReady,
     shieldReason,
-    gear: { wand: economy.equippedGear(p, 'wand'), robe: economy.equippedGear(p, 'robe') },
+    gear: {
+      wand: economy.equippedGear(p, 'wand') && { ...economy.equippedGear(p, 'wand'), level: economy.gearLevel(p, 'wand') },
+      robe: economy.equippedGear(p, 'robe') && { ...economy.equippedGear(p, 'robe'), level: economy.gearLevel(p, 'robe') },
+    },
     treasury: {
       potWhole: economy.potWhole(p),
       canCollect: economy.potWhole(p) >= 1,
@@ -708,6 +741,7 @@ function render() {
     onOpenShop: () => openShop(),
     onShopSlot,
     onShopBuy,
+    onShopUpgrade,
   });
 
   const incoming = world.projectiles.filter((p) => !p.resolved && p.targetId === player.id && p.casterId !== player.id);

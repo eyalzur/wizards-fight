@@ -427,7 +427,7 @@ function renderSelfSheet(el, data, callbacks) {
           <span class="sheet-avatar self" id="sheet-avatar"></span>
           <div style="min-width:0">
             <div class="sheet-name">${w.name} <small>Lv.${w.level}</small></div>
-            <div class="sheet-sub sheet-gear">${gear.wand ? `${gear.wand.icon} ${gear.wand.name}` : '🪄 No wand'} · ${gear.robe ? `${gear.robe.icon} ${gear.robe.name}` : '🧥 No robe'}</div>
+            <div class="sheet-sub sheet-gear">${gear.wand ? `${gear.wand.icon} ${gear.wand.name}${gear.wand.level ? ` +${gear.wand.level}` : ''}` : '🪄 No wand'} · ${gear.robe ? `${gear.robe.icon} ${gear.robe.name}${gear.robe.level ? ` +${gear.robe.level}` : ''}` : '🧥 No robe'}</div>
           </div>
         </div>
         <div class="sheet-stats">
@@ -483,18 +483,37 @@ function renderSelfSheet(el, data, callbacks) {
   document.getElementById('sheet-mp-fill').style.width = `${live.mpPct}%`;
 }
 
+// The per-item upgrade strip on the equipped row: level, what the next level
+// adds, and one button (price / "Tap again to upgrade" / disabled / MAX).
+function upgradeHtml(r) {
+  const u = r.up;
+  const slot = r.item.slot;
+  const pipsOn = Array.from({ length: u.max }, (_, i) => `<i${i < u.level ? ' class="on"' : ''}></i>`).join('');
+  if (u.maxed) {
+    return `<div class="shop-upgrade maxed"><div class="up-info"><div class="up-title">Upgrade +${u.level}/${u.max}</div><div class="up-pips">${pipsOn}</div></div><span class="shop-tag up-max">MAX</span></div>`;
+  }
+  const next = `<div class="up-next">Next +${u.level + 1}: ${fmtMods(u.step)}</div>`;
+  const need = u.affordable ? '' : `<div class="shop-progress"><div style="width:${Math.min(100, (100 * (u.cost - u.needMore)) / u.cost)}%"></div></div>`;
+  const btn = `<button class="shop-price up-btn${u.affordable ? '' : ' poor'}${r.upConfirming ? ' confirm' : ''}" data-upgrade="${slot}"${u.affordable ? '' : ' disabled'}>${r.upConfirming ? 'Tap again to upgrade' : `⬆ ${u.cost} 💎`}</button>`;
+  return `<div class="shop-upgrade"><div class="up-info"><div class="up-title">Upgrade +${u.level}/${u.max}</div>${next}<div class="up-pips">${pipsOn}</div>${need}</div>${btn}</div>`;
+}
+
 function shopRowHtml(r) {
   const { item, state } = r;
   const pips = Array.from({ length: r.tiers }, (_, i) => (i < item.tier ? '●' : '○')).join('');
   let note = '';
   let right = '';
-  if (state === 'equipped') right = '<span class="shop-tag">Equipped</span>';
+  let upgrade = '';
+  if (state === 'equipped') {
+    right = '<span class="shop-tag">Equipped</span>';
+    upgrade = upgradeHtml(r);
+  }
   else if (state === 'owned') right = '<span class="shop-tag dim">Owned</span>';
   else if (state === 'locked') {
     note = `<div class="shop-note">Buy ${r.requires.name} first</div>`;
     right = '<span class="shop-tag dim">🔒</span>';
   } else {
-    if (r.over && Object.keys(r.delta).length) note = `<div class="shop-note">${fmtMods(r.delta)} over your ${r.over.name}</div>`;
+    if (r.over && Object.keys(r.delta).length) note = `<div class="shop-note">${fmtMods(r.delta)} vs your ${r.over.name}${r.overLevel ? ` +${r.overLevel}` : ''}</div>`;
     if (state === 'unaffordable') {
       note += `<div class="shop-note need">Need ${r.needMore} more 💎</div><div class="shop-progress"><div style="width:${Math.min(100, (100 * (item.price - r.needMore)) / item.price)}%"></div></div>`;
     }
@@ -503,13 +522,16 @@ function shopRowHtml(r) {
   return `<div class="shop-row ${state}${r.flash ? ' flash' : ''}" data-tier="${item.tier}">
       <span class="shop-icon">${item.icon}</span>
       <div class="shop-info">
-        <div class="shop-name">${item.name} <span class="shop-pips">${pips}</span></div>
-        <div class="shop-stats">${fmtMods(item.mods)}</div>
+        <div class="shop-name">${item.name}${r.up && r.up.level ? ` +${r.up.level}` : ''} <span class="shop-pips">${pips}</span></div>
+        <div class="shop-stats">${fmtMods(r.totalMods || item.mods)}</div>
         ${note}
       </div>
       ${right}
+      ${upgrade}
     </div>`;
 }
+
+let shopSlotShown = null; // which slot's list the shop DOM currently shows
 
 function renderShopSheet(el, data, callbacks) {
   const html = `
@@ -523,11 +545,23 @@ function renderShopSheet(el, data, callbacks) {
         <div class="shop-list">${data.rows.map(shopRowHtml).join('')}</div>
       </div>`;
   if (html === sheetKey && el.firstElementChild) return;
+  // Rebuilding replaces the scrolling list, so carry its scroll position over;
+  // on first open / tab switch, bring the equipped (or next) row into view.
+  const oldList = el.querySelector('.shop-list');
+  const keepScroll = oldList && shopSlotShown === data.slot ? oldList.scrollTop : null;
   sheetKey = html;
   el.innerHTML = html;
+  const list = el.querySelector('.shop-list');
+  if (keepScroll !== null) list.scrollTop = keepScroll;
+  else {
+    const focus = list.querySelector('.shop-row.equipped') || list.querySelector('.shop-row.affordable, .shop-row.unaffordable');
+    if (focus) list.scrollTop = Math.max(0, focus.getBoundingClientRect().top - list.getBoundingClientRect().top - 4);
+  }
+  shopSlotShown = data.slot;
   document.getElementById('sheet-close').addEventListener('click', callbacks.onClose);
   el.querySelectorAll('[data-slot]').forEach((b) => b.addEventListener('click', () => callbacks.onShopSlot(b.dataset.slot)));
   el.querySelectorAll('[data-buy]:not([disabled])').forEach((b) => b.addEventListener('click', () => callbacks.onShopBuy(b.dataset.buy)));
+  el.querySelectorAll('[data-upgrade]:not([disabled])').forEach((b) => b.addEventListener('click', () => callbacks.onShopUpgrade(b.dataset.upgrade)));
 }
 
 // Tapping a wizard (yourself or an NPC) opens this sheet in place of the old
@@ -545,8 +579,10 @@ export function renderWizardSheet(data, callbacks) {
     el.classList.add('hidden');
     el.innerHTML = '';
     sheetKey = null;
+    shopSlotShown = null;
     return;
   }
+  if (data.kind !== 'shop') shopSlotShown = null;
   el.classList.remove('hidden');
 
   if (data.kind === 'self') {
