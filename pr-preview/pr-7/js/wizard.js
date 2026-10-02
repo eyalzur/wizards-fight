@@ -18,13 +18,6 @@ export function getElement(id) {
 
 const BASE_STATS = { maxHP: 100, maxMana: 60, power: 1.0, defense: 0, senseRange: 170, manaRegenMs: 2000 };
 
-// Real wizards (player or a remote player) hit far harder than NPCs — NPCs
-// are meant to go down in 2-3 Spark Bolts, not be a slow grind. Applied once
-// at creation to `power`, not to spell.power directly, so NPC-vs-player
-// damage (NPCs casting at you, or at each other conceptually) is untouched —
-// only a non-NPC caster's own damage output is boosted.
-const PLAYER_POWER_MULT = 4.5;
-
 const ELEMENT_MODS = {
   fire: { power: 1.15, maxMana: -10 },
   ice: { maxHP: 20, defense: 3 },
@@ -56,7 +49,6 @@ export function startingSpellsFor() {
 
 export function createWizard({ id, name, avatar, element, isNPC = false, level = 1 }) {
   const stats = baseStatsFor(element);
-  if (!isNPC) stats.power = +(stats.power * PLAYER_POWER_MULT).toFixed(2);
   const wizard = {
     id: id || uid(),
     name: name || 'Wizard',
