@@ -570,28 +570,30 @@ export function renderDefendPrompts(incoming, player, now, onCounter) {
   }
   overlay.classList.remove('hidden');
   const counterSpell = getSpell('counterspell');
-  overlay.innerHTML = incoming
-    .map((p) => {
-      const spell = getSpell(p.spellId);
-      const msLeft = Math.max(0, p.impactTime - now);
-      const totalMs = Math.max(1, p.impactTime - p.travelStart);
-      const barPct = pct(msLeft, totalMs);
-      const onCooldown = (player.cooldowns[counterSpell.id] || 0) > now;
-      const lowMana = player.mana < counterSpell.manaCost;
-      const ready = !onCooldown && !lowMana;
-      const reason = lowMana ? 'Not enough mana.' : onCooldown ? 'Still recharging.' : '';
-      return `<div class="defend-card">
-        <div class="defend-title">⚠️ Incoming ${spell.icon} ${spell.name}! (${formatCountdown(msLeft)})</div>
-        <div class="defend-timer"><div class="defend-timer-fill" style="width:${barPct}%"></div></div>
-        <div class="defend-actions">
-          <button data-proj="${p.id}" class="defend-btn${ready ? '' : ' disabled'}">
-            ${counterSpell.icon} Counterspell <span class="sheet-btn-cost">${counterSpell.manaCost}💧</span>
-          </button>
-        </div>
-        ${!ready ? `<div class="defend-reason">${reason}</div>` : ''}
-      </div>`;
-    })
-    .join('');
+  // However many curses are in flight, show ONE fixed-size card for the one
+  // that lands soonest (that's the one worth countering first) plus a
+  // "+N more" chip — stacking a card per curse used to eat the whole screen.
+  const sorted = [...incoming].sort((x, y) => x.impactTime - y.impactTime);
+  const p = sorted[0];
+  const spell = getSpell(p.spellId);
+  const msLeft = Math.max(0, p.impactTime - now);
+  const totalMs = Math.max(1, p.impactTime - p.travelStart);
+  const barPct = pct(msLeft, totalMs);
+  const onCooldown = (player.cooldowns[counterSpell.id] || 0) > now;
+  const lowMana = player.mana < counterSpell.manaCost;
+  const ready = !onCooldown && !lowMana;
+  const reason = lowMana ? 'Not enough mana' : onCooldown ? 'Recharging' : '';
+  const more = sorted.length - 1;
+  overlay.innerHTML = `<div class="defend-card">
+      <div class="defend-row">
+        <div class="defend-title">⚠️ ${spell.icon} ${spell.name} <span class="defend-eta">${formatCountdown(msLeft)}</span>${more ? ` <span class="defend-more">+${more} more</span>` : ''}</div>
+        <button data-proj="${p.id}" class="defend-btn${ready ? '' : ' disabled'}">
+          ${counterSpell.icon} ${counterSpell.manaCost}💧
+        </button>
+      </div>
+      <div class="defend-timer"><div class="defend-timer-fill" style="width:${barPct}%"></div></div>
+      ${!ready ? `<div class="defend-reason">${reason}</div>` : ''}
+    </div>`;
   overlay.querySelectorAll('.defend-btn:not(.disabled)').forEach((btn) => {
     btn.addEventListener('click', () => onCounter(btn.dataset.proj));
   });

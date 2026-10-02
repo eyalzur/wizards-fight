@@ -324,7 +324,7 @@ html, body {
      height with internal scrolling: several simultaneous incoming spells
      used to stack as full-height cards with no limit, which could push
      the whole map (and every tappable wizard on it) off-screen. */
-  position: absolute; top: 66px; left: 12px; right: 12px; z-index: 700;
+  position: absolute; top: 66px; left: 56px; right: 12px; z-index: 700; /* left clears Leaflet's +/- zoom buttons */
   display: flex; flex-direction: column; gap: 4px;
   max-height: 30dvh; overflow-y: auto;
 }
@@ -338,6 +338,9 @@ html, body {
   font-size: 0.76rem;
 }
 @keyframes pulse-red { 0%,100% { box-shadow: 0 0 10px rgba(255,92,138,0.18);} 50% { box-shadow: 0 0 18px rgba(255,92,138,0.35);} }
+.defend-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.defend-eta { color: var(--text-dim); font-weight: 700; margin-left: 2px; }
+.defend-more { margin-left: 4px; padding: 1px 6px; border-radius: 8px; background: var(--pink); color: #fff; font-size: 0.68rem; }
 .defend-title { font-weight: 800; margin-bottom: 2px; font-size: 0.78rem; line-height: 1.2; }
 .defend-timer { height: 3px; border-radius: 3px; background: rgba(255,255,255,0.15); overflow: hidden; margin-bottom: 3px; }
 .defend-timer-fill { height: 100%; background: var(--pink); transition: width 0.1s linear; }
