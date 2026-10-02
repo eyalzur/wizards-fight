@@ -1,65 +1,132 @@
 // DOM for the sign-drawing overlay. Scoring lives in sign.js.
-import { SIGN, scoreDrawing, scoreToMultiplier } from './sign.js';
+// Flow: WATCH (the sign is drawn point by point) -> the sign vanishes ->
+// DRAW (from memory, against a level-based timer) -> RESULT.
+import { SIGN, scoreDrawing, scoreToMultiplier, drawTimeMs } from './sign.js';
 
 const RESULT_MS = 1100;
 const MIN_POINTS = 8;
+const DEMO_MS = 2600; // pen travels the whole sign in this long
+const HOLD_MS = 450; // finished sign stays visible this long...
+const FADE_MS = 600; // ...then fades out
 
-// Shows the sign, lets the player draw it, then calls onDone(multiplier, score).
+const PAD = 40;
+
+// Points along the sign's strokes, with cumulative arc length, for the demo pen.
+function buildPath(S) {
+  const pts = [];
+  for (const st of SIGN.strokes) {
+    for (const p of st) pts.push({ x: PAD + p.x * (S - 2 * PAD), y: PAD + p.y * (S - 2 * PAD) });
+  }
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+  return { pts, cum, total: cum[cum.length - 1] };
+}
+
+// Pen position + the polyline drawn so far at arc length d.
+function penAt(path, d) {
+  const trail = [path.pts[0]];
+  for (let i = 1; i < path.pts.length; i++) {
+    if (d >= path.cum[i]) { trail.push(path.pts[i]); continue; }
+    const t = (d - path.cum[i - 1]) / (path.cum[i] - path.cum[i - 1]);
+    const a = path.pts[i - 1], b = path.pts[i];
+    trail.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    break;
+  }
+  return trail;
+}
+
+// Calls onDone(multiplier, score) once the player has drawn (or time ran out).
 // onCancel() fires if they back out. Only one pad can be open at a time.
-export function openSignPad({ title, onDone, onCancel }) {
+export function openSignPad({ title, level = 1, onDone, onCancel }) {
   if (document.getElementById('sign-pad')) return;
+  const drawMs = drawTimeMs(level);
   const el = document.createElement('div');
   el.id = 'sign-pad';
   el.className = 'sign-pad';
   el.innerHTML = `
     <div class="sign-card">
       <div class="sign-title">${title}</div>
-      <div class="sign-hint">Trace the ${SIGN.name} — the closer, the stronger.</div>
+      <div class="sign-hint"></div>
       <canvas class="sign-canvas" width="300" height="300"></canvas>
+      <div class="sign-timer"><div class="sign-timer-fill"></div></div>
       <div class="sign-result" aria-live="polite">&nbsp;</div>
       <div class="sign-actions">
         <button type="button" class="sign-btn" data-act="cancel">✕ Cancel</button>
-        <button type="button" class="sign-btn" data-act="clear">↺ Clear</button>
-        <button type="button" class="sign-btn primary" data-act="cast">✨ Cast</button>
+        <button type="button" class="sign-btn" data-act="clear" disabled>↺ Clear</button>
+        <button type="button" class="sign-btn primary" data-act="cast" disabled>✨ Cast</button>
       </div>
     </div>`;
   document.getElementById('screen-game').appendChild(el);
 
   const canvas = el.querySelector('canvas');
   const ctx = canvas.getContext('2d');
+  const hintEl = el.querySelector('.sign-hint');
   const resultEl = el.querySelector('.sign-result');
+  const timerFill = el.querySelector('.sign-timer-fill');
+  const clearBtn = el.querySelector('[data-act=clear]');
+  const castBtn = el.querySelector('[data-act=cast]');
   const S = canvas.width;
-  const PAD = 40;
+  const path = buildPath(S);
+
+  let phase = 'watch'; // watch | draw | result
+  let phaseStart = performance.now();
   let strokes = [];
   let current = null;
-  let locked = false;
+  let raf = 0;
+  let closed = false;
 
-  function draw() {
+  function strokePath(points, widthPx, color, alpha = 1) {
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = widthPx;
+    ctx.beginPath();
+    points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    if (points.length === 1) ctx.lineTo(points[0].x + 0.1, points[0].y);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  function render(now) {
     ctx.clearRect(0, 0, S, S);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    // Ghost guide
-    ctx.strokeStyle = 'rgba(255, 214, 102, 0.3)';
-    ctx.lineWidth = 8;
-    ctx.setLineDash([2, 12]);
-    for (const st of SIGN.strokes) {
-      ctx.beginPath();
-      st.forEach((p, i) => {
-        const x = PAD + p.x * (S - 2 * PAD), y = PAD + p.y * (S - 2 * PAD);
-        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-      });
-      ctx.stroke();
+    const t = now - phaseStart;
+    if (phase === 'watch') {
+      const d = Math.min(1, t / DEMO_MS) * path.total;
+      const trail = penAt(path, d);
+      // Fade out once the pen is done and the hold has passed.
+      const alpha = t <= DEMO_MS + HOLD_MS ? 1 : Math.max(0, 1 - (t - DEMO_MS - HOLD_MS) / FADE_MS);
+      strokePath(trail, 10, 'rgba(255, 214, 102, 0.25)', alpha); // glow
+      strokePath(trail, 5, '#ffd666', alpha);
+      if (t <= DEMO_MS + HOLD_MS) {
+        const pen = trail[trail.length - 1];
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(pen.x, pen.y, 7, 0, Math.PI * 2); ctx.fill();
+      }
+      if (t >= DEMO_MS + HOLD_MS + FADE_MS) startDraw(now);
+    } else {
+      for (const st of strokes) strokePath(st, 6, '#8ff');
+      if (phase === 'draw') {
+        const left = Math.max(0, drawMs - t);
+        timerFill.style.width = `${(left / drawMs) * 100}%`;
+        timerFill.classList.toggle('low', left < drawMs * 0.3);
+        if (left <= 0) finish(true);
+      }
     }
-    ctx.setLineDash([]);
-    // Player's strokes
-    ctx.strokeStyle = '#8ff';
-    ctx.lineWidth = 6;
-    for (const st of strokes) {
-      ctx.beginPath();
-      st.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-      if (st.length === 1) ctx.lineTo(st[0].x + 0.1, st[0].y);
-      ctx.stroke();
-    }
+  }
+
+  function loop(now) {
+    if (closed) return;
+    render(now);
+    raf = requestAnimationFrame(loop);
+  }
+
+  function startDraw(now) {
+    phase = 'draw';
+    phaseStart = now;
+    hintEl.textContent = `Draw the ${SIGN.name} from memory!`;
+    clearBtn.disabled = false;
+    castBtn.disabled = false;
   }
 
   function pos(e) {
@@ -68,40 +135,50 @@ export function openSignPad({ title, onDone, onCancel }) {
   }
 
   canvas.addEventListener('pointerdown', (e) => {
-    if (locked) return;
+    if (phase !== 'draw') return;
     e.preventDefault();
     canvas.setPointerCapture(e.pointerId);
     current = [pos(e)];
     strokes.push(current);
-    draw();
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!current) return;
-    current.push(pos(e));
-    draw();
+    if (current && phase === 'draw') current.push(pos(e));
   });
   const end = () => { current = null; };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
 
-  function close() { el.remove(); }
+  function close() {
+    closed = true;
+    cancelAnimationFrame(raf);
+    el.remove();
+  }
+
+  function finish(timedOut) {
+    if (phase !== 'draw') return;
+    phase = 'result';
+    current = null;
+    clearBtn.disabled = true;
+    castBtn.disabled = true;
+    const pts = strokes.reduce((n, s) => n + s.length, 0);
+    const score = pts < MIN_POINTS ? 0 : scoreDrawing(strokes);
+    const mult = scoreToMultiplier(score);
+    resultEl.textContent = pts < MIN_POINTS
+      ? `${timedOut ? "Time's up! " : ''}Nothing drawn → ×${mult.toFixed(2)} power`
+      : `${timedOut ? "Time's up! " : ''}Accuracy ${Math.round(score * 100)}% → ×${mult.toFixed(2)} power`;
+    setTimeout(() => { close(); onDone(mult, score); }, RESULT_MS);
+  }
 
   el.addEventListener('click', (e) => {
     e.stopPropagation();
     const act = e.target.closest('[data-act]')?.dataset.act;
-    if (!act || locked) return;
+    if (!act || phase === 'result') return;
     if (act === 'cancel') { close(); onCancel?.(); }
-    else if (act === 'clear') { strokes = []; resultEl.innerHTML = '&nbsp;'; draw(); }
-    else if (act === 'cast') {
-      const pts = strokes.reduce((n, s) => n + s.length, 0);
-      if (pts < MIN_POINTS) { resultEl.textContent = 'Draw the sign first!'; return; }
-      const score = scoreDrawing(strokes);
-      const mult = scoreToMultiplier(score);
-      locked = true;
-      resultEl.textContent = `Accuracy ${Math.round(score * 100)}% → ×${mult.toFixed(2)} power`;
-      setTimeout(() => { close(); onDone(mult, score); }, RESULT_MS);
-    }
+    else if (phase !== 'draw') return;
+    else if (act === 'clear') strokes = [];
+    else if (act === 'cast') finish(false);
   });
 
-  draw();
+  hintEl.textContent = `Watch the ${SIGN.name} — you'll draw it from memory in ${Math.round(drawMs / 1000)}s.`;
+  raf = requestAnimationFrame((now) => { phaseStart = now; loop(now); });
 }

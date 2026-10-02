@@ -600,3 +600,7 @@ html, body {
   background: transparent; color: inherit; font-weight: 800; cursor: pointer;
 }
 .sign-btn.primary { background: var(--gold); color: #241448; border-color: var(--gold); }
+.sign-timer { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: 8px; }
+.sign-timer-fill { height: 100%; width: 100%; background: var(--gold); }
+.sign-timer-fill.low { background: var(--pink); }
+.sign-btn:disabled { opacity: 0.4; cursor: default; }

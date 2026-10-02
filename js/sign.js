@@ -9,6 +9,12 @@ const PENTAGRAM = [0, 2, 4, 1, 3, 0].map((i) => {
 
 export const SIGN = { id: 'pentagram', name: 'Star Sigil', strokes: [PENTAGRAM] };
 
+// Time to draw from memory once the sign has vanished: starts generous and
+// tightens with level (10s at Lv.1, -0.5s per level, never below 4s).
+export function drawTimeMs(level = 1) {
+  return Math.max(4000, 10000 - 500 * (Math.max(1, level) - 1));
+}
+
 export const MIN_MULT = 0.5;
 export const MAX_MULT = 1.5;
 // Multiplier at/above which a Counterspell lands (score 0.5).
