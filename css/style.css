@@ -19,6 +19,25 @@
   --radius: 10px;
   --font-head: 'Cinzel', serif;
   --font-body: 'Inter', sans-serif;
+
+  /* Layering contract (docs/ARCHITECTURE.md "Screen layout and layering").
+     HUD, defend strip and docked sheet are in normal flow around #stage, so
+     only things INSIDE the stage use the low tokens; the strip/HUD tokens
+     matter for their own shadows and for gem pops/sign pad that float over
+     the whole screen. Never add a literal z-index outside this list. */
+  --z-map: 0;
+  --z-toast: 10;
+  --z-log: 20;
+  --z-scrim: 30;
+  --z-menu: 31;
+  --z-down: 40;
+  --z-strip: 45;
+  --z-hud: 50;
+  --z-pop: 60;
+  --z-sign: 100;
+  --tap: 44px;                              /* minimum touch target */
+  --line-gold: rgba(226, 177, 60, 0.3);
+  --alert-bg: color-mix(in srgb, var(--hp) 20%, var(--bg-deep));
 }
 
 * { box-sizing: border-box; }
@@ -122,7 +141,7 @@ html, body {
 .element-choice:has(input:checked) { border-color: var(--el-color); background: color-mix(in srgb, var(--el-color) 18%, var(--bg-panel-2)); }
 .element-icon { width: 1.6rem; height: 1.6rem; color: var(--el-color); }
 .element-label { font-weight: 800; color: var(--el-color); }
-.element-desc { font-size: 0.72rem; color: var(--text-dim); }
+.element-desc { font-size: 0.75rem; color: var(--text-dim); }
 
 .btn-primary {
   width: 100%; margin-top: 22px; padding: 14px;
@@ -133,62 +152,89 @@ html, body {
 }
 .btn-primary:active { transform: translateY(1px); }
 
-.fineprint { margin-top: 16px; font-size: 0.72rem; color: var(--text-dim); text-align: center; }
+.fineprint { margin-top: 16px; font-size: 0.75rem; color: var(--text-dim); text-align: center; }
 
 /* ---------- Game screen ---------- */
 
-#screen-game { flex-direction: column; position: relative; }
+/* Vertical stack: HUD / defend strip / stage (flex:1) / docked sheet. The
+   bottom padding is the iPhone home-indicator gap, painted panel-colour so a
+   docked sheet and the gap read as one surface. */
+#screen-game {
+  flex-direction: column; position: relative; min-height: 0;
+  background: var(--bg-panel);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+#stage { position: relative; flex: 1; min-height: 0; isolation: isolate; overflow: hidden; background: #0a0614; }
+#map { position: absolute; inset: 0; z-index: var(--z-map); background: #0a0614; }
 
 #hud {
+  position: relative; z-index: var(--z-hud); flex: none;
   display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; padding: 10px 12px;
-  background: var(--bg-panel); border-bottom: 1px solid rgba(226,177,60,0.2);
-  z-index: 500;
+  gap: 8px; padding: 8px 8px 8px 10px;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  background: var(--bg-panel); border-bottom: 1px solid var(--line-gold);
 }
-.hud-identity { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-/* Sizing/visuals for the avatar itself now live on the shared
+.hud-identity { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+/* Sizing/visuals for the avatar itself live on the shared
    `.marker-ring-wrap`/`.marker-avatar` classes below (injected via
    js/portraits.js:avatarWithRing) so the identity+HP ring reads the same
-   way here, in the wizard sheet, and on the map — this is just a layout
-   slot. */
-.hud-avatar { flex-shrink: 0; }
+   way here, in the wizard sheet, and on the map. The level is a badge on it. */
+.hud-avatar-wrap { position: relative; flex: none; width: 48px; padding-bottom: 8px; }
+.hud-avatar { display: block; width: 48px; height: 48px; }
+.hud-level {
+  position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+  padding: 0 6px; border-radius: 8px; line-height: 16px; white-space: nowrap;
+  background: var(--bg-deep); border: 1px solid var(--gold); color: var(--gold-soft);
+  font-size: 0.75rem; font-weight: 800;
+}
 .hud-namecol { flex: 1; min-width: 0; }
-.hud-name-row { display: flex; align-items: baseline; gap: 8px; font-weight: 800; }
-.hud-level { color: var(--gold-soft); font-size: 0.75rem; }
+.hud-name { font-weight: 800; font-size: 0.95rem; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud-bars { display: flex; gap: 4px; margin-top: 2px; }
+.hud-bars .bar { flex: 1; min-width: 0; margin-top: 0; }
 
 .bar { position: relative; height: 9px; border-radius: 6px; background: rgba(255,255,255,0.1); margin-top: 3px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 6px; transition: width 0.25s ease; }
 .hp-fill { background: linear-gradient(90deg, #ff8a9e, var(--hp)); }
 .mana-fill { background: linear-gradient(90deg, #8fe3ff, var(--mana)); }
 .xp-fill { background: linear-gradient(90deg, #fff0b3, var(--xp)); }
-.bar-text { position: absolute; right: 4px; top: -1px; font-size: 0.6rem; color: #fff; text-shadow: 0 1px 2px #000; }
-.bar.xp-bar { height: 5px; }
+/* 12px numbers need a 16px bar to sit in; centered so they read as a gauge label. */
+.bar-text {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; line-height: 1; color: #fff; text-shadow: 0 1px 2px #000;
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.hud-bars .bar, .sheet-stats .bar { height: 16px; }
+.bar.xp-bar { height: 4px; margin-top: 3px; }
 .bar.small { height: 6px; width: 90px; }
 
-.hud-actions { display: flex; gap: 6px; position: relative; }
+.hud-actions { display: flex; align-items: center; gap: 6px; flex: none; }
 .hud-actions button {
-  width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(226,177,60,0.3);
-  background: var(--bg-panel-2); color: var(--text); font-size: 1.1rem; cursor: pointer;
+  width: var(--tap); height: var(--tap); border-radius: 50%; border: 1px solid rgba(226,177,60,0.3);
+  background: var(--bg-panel-2); color: var(--text); font-size: 1.15rem; cursor: pointer; padding: 0;
 }
+.hud-actions button[aria-expanded="true"] { border-color: var(--gold); background: rgba(226,177,60,0.15); }
 
-/* Menu dropdown (fullscreen / speed / log / reset), opened from ☰ */
+/* ☰ menu: a popover anchored inside the stage (never over the HUD or the
+   defend strip), with a scrim behind it. */
+.menu-scrim { position: absolute; inset: 0; z-index: var(--z-scrim); background: rgba(10, 4, 20, 0.55); }
+.menu-scrim.hidden { display: none; }
 .menu-panel {
-  position: absolute; top: 56px; right: 12px; z-index: 900;
-  display: flex; flex-direction: column; gap: 4px;
-  background: var(--bg-panel); border: 1px solid rgba(226,177,60,0.3);
-  border-radius: 14px; padding: 8px; box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-  min-width: 180px;
+  position: absolute; top: 8px; right: 8px; z-index: var(--z-menu);
+  width: min(260px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--bg-panel); border: 1px solid rgba(226,177,60,0.4);
+  border-radius: 14px; padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,0.6);
 }
 .menu-panel.hidden { display: none; }
 .menu-panel button {
-  text-align: left; padding: 10px 12px; border-radius: 10px; border: none;
-  background: transparent; color: var(--text); font-weight: 700; font-size: 0.9rem;
-  cursor: pointer; font-family: var(--font-body);
+  text-align: left; padding: 0 12px; min-height: 48px; border-radius: 10px; border: none;
+  background: transparent; color: var(--text); font-weight: 700; font-size: 1rem;
+  cursor: pointer; font-family: var(--font-body); flex: none;
 }
 .menu-panel button:hover, .menu-panel button:focus-visible { background: var(--bg-panel-2); }
 .menu-panel button.menu-danger { color: var(--hp); }
-
-#map { flex: 1; min-height: 0; position: relative; background: #0a0614; }
+.menu-sep { flex: none; height: 1px; margin: 4px 6px; background: rgba(255,255,255,0.12); }
 
 /* Recolor Leaflet's default (light-themed) chrome to match the night theme */
 .leaflet-container { background: #0a0614; }
@@ -246,7 +292,7 @@ html, body {
 @media (prefers-reduced-motion: reduce) { .shield-bubble { animation: none; opacity: 0.75; } }
 
 .marker-label {
-  margin-top: 2px; font-size: 0.65rem; font-weight: 800; color: #fff;
+  margin-top: 2px; font-size: 0.75rem; font-weight: 800; color: #fff;
   text-shadow: 0 1px 3px #000, 0 0 6px #000; white-space: nowrap;
 }
 .projectile-orb {
@@ -256,29 +302,30 @@ html, body {
   box-shadow: 0 0 10px 3px var(--orb-color, var(--gold)), 0 0 3px 1px rgba(255,255,255,0.5);
 }
 
-/* Wizard sheet: opens on tapping any wizard (self or NPC); casting happens here */
-.wizard-sheet {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 600;
-  display: flex; justify-content: center;
-}
+/* Wizard sheet: opens on tapping any wizard (self or NPC); casting happens
+   here. DOCKED: it sits in normal flow under the stage, so it shrinks the map
+   instead of covering it (the player marker and Leaflet's attribution stay
+   visible above it). */
+.wizard-sheet { flex: none; display: flex; justify-content: center; }
 .wizard-sheet.hidden { display: none; }
 .sheet-panel {
   position: relative; width: 100%; max-width: 480px;
   background: var(--bg-panel); border: 1px solid var(--gold);
   border-bottom: none; border-radius: 14px 14px 0 0;
-  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
-  max-height: 45vh; overflow-y: auto;
-  box-shadow: 0 -8px 32px rgba(0,0,0,0.55);
+  padding: 12px 14px 12px;
+  max-height: min(46dvh, 380px); overflow-y: auto;
+  box-shadow: 0 -8px 24px rgba(0,0,0,0.5);
   animation: sheet-up 0.18s ease-out;
 }
 @media (prefers-reduced-motion: reduce) { .sheet-panel { animation: none; } }
 @keyframes sheet-up { from { transform: translateY(16px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
 .sheet-close {
-  position: absolute; top: 8px; right: 10px; width: 26px; height: 26px;
-  border-radius: 50%; border: none; background: rgba(255,255,255,0.08);
-  color: var(--text); cursor: pointer; font-size: 0.8rem;
+  position: absolute; top: 2px; right: 4px; width: var(--tap); height: var(--tap);
+  border-radius: 50%; border: none; background: transparent;
+  color: var(--text); cursor: pointer; font-size: 1rem; z-index: 1;
 }
-.sheet-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding-right: 26px; }
+.sheet-close:hover, .sheet-close:focus-visible { background: rgba(255,255,255,0.08); }
+.sheet-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding-right: 40px; }
 /* Sizing/visuals now come from `.marker-ring-wrap`/`.marker-avatar` (see the
    map-marker section) — same ring component as the map and HUD, just a
    layout slot here. Real-player identity is carried by the ring color
@@ -286,22 +333,21 @@ html, body {
 .sheet-avatar { flex-shrink: 0; }
 .sheet-name { font-weight: 800; font-size: 1.05rem; }
 .sheet-name small { color: var(--text-dim); font-weight: 600; margin-left: 4px; }
-.sheet-sub { color: var(--text-dim); font-size: 0.72rem; }
+.sheet-sub { color: var(--text-dim); font-size: 0.75rem; }
 .sheet-sub-synced { opacity: 0.85; }
 .sheet-remote-note {
   font-size: 0.75rem; color: var(--text-dim); background: rgba(138,92,246,0.12);
   border: 1px solid rgba(138,92,246,0.3); border-radius: 10px;
   padding: 8px 10px; margin-bottom: 10px;
 }
-.sheet-stats { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-.sheet-stats .bar { height: 10px; }
-.sheet-stats .bar-text { font-size: 0.6rem; top: 0.5px; }
+.sheet-stats { display: flex; gap: 8px; margin-bottom: 8px; }
+.sheet-stats .bar { flex: 1; min-width: 0; margin-top: 0; }
 .sheet-shield-status {
-  font-size: 0.74rem; color: var(--text-dim); margin-bottom: 8px; font-weight: 700;
+  font-size: 0.75rem; color: var(--text-dim); margin-bottom: 8px; font-weight: 700;
 }
 .sheet-shield-status.active { color: var(--gold-soft); }
 .sheet-shield-status:not(.active) { display: none; }
-.sheet-actions { display: flex; }
+.sheet-actions { display: flex; gap: 8px; }
 .sheet-btn {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px; min-height: 44px; border-radius: 12px; border: none; cursor: pointer;
@@ -312,49 +358,50 @@ html, body {
 .sheet-btn.shield { background: linear-gradient(135deg, #b79bff, var(--purple)); }
 .sheet-btn.disabled { opacity: 0.4; pointer-events: none; }
 .sheet-btn-icon { font-size: 1rem; }
-.sheet-btn-cost { font-size: 0.7rem; opacity: 0.75; font-family: var(--font-body); }
-.sheet-reason { margin-top: 6px; font-size: 0.72rem; color: var(--text-dim); text-align: center; }
+.sheet-btn-cost { font-size: 0.75rem; opacity: 0.75; font-family: var(--font-body); }
+.sheet-reason { margin-top: 6px; font-size: 0.75rem; color: var(--text-dim); text-align: center; }
 
-/* Defend overlay */
-.defend-overlay {
-  /* Anchored below #hud (same ~56px reference point .menu-panel already
-     uses), not the screen's own top edge — it used to sit at top:10px of
-     #screen-game, which is the HUD's own top edge, so it rendered directly
-     over the wizard name/HP/mana bar instead of below it. Also capped in
-     height with internal scrolling: several simultaneous incoming spells
-     used to stack as full-height cards with no limit, which could push
-     the whole map (and every tappable wizard on it) off-screen. */
-  position: absolute; top: 66px; left: 56px; right: 12px; z-index: 700; /* left clears Leaflet's +/- zoom buttons */
-  display: flex; flex-direction: column; gap: 4px;
-  max-height: 30dvh; overflow-y: auto;
+/* Defend strip: its own lane between the HUD and the stage (in flow, only
+   while attacked). One compact card for the spell that lands soonest:
+   countdown ring, "<spell> incoming!", "+N more incoming" and a Counter
+   button. Pushes the map down instead of floating over anything. */
+.defend-strip {
+  position: relative; z-index: var(--z-strip); flex: none;
+  padding: 6px 8px; background: var(--alert-bg);
+  border-bottom: 2px solid var(--pink);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
 }
-.defend-overlay.hidden { display: none; }
+.defend-strip.hidden { display: none; }
 .defend-card {
-  background: rgba(30, 8, 20, 0.92); border: 2px solid var(--pink);
-  border-radius: 9px; padding: 4px 8px;
-  box-shadow: 0 0 14px rgba(255,92,138,0.23);
-  animation: pulse-red 1s infinite;
-  flex-shrink: 0;
-  font-size: 0.76rem;
+  display: flex; align-items: center; gap: 10px;
+  max-width: 480px; margin: 0 auto;
+  animation: pulse-red 1.2s ease-in-out infinite;
 }
-@keyframes pulse-red { 0%,100% { box-shadow: 0 0 10px rgba(255,92,138,0.18);} 50% { box-shadow: 0 0 18px rgba(255,92,138,0.35);} }
-.defend-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.defend-eta { color: var(--text-dim); font-weight: 700; margin-left: 2px; }
-.defend-more { margin-left: 4px; padding: 1px 6px; border-radius: 8px; background: var(--pink); color: #fff; font-size: 0.68rem; }
-.defend-title { font-weight: 800; margin-bottom: 2px; font-size: 0.78rem; line-height: 1.2; }
-.defend-timer { height: 3px; border-radius: 3px; background: rgba(255,255,255,0.15); overflow: hidden; margin-bottom: 3px; }
-.defend-timer-fill { height: 100%; background: var(--pink); transition: width 0.1s linear; }
-.defend-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+@keyframes pulse-red { 0%,100% { filter: none; } 50% { filter: drop-shadow(0 0 6px rgba(168,57,79,0.7)); } }
+@media (prefers-reduced-motion: reduce) { .defend-card { animation: none; } }
+.defend-ring { position: relative; flex: none; width: 44px; height: 44px; }
+.defend-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.defend-ring circle { fill: none; stroke-width: 4; }
+.defend-ring-track { stroke: rgba(255,255,255,0.15); }
+.defend-ring-arc { stroke: var(--pink); stroke-linecap: round; transition: stroke-dashoffset 0.25s linear; }
+.defend-eta { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.defend-text { flex: 1; min-width: 0; }
+.defend-title { font-weight: 800; font-size: 0.9rem; line-height: 1.2; }
+.defend-sub { margin-top: 2px; font-size: 0.75rem; line-height: 1.2; color: var(--text-dim); font-weight: 700; }
+.defend-sub.hidden, .defend-sep.hidden { display: none; }
+.defend-more { color: var(--gold-soft); }
+.defend-reason { color: var(--text); }
 .defend-btn {
-  padding: 4px 8px; border-radius: 7px; border: none; cursor: pointer;
-  background: var(--gold); color: #241448; font-weight: 800; font-size: 0.72rem;
+  flex: none; min-width: var(--tap); min-height: var(--tap); padding: 0 12px; border-radius: 12px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, var(--gold-soft), var(--gold)); color: #241448;
+  font-family: var(--font-body); font-weight: 800; font-size: 0.9rem; white-space: nowrap;
 }
+.defend-btn small { font-size: 0.75rem; font-weight: 700; opacity: 0.8; }
 .defend-btn.disabled { opacity: 0.4; pointer-events: none; }
-.defend-reason { margin-top: 3px; font-size: 0.68rem; color: var(--text-dim); }
 
-/* Down overlay */
+/* Down overlay (covers the stage only; HUD and strip stay readable) */
 .down-overlay {
-  position: absolute; inset: 0; z-index: 900;
+  position: absolute; inset: 0; z-index: var(--z-down);
   display: flex; align-items: center; justify-content: center;
   background: rgba(10, 4, 20, 0.75);
 }
@@ -364,26 +411,26 @@ html, body {
   padding: 20px 26px; border-radius: 16px; text-align: center; font-size: 1.1rem;
 }
 
-/* Toasts */
+/* Toasts: top of the stage, so they never sit behind the bottom-anchored
+   log/powers panels or on top of the docked sheet's buttons. */
 .toast-container {
-  position: absolute; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 0; right: 0; z-index: 950;
+  position: absolute; top: 8px; left: 0; right: 0; z-index: var(--z-toast);
   display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none;
 }
 .toast {
   background: rgba(20, 10, 35, 0.95); border: 1px solid var(--gold);
-  padding: 8px 14px; border-radius: 10px; font-size: 0.85rem; font-weight: 700;
-  opacity: 0; transform: translateY(8px); transition: all 0.25s ease;
+  padding: 8px 14px; border-radius: 10px; font-size: 0.875rem; font-weight: 700;
+  opacity: 0; transform: translateY(-8px); transition: all 0.25s ease;
   max-width: 90%; text-align: center;
 }
 .toast.show { opacity: 1; transform: translateY(0); }
 
 /* Log panel (opened from the ☰ menu) */
 .log-panel {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 850;
-  max-height: 50vh; background: var(--parchment); color: var(--parchment-ink);
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--z-log);
+  max-height: 80%; background: var(--parchment); color: var(--parchment-ink);
   border-top: 3px solid var(--gold); border-radius: 16px 16px 0 0;
   display: flex; flex-direction: column;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .log-panel.hidden { display: none; }
 .log-panel-header {
@@ -392,37 +439,42 @@ html, body {
   border-bottom: 1px solid rgba(58,42,26,0.2);
 }
 .log-close {
-  width: 28px; height: 28px; border-radius: 50%; border: none;
+  width: var(--tap); height: var(--tap); border-radius: 50%; border: none;
   background: rgba(58,42,26,0.1); color: var(--parchment-ink); cursor: pointer;
 }
 .log-list { overflow-y: auto; padding: 8px 14px 14px; }
-.log-entry { font-size: 0.85rem; padding: 4px 0; border-bottom: 1px dashed rgba(58,42,26,0.15); }
+.log-entry { font-size: 0.875rem; padding: 4px 0; border-bottom: 1px dashed rgba(58,42,26,0.15); }
 
 /* ---------- Mana Crystals: HUD chip, Treasury, Shop ---------- */
 
-.hud-gems {
-  margin-left: auto; display: inline-flex; align-items: center; gap: 4px; position: relative;
-  min-height: 30px; padding: 3px 10px; border-radius: 15px; cursor: pointer;
+.hud-actions .hud-gems {
+  display: inline-flex; align-items: center; justify-content: center; gap: 3px; position: relative;
+  /* the 44px circle from `.hud-actions button` grows into a pill with the count */
+  width: auto; min-width: var(--tap); padding: 0 10px; border-radius: 22px; cursor: pointer;
   border: 1px solid rgba(226,177,60,0.4); background: var(--bg-panel-2);
-  color: var(--gold-soft); font-family: var(--font-body); font-weight: 800; font-size: 0.85rem;
+  color: var(--gold-soft); font-family: var(--font-body); font-weight: 800; font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
 }
+/* Crystals ready to collect: the chip glows gold (plus the small dot). */
+.hud-actions .hud-gems.ready { border-color: var(--gold); box-shadow: 0 0 10px 1px rgba(226,177,60,0.55); animation: gem-ready 1.8s ease-in-out infinite; }
+@keyframes gem-ready { 0%,100% { box-shadow: 0 0 6px 0 rgba(226,177,60,0.4); } 50% { box-shadow: 0 0 14px 3px rgba(226,177,60,0.75); } }
 .hud-gems .hidden { display: none; }
 .hud-gems-dot {
   position: absolute; top: -2px; right: -2px; width: 9px; height: 9px; border-radius: 50%;
   background: var(--gold); box-shadow: 0 0 6px var(--gold);
 }
 .hud-gems-fast { font-size: 0.75rem; }
-.hud-gems.bump { animation: gem-bump 0.35s ease-out; }
+.hud-actions .hud-gems.bump { animation: gem-bump 0.35s ease-out; }
 @keyframes gem-bump { 0% { transform: scale(1); } 40% { transform: scale(1.22); } 100% { transform: scale(1); } }
 
 .gem-pop {
-  position: absolute; z-index: 650; pointer-events: none; transform: translateX(-50%);
+  position: absolute; z-index: var(--z-pop); pointer-events: none; transform: translateX(-50%);
   font-weight: 800; font-size: 1rem; color: var(--gold-soft); text-shadow: 0 1px 4px #000;
   animation: gem-pop 1.4s ease-out forwards;
 }
 @keyframes gem-pop { 0% { opacity: 0; transform: translate(-50%, 0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, 36px); } }
 @media (prefers-reduced-motion: reduce) {
-  .hud-gems.bump { animation: none; }
+  .hud-actions .hud-gems.bump, .hud-actions .hud-gems.ready { animation: none; }
   .gem-pop { animation: gem-pop-still 1.4s linear forwards; }
   @keyframes gem-pop-still { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
 }
@@ -436,38 +488,41 @@ html, body {
 }
 .treasury-info { flex: 1; min-width: 0; }
 .treasury-amount { font-weight: 800; font-size: 0.95rem; line-height: 1.2; }
-.treasury-rate { font-size: 0.72rem; line-height: 1.2; color: var(--text-dim); margin: 0; font-weight: 700; }
+.treasury-rate { font-size: 0.75rem; line-height: 1.2; color: var(--text-dim); margin: 0; font-weight: 700; }
 .treasury-rate.fast { color: var(--pink); }
 .sheet-btn.collect { flex: 0 0 auto; min-width: 104px; min-height: 44px; padding: 0 12px; font-size: 0.9rem; }
 .sheet-btn.secondary {
   background: transparent; color: var(--gold-soft); border: 1px solid rgba(226,177,60,0.5);
   font-family: var(--font-body); font-weight: 800;
 }
-.sheet-panel.shop { max-height: none; overflow-y: visible; }
-.sheet-btn.secondary.icon { flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; padding: 0; font-size: 1.25rem; }
-.sheet-actions .sheet-btn { min-height: 44px; padding: 10px; }
+.sheet-btn.secondary.shop-open { flex: 0 0 auto; min-width: 96px; padding: 10px 14px; font-size: 0.9rem; }
+/* The shop is a focused task, so it may take more height than other sheets —
+   but only its list scrolls; header and slot tabs stay put. */
+.sheet-panel.shop { max-height: min(58dvh, 460px); overflow: hidden; display: flex; flex-direction: column; }
+.sheet-actions .sheet-btn { min-height: var(--tap); padding: 10px; }
 
 @media (max-height: 520px) {
-  .sheet-panel { padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .sheet-panel { padding: 8px 12px 8px; }
+  .sheet-panel.shop { max-height: 50dvh; }
+  .shop-intro { display: none; }
   .sheet-header { margin-bottom: 6px; }
   .sheet-name { font-size: 0.95rem; }
-  .sheet-stats { gap: 3px; margin-bottom: 6px; }
-  .sheet-stats .bar { height: 10px; }
+  .sheet-stats { margin-bottom: 6px; }
   .treasury { padding: 4px 6px 4px 10px; margin-bottom: 6px; }
   .treasury-rate:not(.fast) { display: none; }
 }
 
-.shop-head { display: flex; align-items: baseline; justify-content: space-between; padding-right: 34px; margin-bottom: 8px; }
+.shop-head { flex: none; display: flex; align-items: baseline; justify-content: space-between; padding-right: 40px; margin-bottom: 8px; }
 .shop-balance { font-weight: 800; color: var(--gold-soft); }
-.shop-intro { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 8px; }
-.shop-slots { display: flex; gap: 6px; margin-bottom: 10px; }
+.shop-intro { flex: none; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 8px; }
+.shop-slots { flex: none; display: flex; gap: 6px; margin-bottom: 10px; }
 .shop-slot {
-  flex: 1; min-height: 40px; border-radius: 10px; cursor: pointer;
+  flex: 1; min-height: var(--tap); border-radius: 10px; cursor: pointer;
   border: 1px solid rgba(255,255,255,0.15); background: var(--bg-panel-2);
   color: var(--text-dim); font-family: var(--font-body); font-weight: 800; font-size: 0.85rem;
 }
 .shop-slot.active { color: var(--gold-soft); border-color: var(--gold); background: rgba(226,177,60,0.12); }
-.shop-list { display: flex; flex-direction: column; gap: 8px; max-height: 45vh; overflow-y: auto; }
+.shop-list { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .shop-row {
   --tier: var(--mana);
   display: flex; align-items: center; gap: 10px; padding: 10px;
@@ -489,9 +544,9 @@ html, body {
 }
 .shop-info { flex: 1; min-width: 0; }
 .shop-name { font-weight: 800; font-size: 0.92rem; }
-.shop-pips { color: var(--tier); font-size: 0.6rem; letter-spacing: 1px; margin-left: 4px; }
+.shop-pips { color: var(--tier); font-size: 0.75rem; letter-spacing: 1px; margin-left: 4px; }
 .shop-stats { font-size: 0.78rem; color: var(--gold-soft); font-weight: 700; }
-.shop-note { font-size: 0.72rem; color: var(--text-dim); }
+.shop-note { font-size: 0.75rem; color: var(--text-dim); }
 .shop-note.need { color: var(--text-dim); }
 .shop-progress { height: 3px; border-radius: 2px; background: rgba(255,255,255,0.12); margin-top: 4px; overflow: hidden; }
 .shop-progress > div { height: 100%; background: var(--gold); }
@@ -509,12 +564,12 @@ html, body {
    sheet-panel skin with a gold top border, deliberately NOT the log
    panel's parchment theme (this is a wizard-facing stats screen, not lore). */
 .powers-panel {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 850;
-  max-height: 70vh; overflow-y: auto;
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--z-log);
+  max-height: 100%; overflow-y: auto;
   background: var(--bg-panel); color: var(--text);
   border: 1px solid var(--gold); border-bottom: none;
   border-radius: 20px 20px 0 0;
-  padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  padding: 14px 16px 16px;
   box-shadow: 0 -8px 32px rgba(0,0,0,0.55);
 }
 .powers-panel.hidden { display: none; }
@@ -524,7 +579,7 @@ html, body {
   margin-bottom: 6px;
 }
 .powers-close {
-  width: 28px; height: 28px; border-radius: 50%; border: none;
+  width: var(--tap); height: var(--tap); border-radius: 50%; border: none;
   background: rgba(255,255,255,0.08); color: var(--text); cursor: pointer; font-size: 0.9rem;
 }
 .powers-balance { color: var(--gold-soft); font-weight: 700; margin-bottom: 12px; }
@@ -536,7 +591,7 @@ html, body {
 .power-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .power-icon { font-size: 1.4rem; }
 .power-name { font-weight: 800; }
-.power-desc { font-size: 0.78rem; color: var(--text-dim); }
+.power-desc { font-size: 0.8rem; color: var(--text-dim); }
 .power-status { font-size: 0.85rem; color: var(--gold-soft); font-weight: 700; margin-bottom: 8px; }
 .power-buy {
   width: 100%; padding: 10px; border-radius: 12px; border: none; cursor: pointer;
@@ -557,7 +612,7 @@ html, body {
   background: var(--bg-panel-2); border-radius: 14px; padding: 12px 14px;
   border: 1px solid rgba(226,177,60,0.2); margin-bottom: 12px;
 }
-.qa-label { display: block; font-size: 0.78rem; color: var(--text-dim); margin-bottom: 6px; }
+.qa-label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; }
 .qa-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
 .qa-row:first-of-type { margin-top: 0; }
 .qa-row input[type="number"] {
@@ -581,7 +636,7 @@ html, body {
 
 /* Sign drawing pad */
 .sign-pad {
-  position: absolute; inset: 0; z-index: 980;
+  position: absolute; inset: 0; z-index: var(--z-sign);
   display: flex; align-items: center; justify-content: center;
   background: rgba(10, 4, 20, 0.85);
 }

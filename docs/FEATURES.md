@@ -89,7 +89,7 @@ not just to the shielded player.
 `manaCost 14, cooldown 20s`
 
 Only offered when a specific incoming spell is announced (the
-"⚠️ Incoming..." alert with a live countdown). Casting it doesn't reduce
+defend strip's "<spell> incoming!" card with a live countdown ring). Casting it doesn't reduce
 damage — it negates that exact projectile outright, resolved immediately
 rather than waiting for the spell's scheduled impact
 (`js/combat.js:castCounterspell`).
@@ -104,8 +104,12 @@ to `localStorage` (`world.timeScale`).
 
 ## Combat UX: the wizard sheet
 
-Tapping any wizard on the map opens a bottom sheet (`js/ui.js:renderWizardSheet`)
-instead of the old always-on spellbook:
+Tapping any wizard on the map opens a docked bottom sheet (`js/ui.js:renderWizardSheet`)
+instead of the old always-on spellbook. The sheet sits under the map and
+shrinks it (max height `min(46dvh, 380px)`, shop up to ~58dvh with only its
+item list scrolling) — it never covers the map, your wizard marker or the
+map attribution. The map pans just enough to keep your wizard (and the
+tapped one) in view. Your own sheet's 🛍️ Shop button carries a text label.
 
 - **Your own wizard** → HP/mana, whether Ward Shield is active and its
   remaining time, and a Raise/Refresh Ward Shield button (disabled with a
@@ -115,6 +119,33 @@ instead of the old always-on spellbook:
   defeated) when it can't fire.
 
 Tapping empty map closes an open sheet before it tries to move you there.
+
+### Screen layout and layering
+
+The game screen is a vertical stack, top to bottom: **HUD** (avatar with Lv
+badge, name, HP and MP side by side, thin XP line; 💎 chip that glows gold
+when crystals are ready to collect, 📍, ☰ — all 44px targets), the
+**defend strip** (only while attacked), the **map stage**, the **docked
+sheet** (self / NPC / shop), and the phone's safe-area gap. Nothing urgent
+floats over the HUD, and all text is at least 12px.
+
+- **Defend strip:** its own lane directly under the HUD. One compact card
+  for the spell that lands soonest: countdown ring, "<spell> incoming!",
+  "+N more incoming", and a 44px Counter button (with mana cost). When it
+  can't be cast the reason ("Not enough mana" / "Recharging") shows next to
+  the "+N more" text. The map just gets shorter while it is shown.
+- **One overlay at a time:** the ☰ menu, Spell Log, Runes & Powers panel
+  and the docked sheet are mutually exclusive — opening one closes the
+  others. Tapping the map or the dimmed scrim while the menu or a panel is
+  open only dismisses it (it never walks your wizard); Esc closes the
+  menu. A *new* incoming attack closes the ☰ menu once (so the strip is
+  reachable) but leaves an open sheet or shop alone.
+- **☰ menu:** a popover inside the map area, width `min(260px, 100% - 16px)`,
+  48px rows with spelled-out labels (Fullscreen, Crystal Shop, "Speed:
+  Real/Fast", Runes & Powers · N, Spell Log, and QA Tools under `?qa=1`),
+  and a separated red "New Wizard" last.
+- Toasts appear at the top of the map area so they are never hidden behind
+  the bottom panels.
 
 ## Multiplayer (real players)
 
@@ -223,7 +254,7 @@ not tuned from play data.**
   reloads.
 - **Kill bonus:** defeating an NPC adds `3 + npcLevel` 💎 straight to your
   balance (not the pot, not scaled by Fast).
-- **Shop** (wizard sheet → 🛍️ icon button, or ☰ → 💎 Shop): one equipped
+- **Shop** (wizard sheet → 🛍️ Shop button, or ☰ → 💎 Crystal Shop): one equipped
   item per slot, strict tier order within a slot, no downgrades, full price,
   no refunds. Buying is two taps ("Tap again to buy" for 3s) and the item is
   equipped immediately. Gear modifiers are added on top of element and level
@@ -247,8 +278,8 @@ Aurora Mantle, Archmage Vestments), potions and element gear are not built.
 ## Runes & Powers
 
 `js/wizard.js` owns the numbers; `js/combat.js` applies them at cast time;
-`js/ui.js`/`js/main.js` render the ☰ menu → 🔮 Runes: {n} button and the
-"🔮 Runes & Powers" bottom sheet it opens.
+`js/ui.js`/`js/main.js` render the ☰ menu → 🔮 Runes & Powers · {n} entry and the
+"🔮 Runes & Powers" panel it opens.
 
 - **Earning Runes** — every NPC kill grants `15 + npcLevel × 5` Runes
   (`npcLevel` = the *defeated NPC's* level), the exact same formula and

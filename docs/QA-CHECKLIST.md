@@ -57,13 +57,13 @@ stale.
       *second* hit within the window (shield is not consumed by one hit).
 - [ ] Shield expires after 2 real minutes (or scaled equivalent under
       Fast) — a hit after expiry takes full damage.
-- [ ] Counterspell: when an NPC attacks the player, the defend-overlay
-      appears with the correct incoming spell name/icon and a live
+- [ ] Counterspell: when an NPC attacks the player, the defend strip
+      (`#defend-overlay`, under the HUD) appears with the correct incoming spell name/icon and a live
       countdown. Casting Counterspell in time removes the projectile,
       logs a "shatters" message, and the player takes zero damage from
       it. Missing the window (letting it resolve) applies full/shielded
       damage as normal.
-- [ ] Counterspell/Shield buttons in the overlay/sheet correctly disable
+- [ ] Counterspell/Shield buttons in the strip/sheet correctly disable
       when on cooldown or unaffordable.
 - [ ] NPCs occasionally initiate attacks on their own (aggression roll) —
       verify by waiting under Fast speed; frequency should roughly match
@@ -86,9 +86,9 @@ stale.
 - [ ] Defeating an NPC logs a `🔮 You gain {n} Runes.` line right after the
       existing `⭐ You gain {n} XP.` line, with matching `n` (`15 +
       npcLevel × 5`).
-- [ ] ☰ menu's `🔮 Runes: {n}` button always shows the live balance and
+- [ ] ☰ menu's `🔮 Runes & Powers · {n}` entry always shows the live balance and
       updates immediately after a kill.
-- [ ] Clicking it opens the `#powers-panel` bottom sheet (dark skin, gold
+- [ ] Clicking it opens the `#powers-panel` panel (dark skin, gold
       top border — not the log's parchment theme) showing the balance and
       two power-cards (Spell Power, Spell Recovery).
 - [ ] Each card shows the correct level (`Lv.N/3`), effect text (`+N%
@@ -110,9 +110,10 @@ stale.
 
 ## Speed toggle & menu
 
-- [ ] ☰ opens the menu; each item (Fullscreen, Speed, Spell Log, New
-      Wizard) is present and clickable.
-- [ ] Speed toggle flips the label (⚡ Fast ↔ 🐢 Real) and visibly changes
+- [ ] ☰ opens the menu; each item (Fullscreen, Crystal Shop, Speed, Runes &
+      Powers, Spell Log, New Wizard) is present and clickable; New Wizard
+      is red and separated at the bottom.
+- [ ] Speed toggle flips the label (⚡ Speed: Fast ↔ 🐢 Speed: Real) and visibly changes
       new casts' travel time; in-flight projectiles keep their original
       timing (only new casts are affected).
 - [ ] Spell Log opens/closes via the menu item and its own ✕.
@@ -233,9 +234,41 @@ that matters in that case.
 - [ ] Works at phone width (~400px) — no horizontal scroll, sheet and
       overlays stay usable.
 - [ ] Short viewports (360x560 and 360x480): tap your wizard; the self
-      sheet stays under ~45% of the screen height, your marker is not
-      hidden behind it, and Collect, the 🛍️ Shop icon and Ward Shield are
+      sheet stays under ~46% of the screen height, your marker is not
+      hidden behind it, and Collect, the 🛍️ Shop button and Ward Shield are
       each one tap (44px targets, none clipped). The NPC and Shop sheets
       still render. At 480px tall the idle rate line is hidden by design.
+
+### Layering / layout (UI layering redesign, 2026-10-02)
+
+Check at 360x640, 390x850 and 360x480 (use `?qa=1` and a Fast-speed NPC
+fight, or a Playwright script with Leaflet stubbed, to get an attack).
+
+- [ ] Default screen: HUD fits one row (avatar + Lv badge, name, HP and MP
+      side by side, 💎 / 📍 / ☰ at 44px, 6px apart), nothing clipped at the
+      right edge; text >= 12px.
+- [ ] Self / NPC / Shop sheets are docked below the map: the map gets
+      shorter, your marker stays fully visible, and Leaflet's attribution
+      sits above the sheet (never overlapped). Tapping an NPC pans it into
+      view.
+- [ ] ☰ menu: popover inside the map area (not clipped, below the HUD),
+      dimmed scrim, `aria-expanded` flips, rows 48px, Esc / scrim tap / map
+      tap close it without walking.
+- [ ] One overlay at a time: menu open -> open a sheet (💎 or a marker):
+      the menu closes. Sheet open -> ☰: the sheet closes. Log/Runes panel
+      open -> ☰ or a sheet: the panel closes. Tapping the map with the
+      menu/log open only dismisses.
+- [ ] Incoming attack: the defend strip appears in its own lane under the
+      HUD (HUD fully visible, map shifts down), shows "<spell> incoming!",
+      the ring/seconds tick, "+N more incoming" appears with several
+      projectiles, and Counter is a 44px button. A *new* attack closes an
+      open ☰ menu once; an already-open sheet/shop stays open.
+- [ ] Attack + menu and attack + sheet: no layer covers another (menu
+      opens below the strip; sheet docks below the map).
+- [ ] Holding a press on Collect, a shop price, Counter or a menu item
+      for ~0.6s still fires on release (no swallowed taps through the
+      250ms re-render).
+- [ ] Sign pad opened from Counter is fully on screen and usable at 360x480.
+- [ ] `prefers-reduced-motion`: ring pulse, sheet slide and gem glow stop.
 - [ ] `docs/FEATURES.md` numbers still match `js/spells.js`/`js/wizard.js`
       after any balance change.

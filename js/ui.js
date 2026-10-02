@@ -52,40 +52,87 @@ export function showGameScreen() {
   document.getElementById('screen-game').classList.add('active');
 }
 
-export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onPowersToggle, onLogToggle, onReset, onShop, onGemsTap }) {
+// Overlay rule: only ONE transient overlay is open at a time. "Transient"
+// means the ☰ menu (+ its scrim), the log, the Runes & Powers panel and the QA
+// panel; the docked wizard/shop sheet counts too, but its state lives in
+// main.js's `world.openSheet`, so main hands bindHud an `onBeforeOverlay`
+// hook that closes it. Opening any overlay closes the others.
+let beforeOverlay = () => {};
+
+function menuEls() {
+  return {
+    panel: document.getElementById('menu-panel'),
+    scrim: document.getElementById('menu-scrim'),
+    btn: document.getElementById('btn-menu'),
+  };
+}
+
+function setMenuOpen(open) {
+  const { panel, scrim, btn } = menuEls();
+  panel.classList.toggle('hidden', !open);
+  scrim.classList.toggle('hidden', !open);
+  btn.setAttribute('aria-expanded', String(open));
+}
+
+export function closeMenu() {
+  setMenuOpen(false);
+}
+
+export function isMenuOpen() {
+  return !document.getElementById('menu-panel').classList.contains('hidden');
+}
+
+export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onPowersToggle, onLogToggle, onReset, onShop, onGemsTap, onBeforeOverlay }) {
+  beforeOverlay = onBeforeOverlay || beforeOverlay;
   document.getElementById('btn-locate').addEventListener('click', onLocate);
 
   const menuPanel = document.getElementById('menu-panel');
   menuPanel.innerHTML = `
     <button id="menu-fullscreen">⛶ Fullscreen</button>
-    <button id="menu-shop">💎 Shop</button>
-    <button id="menu-speed">⚡ Fast</button>
-    <button id="menu-powers">🔮 Runes: 0</button>
+    <button id="menu-shop">💎 Crystal Shop</button>
+    <button id="menu-speed">⚡ Speed: Fast</button>
+    <button id="menu-powers">🔮 Runes &amp; Powers · 0</button>
     <button id="menu-log">📜 Spell Log</button>
+    <div id="menu-sep" class="menu-sep" role="separator"></div>
     <button id="menu-reset" class="menu-danger">🔄 New Wizard</button>
   `;
-  document.getElementById('btn-menu').addEventListener('click', () => menuPanel.classList.toggle('hidden'));
+  document.getElementById('btn-menu').addEventListener('click', () => {
+    if (isMenuOpen()) {
+      closeMenu();
+      return;
+    }
+    beforeOverlay();
+    closeAllBottomPanels();
+    setMenuOpen(true);
+  });
+  // Scrim and Esc only dismiss; the scrim also swallows the tap so it can
+  // never fall through to the map and walk the wizard.
+  document.getElementById('menu-scrim').addEventListener('click', closeMenu);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeOverlays();
+  });
   document.getElementById('menu-fullscreen').addEventListener('click', () => {
     onFullscreen();
-    menuPanel.classList.add('hidden');
+    closeMenu();
   });
   document.getElementById('menu-shop').addEventListener('click', () => {
+    closeMenu();
     onShop();
-    menuPanel.classList.add('hidden');
   });
   document.getElementById('hud-gems').addEventListener('click', onGemsTap);
+  // Speed is a setting you want to see change, so the menu stays open.
   document.getElementById('menu-speed').addEventListener('click', onSpeedToggle);
   document.getElementById('menu-powers').addEventListener('click', () => {
+    closeMenu();
     onPowersToggle();
-    menuPanel.classList.add('hidden');
   });
   document.getElementById('menu-log').addEventListener('click', () => {
+    closeMenu();
     onLogToggle();
-    menuPanel.classList.add('hidden');
   });
   document.getElementById('menu-reset').addEventListener('click', () => {
+    closeMenu();
     onReset();
-    menuPanel.classList.add('hidden');
   });
   document.getElementById('btn-log-close').addEventListener('click', () => {
     document.getElementById('log-panel').classList.add('hidden');
@@ -102,15 +149,14 @@ export function setSpeedLabel(text) {
 
 export function setRunesLabel(n) {
   const el = document.getElementById('menu-powers');
-  if (el) el.textContent = `🔮 Runes: ${n}`;
+  if (el) el.textContent = `🔮 Runes & Powers · ${n}`;
 }
 
-// The bottom-sheet panels (log, powers, and — QA-mode-only — qa) all sit in
-// the same screen area at the same z-index, so leaving one open while
-// opening another would visually stack them and let the hidden one's DOM
-// intercept clicks meant for the one on top. Only one is ever shown at a
-// time; `qa-panel` is looked up defensively since it doesn't exist outside
-// ?qa=1.
+// The bottom panels (log, powers, and — QA-mode-only — qa) all sit in the
+// same stage area at the same z-index, so leaving one open while opening
+// another would visually stack them and let the hidden one's DOM intercept
+// clicks meant for the one on top. Only one is ever shown at a time;
+// `qa-panel` is looked up defensively since it doesn't exist outside ?qa=1.
 function closeAllBottomPanels() {
   document.getElementById('log-panel').classList.add('hidden');
   document.getElementById('powers-panel').classList.add('hidden');
@@ -120,8 +166,29 @@ function closeAllBottomPanels() {
 function toggleBottomPanel(id) {
   const panel = document.getElementById(id);
   const wasHidden = panel.classList.contains('hidden');
+  if (wasHidden) {
+    beforeOverlay(); // closes the docked sheet
+    closeMenu();
+  }
   closeAllBottomPanels();
   if (wasHidden) panel.classList.remove('hidden');
+}
+
+// Closes the menu and every bottom panel (not the docked sheet — that is
+// main.js's state). Called when a sheet opens and when the map is tapped.
+export function closeOverlays() {
+  closeMenu();
+  closeAllBottomPanels();
+}
+
+export function hasOverlayOpen() {
+  return (
+    isMenuOpen() ||
+    ['log-panel', 'powers-panel', 'qa-panel'].some((id) => {
+      const el = document.getElementById(id);
+      return el && !el.classList.contains('hidden');
+    })
+  );
 }
 
 export function toggleLog() {
@@ -176,10 +243,10 @@ export function initQaTools(callbacks) {
   const menuBtn = document.createElement('button');
   menuBtn.id = 'menu-qa';
   menuBtn.textContent = '🧪 QA Tools';
-  menuPanel.appendChild(menuBtn);
+  menuPanel.insertBefore(menuBtn, document.getElementById('menu-sep')); // keeps New Wizard last, separated
   menuBtn.addEventListener('click', () => {
+    closeMenu();
     toggleBottomPanel('qa-panel');
-    menuPanel.classList.add('hidden');
   });
 
   const panel = document.createElement('div');
@@ -203,7 +270,7 @@ export function initQaTools(callbacks) {
     <div class="qa-section" id="qa-power-row"></div>
     <div class="qa-section" id="qa-recovery-row"></div>
   `;
-  document.getElementById('screen-game').appendChild(panel);
+  document.getElementById('stage').appendChild(panel);
 
   document.getElementById('qa-close').addEventListener('click', () => panel.classList.add('hidden'));
   document.getElementById('qa-runes-set').addEventListener('click', () => {
@@ -294,6 +361,7 @@ export function renderHud(player, { potReady = false, fast = false } = {}) {
   setBar('xp-bar-fill', player.xp, player.xpToNext);
   document.getElementById('hud-gems-n').textContent = player.gems;
   document.getElementById('hud-gems-dot').classList.toggle('hidden', !potReady);
+  document.getElementById('hud-gems').classList.toggle('ready', !!potReady);
   document.getElementById('hud-gems-fast').classList.toggle('hidden', !fast);
 }
 
@@ -354,7 +422,7 @@ function renderSelfSheet(el, data, callbacks) {
   const { wizard: w, shieldSpell, shieldActive, shieldReady, shieldReason, treasury, gear } = data;
   const build = (live) => `
       <div class="sheet-panel">
-        <button class="sheet-close" id="sheet-close">✕</button>
+        <button class="sheet-close" id="sheet-close" aria-label="Close">✕</button>
         <div class="sheet-header">
           <span class="sheet-avatar self" id="sheet-avatar"></span>
           <div style="min-width:0">
@@ -372,14 +440,14 @@ function renderSelfSheet(el, data, callbacks) {
             <div class="treasury-rate${treasury.fast ? ' fast' : ''}">${treasury.fast ? `⚡ ×${treasury.scale} Fast · +${fmtRate(treasury.ratePerMin)} 💎/min` : `+${fmtRate(treasury.ratePerMin)} 💎/min`}</div>
           </div>
           <button id="sheet-collect" class="sheet-btn collect${treasury.canCollect ? '' : ' disabled'}">${treasury.canCollect ? '💎 Collect' : 'Filling…'}</button>
-          <button id="sheet-shop" class="sheet-btn secondary icon" aria-label="Crystal Shop" title="Crystal Shop">🛍️</button>
-        </div>
+          </div>
         <div class="sheet-shield-status${shieldActive ? ' active' : ''}" id="sheet-shield-status">${live.shield}</div>
         <div class="sheet-actions">
           <button id="sheet-shield" class="sheet-btn shield${shieldReady ? '' : ' disabled'}">
             <span class="sheet-btn-icon">${shieldSpell.icon}</span> ${shieldActive ? 'Refresh' : 'Raise'} Ward Shield
             <span class="sheet-btn-cost">${shieldSpell.manaCost}💧</span>
           </button>
+          <button id="sheet-shop" class="sheet-btn secondary shop-open" title="Crystal Shop">🛍️ Shop</button>
         </div>
         ${!shieldReady && shieldReason ? `<div class="sheet-reason">${shieldReason}</div>` : ''}
       </div>`;
@@ -446,7 +514,7 @@ function shopRowHtml(r) {
 function renderShopSheet(el, data, callbacks) {
   const html = `
       <div class="sheet-panel shop">
-        <button class="sheet-close" id="sheet-close">✕</button>
+        <button class="sheet-close" id="sheet-close" aria-label="Close">✕</button>
         <div class="shop-head"><div class="sheet-name">🛍️ Crystal Shop</div><div class="shop-balance">💎 ${data.balance}</div></div>
         ${data.intro ? '<div class="shop-intro">Spend Mana Crystals on gear. Whatever you buy is equipped right away.</div>' : ''}
         <div class="shop-slots" role="tablist">
@@ -496,7 +564,7 @@ export function renderWizardSheet(data, callbacks) {
     sheetKey = key;
     el.innerHTML = `
       <div class="sheet-panel">
-        <button class="sheet-close" id="sheet-close">✕</button>
+        <button class="sheet-close" id="sheet-close" aria-label="Close">✕</button>
         <div id="sheet-body"></div>
       </div>`;
     document.getElementById('sheet-close').addEventListener('click', callbacks.onClose);
@@ -559,42 +627,74 @@ export function renderWizardSheet(data, callbacks) {
   if (canAttack) document.getElementById('sheet-attack').addEventListener('click', callbacks.onAttack);
 }
 
-// The reactive counter: shown only while a specific curse is incoming, so the
-// player can negate that exact spell before it lands.
+// The reactive counter, shown in the defend strip (its own lane under the HUD)
+// only while a curse is incoming, so the player can negate the one that lands
+// soonest before it hits. However many are in flight there is ONE fixed-size
+// card plus a "+N more incoming" line.
+//
+// render() runs every 250ms, and replacing the Counter button that often
+// swallows taps (the node under the finger is gone by touchend). So the card is
+// built ONCE when the strip first appears; every later render only patches its
+// text, ring, button state and the button's data-proj in place. The click
+// handler is delegated and reads data-proj at click time.
+const RING_R = 18;
+const RING_C = 2 * Math.PI * RING_R;
+let counterHandler = null;
+
+function buildDefendCard(strip) {
+  const counterSpell = getSpell('counterspell');
+  strip.innerHTML = `<div class="defend-card" role="alert">
+      <div class="defend-ring" aria-hidden="true">
+        <svg viewBox="0 0 44 44" width="44" height="44"><circle class="defend-ring-track" cx="22" cy="22" r="${RING_R}"/><circle class="defend-ring-arc" cx="22" cy="22" r="${RING_R}" stroke-dasharray="${RING_C.toFixed(2)}"/></svg>
+        <span class="defend-eta"></span>
+      </div>
+      <div class="defend-text">
+        <div class="defend-title"></div>
+        <div class="defend-sub"><span class="defend-more"></span><span class="defend-sep"> · </span><span class="defend-reason"></span></div>
+      </div>
+      <button type="button" class="defend-btn">${counterSpell.icon} Counter <small>${counterSpell.manaCost}💧</small></button>
+    </div>`;
+  strip.querySelector('.defend-btn').addEventListener('click', (e) => {
+    const btn = e.currentTarget;
+    if (!btn.classList.contains('disabled') && counterHandler) counterHandler(btn.dataset.proj);
+  });
+}
+
+function patchText(el, text) {
+  if (el.textContent !== text) el.textContent = text;
+}
+
 export function renderDefendPrompts(incoming, player, now, onCounter) {
-  const overlay = document.getElementById('defend-overlay');
+  const strip = document.getElementById('defend-overlay');
   if (!incoming.length) {
-    overlay.classList.add('hidden');
-    overlay.innerHTML = '';
+    strip.classList.add('hidden');
+    strip.innerHTML = '';
     return;
   }
-  overlay.classList.remove('hidden');
+  counterHandler = onCounter;
+  strip.classList.remove('hidden');
+  if (!strip.firstElementChild) buildDefendCard(strip);
   const counterSpell = getSpell('counterspell');
-  // However many curses are in flight, show ONE fixed-size card for the one
-  // that lands soonest (that's the one worth countering first) plus a
-  // "+N more" chip — stacking a card per curse used to eat the whole screen.
   const sorted = [...incoming].sort((x, y) => x.impactTime - y.impactTime);
   const p = sorted[0];
   const spell = getSpell(p.spellId);
   const msLeft = Math.max(0, p.impactTime - now);
   const totalMs = Math.max(1, p.impactTime - p.travelStart);
-  const barPct = pct(msLeft, totalMs);
   const onCooldown = (player.cooldowns[counterSpell.id] || 0) > now;
   const lowMana = player.mana < counterSpell.manaCost;
   const ready = !onCooldown && !lowMana;
   const reason = lowMana ? 'Not enough mana' : onCooldown ? 'Recharging' : '';
   const more = sorted.length - 1;
-  overlay.innerHTML = `<div class="defend-card">
-      <div class="defend-row">
-        <div class="defend-title">⚠️ ${spell.icon} ${spell.name} <span class="defend-eta">${formatCountdown(msLeft)}</span>${more ? ` <span class="defend-more">+${more} more</span>` : ''}</div>
-        <button data-proj="${p.id}" class="defend-btn${ready ? '' : ' disabled'}">
-          ${counterSpell.icon} ${counterSpell.manaCost}💧
-        </button>
-      </div>
-      <div class="defend-timer"><div class="defend-timer-fill" style="width:${barPct}%"></div></div>
-      ${!ready ? `<div class="defend-reason">${reason}</div>` : ''}
-    </div>`;
-  overlay.querySelectorAll('.defend-btn:not(.disabled)').forEach((btn) => {
-    btn.addEventListener('click', () => onCounter(btn.dataset.proj));
-  });
+
+  patchText(strip.querySelector('.defend-title'), `${spell.icon} ${spell.name} incoming!`);
+  patchText(strip.querySelector('.defend-more'), more ? `+${more} more incoming` : '');
+  patchText(strip.querySelector('.defend-reason'), reason);
+  strip.querySelector('.defend-sub').classList.toggle('hidden', !more && !reason);
+  strip.querySelector('.defend-sep').classList.toggle('hidden', !more || !reason);
+  const btn = strip.querySelector('.defend-btn');
+  btn.dataset.proj = p.id;
+  btn.classList.toggle('disabled', !ready);
+  btn.setAttribute('aria-disabled', String(!ready));
+  strip.querySelector('.defend-ring-arc').style.strokeDashoffset = (RING_C * (1 - pct(msLeft, totalMs) / 100)).toFixed(2);
+  patchText(strip.querySelector('.defend-eta'), formatCountdown(msLeft));
 }

@@ -60,7 +60,8 @@ on top of it when the repo owner has a Firebase project configured (see
 - **Fixed map zoom** — no zoom buttons or gestures (map stays at zoom 17;
   distances are tuned for it). Panning still works.
 - **Combat UX** — tapping any wizard (yourself or an NPC) opens a
-  contextual bottom sheet with their stats and the one relevant action
+  contextual docked bottom sheet (the map shrinks above it; one overlay at
+  a time; incoming attacks get their own strip under the HUD) with their stats and the one relevant action
   (Attack for NPCs, Raise Shield for yourself). No always-on spellbook.
 - **NPCs** — 9 spawned per game around the player, random element/level/
   name/temperament (passive/neutral/aggressive, which drives how often
@@ -167,6 +168,23 @@ Short-form history of calls that shaped the current build, newest first.
 Keeps future planning from accidentally re-litigating settled questions
 without knowing why they were settled.
 
+- **2026-10-02 — UI layering redesign (stack, not float).** A phone
+  screenshot showed the ☰ menu open over the incoming-spell banner, which
+  covered the HUD, while the self sheet squeezed the map until the player
+  marker vanished and the menu clipped at the right edge. Cause: every
+  panel was `position:absolute` with its own hardcoded z-index, so any two
+  could overlap. Fix: `#screen-game` is now a flex stack (HUD / defend strip /
+  map stage / docked sheet / safe-area gap), so urgent UI lives in flow and
+  can't be covered; z-order is a token list in `:root`. Rules adopted:
+  **one transient overlay at a time** (menu, log, Runes panel and the sheet
+  close each other; map/scrim taps only dismiss and never walk; a new
+  incoming attack closes the menu once but leaves sheets alone); the **sheet
+  is docked** and shrinks the map (the map re-pans to keep the player and
+  tapped wizard visible, attribution stays above it); the **defend strip
+  gets its own lane** under the HUD instead of floating, with a 44px
+  Counter, and is patched in place (never rebuilt per tick) so taps aren't
+  swallowed. Toasts moved to the top of the map so bottom panels can't hide
+  them. No game rules or numbers changed.
 - **2026-10-01 — Sign drawing powers every cast; merged with Runes & Powers
   and multiplayer.** Spark Bolt, Ward Shield and Counterspell each open a
   pad where the player redraws the ⭐ Star Sigil; similarity sets a ×0.5–×1.5
