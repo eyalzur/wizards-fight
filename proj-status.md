@@ -56,6 +56,8 @@ on top of it when the repo owner has a Firebase project configured (see
 - **Incoming-curse alert** — however many curses are in flight, one slim card
   shows the one landing soonest (name, countdown, "+N more" chip) with a
   single Counterspell button that targets it; countering reveals the next.
+- **Fixed map zoom** — no zoom buttons or gestures (map stays at zoom 17;
+  distances are tuned for it). Panning still works.
 - **Combat UX** — tapping any wizard (yourself or an NPC) opens a
   contextual bottom sheet with their stats and the one relevant action
   (Attack for NPCs, Raise Shield for yourself). No always-on spellbook.
