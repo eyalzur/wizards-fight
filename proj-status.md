@@ -46,12 +46,18 @@ on top of it when the repo owner has a Firebase project configured (see
   - **Counterspell** (defend) — reactive: cast during the incoming-curse
     alert to negate that *specific* spell outright.
 - **Sign drawing** — every cast (Spark Bolt, Ward Shield, Counterspell) opens
-  a pad showing the ⭐ Star Sigil (a one-stroke pentagram); the player redraws
-  it and similarity (position/size/direction-independent) maps to a ×0.5–×1.5
+  a pad that draws the ⭐ Star Sigil (a one-stroke pentagram) point by point,
+  then makes it vanish; the player redraws it from memory against a timer
+  (10s at Lv.1, −0.5s per level, floor 4s) and similarity (position/size/direction-independent) maps to a ×0.5–×1.5
   power multiplier (attack damage, shield mitigation). A Counterspell needs
   ×1.0+ or it fizzles (mana still spent). NPCs cast at ×1. Scoring in
   `js/sign.js`, overlay in `js/signpad.js`. Only one sign so far; thresholds
   are first guesses.
+- **Incoming-curse alert** — however many curses are in flight, one slim card
+  shows the one landing soonest (name, countdown, "+N more" chip) with a
+  single Counterspell button that targets it; countering reveals the next.
+- **Fixed map zoom** — no zoom buttons or gestures (map stays at zoom 17;
+  distances are tuned for it). Panning still works.
 - **Combat UX** — tapping any wizard (yourself or an NPC) opens a
   contextual bottom sheet with their stats and the one relevant action
   (Attack for NPCs, Raise Shield for yourself). No always-on spellbook.

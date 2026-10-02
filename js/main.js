@@ -308,6 +308,7 @@ function onSheetAttack(npc) {
   const chk = combat.canCastSpell(world.player, spell, Date.now());
   if (!chk.ok) { ui.toast(chk.reason); return; }
   openSignPad({
+    level: world.player.level,
     title: `${spell.icon} ${spell.name}`,
     onDone: (mult) => {
       const res = combat.castAttack(world.player, npc, spell.id, world, Date.now(), mult);
@@ -324,6 +325,7 @@ function onSheetShield() {
   const chk = combat.canCastSpell(world.player, SHIELD_SPELL, Date.now());
   if (!chk.ok) { ui.toast(chk.reason); return; }
   openSignPad({
+    level: world.player.level,
     title: `${SHIELD_SPELL.icon} ${SHIELD_SPELL.name}`,
     onDone: (mult) => {
       const res = combat.castShield(world.player, SHIELD_SPELL.id, Date.now(), mult);
@@ -340,6 +342,7 @@ function onCounterspell(projectileId) {
   const chk = combat.canCastSpell(world.player, spell, Date.now());
   if (!chk.ok) { ui.toast(chk.reason); return; }
   openSignPad({
+    level: world.player.level,
     title: `${spell.icon} ${spell.name}`,
     onDone: (mult) => {
       const projectile = world.projectiles.find((p) => p.id === projectileId);

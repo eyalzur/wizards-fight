@@ -10,7 +10,16 @@ let projectileMarkers = {};
 let playerClickHandler = null;
 
 export function initMap(center, onMapClick) {
-  map = L.map('map', { zoomControl: true, tap: true }).setView([center.lat, center.lng], 17);
+  // Zoom is fixed on purpose: gameplay distances (sense range, walk limit,
+  // spell range) are tuned for this one view, so there is no zoom UI and every
+  // zoom gesture is off. Panning (dragging) still works.
+  map = L.map('map', {
+    zoomControl: false, tap: true,
+    minZoom: 17, maxZoom: 17,
+    scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false,
+  }).setView([center.lat, center.lng], 17);
+  // iOS Safari ignores viewport maximum-scale; block its page pinch-zoom too.
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
   // Dark basemap (real streets/city labels) instead of stock light OSM tiles,
   // so the map reads clearly against the game's night theme. Esri's Dark
   // Gray Canvas is keyless (unlike CARTO's basemaps, which started
