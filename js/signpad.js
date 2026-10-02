@@ -9,7 +9,7 @@ const DEMO_MS = 2600; // pen travels the whole sign in this long
 const HOLD_MS = 450; // finished sign stays visible this long...
 const FADE_MS = 600; // ...then fades out
 
-const PAD = 40;
+const PAD = 28; // small margin: the sign fills most of the pad so there is room to be precise
 
 // Points along the sign's strokes, with cumulative arc length, for the demo pen.
 function buildPath(S) {
@@ -36,8 +36,9 @@ function penAt(path, d) {
 }
 
 // Calls onDone(multiplier, score) once the player has drawn (or time ran out).
-// onCancel() fires if they back out. Only one pad can be open at a time.
-export function openSignPad({ title, level = 1, onDone, onCancel }) {
+// There is no cancel: once a cast starts, it ends in a cast (auto-cast when the
+// timer runs out). Only one pad can be open at a time.
+export function openSignPad({ title, level = 1, onDone }) {
   if (document.getElementById('sign-pad')) return;
   const drawMs = drawTimeMs(level);
   const el = document.createElement('div');
@@ -47,11 +48,9 @@ export function openSignPad({ title, level = 1, onDone, onCancel }) {
     <div class="sign-card">
       <div class="sign-title">${title}</div>
       <div class="sign-hint"></div>
-      <canvas class="sign-canvas" width="300" height="300"></canvas>
-      <div class="sign-timer"><div class="sign-timer-fill"></div></div>
+      <canvas class="sign-canvas" width="420" height="420"></canvas>
       <div class="sign-result" aria-live="polite">&nbsp;</div>
       <div class="sign-actions">
-        <button type="button" class="sign-btn" data-act="cancel">✕ Cancel</button>
         <button type="button" class="sign-btn" data-act="clear" disabled>↺ Clear</button>
         <button type="button" class="sign-btn primary" data-act="cast" disabled>✨ Cast</button>
       </div>
@@ -62,7 +61,6 @@ export function openSignPad({ title, level = 1, onDone, onCancel }) {
   const ctx = canvas.getContext('2d');
   const hintEl = el.querySelector('.sign-hint');
   const resultEl = el.querySelector('.sign-result');
-  const timerFill = el.querySelector('.sign-timer-fill');
   const clearBtn = el.querySelector('[data-act=clear]');
   const castBtn = el.querySelector('[data-act=cast]');
   const S = canvas.width;
@@ -96,20 +94,24 @@ export function openSignPad({ title, level = 1, onDone, onCancel }) {
       const trail = penAt(path, d);
       // Fade out once the pen is done and the hold has passed.
       const alpha = t <= DEMO_MS + HOLD_MS ? 1 : Math.max(0, 1 - (t - DEMO_MS - HOLD_MS) / FADE_MS);
-      strokePath(trail, 10, 'rgba(255, 214, 102, 0.25)', alpha); // glow
-      strokePath(trail, 5, '#ffd666', alpha);
+      strokePath(trail, 12, 'rgba(255, 214, 102, 0.25)', alpha); // glow
+      strokePath(trail, 6, '#ffd666', alpha);
       if (t <= DEMO_MS + HOLD_MS) {
         const pen = trail[trail.length - 1];
         ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(pen.x, pen.y, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(pen.x, pen.y, 9, 0, Math.PI * 2); ctx.fill();
       }
       if (t >= DEMO_MS + HOLD_MS + FADE_MS) startDraw(now);
     } else {
-      for (const st of strokes) strokePath(st, 6, '#8ff');
+      for (const st of strokes) strokePath(st, 8, '#8ff');
       if (phase === 'draw') {
         const left = Math.max(0, drawMs - t);
-        timerFill.style.width = `${(left / drawMs) * 100}%`;
-        timerFill.classList.toggle('low', left < drawMs * 0.3);
+        // The Cast button is the countdown: green -> yellow -> red as the
+        // auto-cast approaches, with the seconds left on its label.
+        const r = left / drawMs;
+        castBtn.style.background = `hsl(${Math.round(120 * r)}, 78%, 52%)`;
+        castBtn.style.borderColor = 'transparent';
+        castBtn.textContent = `✨ Cast · ${Math.ceil(left / 1000)}s`;
         if (left <= 0) finish(true);
       }
     }
@@ -173,9 +175,8 @@ export function openSignPad({ title, level = 1, onDone, onCancel }) {
     e.stopPropagation();
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (!act || phase === 'result') return;
-    if (act === 'cancel') { close(); onCancel?.(); }
-    else if (phase !== 'draw') return;
-    else if (act === 'clear') strokes = [];
+    if (phase !== 'draw') return;
+    if (act === 'clear') strokes = [];
     else if (act === 'cast') finish(false);
   });
 
