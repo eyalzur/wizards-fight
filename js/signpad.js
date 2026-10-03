@@ -171,7 +171,7 @@ export function openSignPad({ title, level = 1, onDone }) {
     resultEl.textContent = pts < MIN_POINTS
       ? `${timedOut ? "Time's up! " : ''}Nothing drawn → ×${mult.toFixed(2)} power`
       : `${timedOut ? "Time's up! " : ''}Accuracy ${Math.round(score * 100)}% → ×${mult.toFixed(2)} power`;
-    setTimeout(() => { close(); onDone(mult, score); }, RESULT_MS);
+    setTimeout(() => { close(); onDone(mult, score, strokes); }, RESULT_MS);
   }
 
   el.addEventListener('click', (e) => {
