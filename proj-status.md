@@ -132,8 +132,8 @@ Mana Crystals economy phases (Phase 1 is live, see above):
 - **Phase 2** — 📍 walk income (crystals for really moving around). The
   5-tier ladder per slot and item upgrades are DONE (2026-10-02); level
   gates for the ladder were not added. New wizards already default to Real.
-- Open: PvP scaling — a maxed avatar one-shots real players (see Decisions log
-  2026-10-02); needs a product decision (cap/ignore gear vs real players).
+- PvP scaling — DECIDED 2026-10-03: gear stays fully active against real
+  players (see Decisions log). Revisit if real players report it unfun.
 - **Phase 3** — potion slots (heal, mana, power boost).
 - **Phase 4** — element-specific gear and wands that unlock element spells.
   Also tune numbers from real play data.
@@ -166,6 +166,12 @@ Mana Crystals economy phases (Phase 1 is live, see above):
   bucketing or similar) before it isn't.
 
 ## Decisions log
+
+- **2026-10-03 — Gear stays fully active in PvP.** The user chose "fully
+  active" over capping or ignoring gear against real players, so a maxed
+  avatar can one-shot real players (about 200 damage per bolt vs roughly
+  100-300 HP). Recommended alternative was a PvP cap, because one-shotting
+  other players may drive them away; revisit if that shows up in play.
 
 Short-form history of calls that shaped the current build, newest first.
 Keeps future planning from accidentally re-litigating settled questions
