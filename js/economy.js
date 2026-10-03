@@ -13,6 +13,13 @@ export const ECONOMY = {
   liveGapCapMs: 2000,
   maxOfflineMs: 30 * 24 * 3600 * 1000, // an anchor older than this is treated as corrupted: no credit
   killBonusBase: 3,      // kill bonus = base + npcLevel, straight to balance, never scaled
+  // Item upgrades ("enhancing"): the equipped item of each slot can be raised
+  // +1..+upgradeMaxLevel with 💎. Fully deterministic: no failure chance, no
+  // randomness. Cost of the step from level n to n+1 is
+  // round(item.price x upgradeCostFrac x upgradeCostGrowth^n).
+  upgradeMaxLevel: 10,
+  upgradeCostFrac: 0.06,
+  upgradeCostGrowth: 1.4,
 };
 
 // slot ids, in the order the shop shows them
@@ -23,15 +30,26 @@ export const GEAR_SLOTS = [
 
 // mods are ADDITIVE on top of element + level stats. Keys: power, maxHP,
 // defense. Defense is subtracted from every hit (damage = round(10 x power -
-// defense), min 1) so keep it tiny and put the value into maxHP.
-// A slot's items form a strict ladder: tier N is only buyable once tier N-1 is
-// owned. To add tiers 3-5 (or a new slot/kind) append rows here — nothing else
-// needs to change.
+// defense), min 1) so it stays modest next to the big maxHP numbers; combat.js
+// never lets a hit (even through Ward Shield) drop below 1.
+// `upgrade` is what EACH upgrade level adds on top of `mods` (same keys), so an
+// item at +n gives mods + n x upgrade. A slot's items form a strict ladder:
+// tier N is only buyable once tier N-1 is owned. Upgrade levels belong to the
+// equipped item of a slot and reset to 0 when a higher tier replaces it. To add
+// tiers or a new slot/kind append rows here — nothing else needs to change.
+// ALL first guesses. Fully maxed (+10) tier 5 gear: wand +15.5 power, robe
+// +580 max HP and +9 defense.
 export const GEAR = [
-  { id: 'willow_wand', slot: 'wand', tier: 1, name: 'Willow Wand', icon: '🪄', price: 100, mods: { power: 0.08 } },
-  { id: 'moonstone_wand', slot: 'wand', tier: 2, name: 'Moonstone Wand', icon: '🪄', price: 350, mods: { power: 0.18 } },
-  { id: 'apprentice_robe', slot: 'robe', tier: 1, name: 'Apprentice Robe', icon: '🧥', price: 100, mods: { maxHP: 15, defense: 1 } },
-  { id: 'moonweave_robe', slot: 'robe', tier: 2, name: 'Moonweave Robe', icon: '🧥', price: 350, mods: { maxHP: 30, defense: 1 } },
+  { id: 'willow_wand', slot: 'wand', tier: 1, name: 'Willow Wand', icon: '🪄', price: 100, mods: { power: 0.08 }, upgrade: { power: 0.02 } },
+  { id: 'moonstone_wand', slot: 'wand', tier: 2, name: 'Moonstone Wand', icon: '🪄', price: 350, mods: { power: 0.18 }, upgrade: { power: 0.05 } },
+  { id: 'starwood_wand', slot: 'wand', tier: 3, name: 'Starwood Wand', icon: '🪄', price: 900, mods: { power: 0.4 }, upgrade: { power: 0.15 } },
+  { id: 'aurora_wand', slot: 'wand', tier: 4, name: 'Aurora Wand', icon: '🪄', price: 2200, mods: { power: 0.8 }, upgrade: { power: 0.5 } },
+  { id: 'archmage_scepter', slot: 'wand', tier: 5, name: "Archmage's Scepter", icon: '🪄', price: 5000, mods: { power: 1.5 }, upgrade: { power: 1.4 } },
+  { id: 'apprentice_robe', slot: 'robe', tier: 1, name: 'Apprentice Robe', icon: '🧥', price: 100, mods: { maxHP: 15, defense: 1 }, upgrade: { maxHP: 1 } },
+  { id: 'moonweave_robe', slot: 'robe', tier: 2, name: 'Moonweave Robe', icon: '🧥', price: 350, mods: { maxHP: 30, defense: 1 }, upgrade: { maxHP: 2 } },
+  { id: 'starsilk_robe', slot: 'robe', tier: 3, name: 'Starsilk Robe', icon: '🧥', price: 900, mods: { maxHP: 60, defense: 2 }, upgrade: { maxHP: 6, defense: 0.1 } },
+  { id: 'aurora_mantle', slot: 'robe', tier: 4, name: 'Aurora Mantle', icon: '🧥', price: 2200, mods: { maxHP: 110, defense: 3 }, upgrade: { maxHP: 15, defense: 0.25 } },
+  { id: 'archmage_vestments', slot: 'robe', tier: 5, name: 'Archmage Vestments', icon: '🧥', price: 5000, mods: { maxHP: 180, defense: 4 }, upgrade: { maxHP: 40, defense: 0.5 } },
 ];
 
 const GEAR_BY_ID = Object.fromEntries(GEAR.map((g) => [g.id, g]));
@@ -46,6 +64,17 @@ export function gearInSlot(slot) {
 
 export function equippedGear(wizard, slot) {
   return getGear(wizard.equipment?.[slot]);
+}
+
+// Upgrade level (0..upgradeMaxLevel) of the item equipped in `slot`.
+export function gearLevel(wizard, slot) {
+  if (!equippedGear(wizard, slot)) return 0;
+  return cleanLevel(wizard.gearLevels?.[slot]);
+}
+
+function cleanLevel(v) {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) ? Math.max(0, Math.min(ECONOMY.upgradeMaxLevel, n)) : 0;
 }
 
 // ---------- income ----------
@@ -98,14 +127,18 @@ export function awardKillBonus(wizard, npcLevel) {
 
 // ---------- gear ----------
 
-export function gearBonus(equipment) {
+// Total gear bonus for an equipment + upgrade-level map ({ wand: n, robe: n }).
+export function gearBonus(equipment, levels) {
   const total = { power: 0, maxHP: 0, defense: 0 };
   for (const slot of GEAR_SLOTS) {
     const item = getGear(equipment?.[slot.id]);
     if (!item) continue;
-    for (const k of Object.keys(total)) total[k] += item.mods[k] || 0;
+    const lvl = cleanLevel(levels?.[slot.id]);
+    for (const k of Object.keys(total)) total[k] += (item.mods[k] || 0) + lvl * ((item.upgrade && item.upgrade[k]) || 0);
   }
   total.power = +total.power.toFixed(2);
+  total.defense = +total.defense.toFixed(2);
+  total.maxHP = Math.round(total.maxHP);
   return total;
 }
 
@@ -115,12 +148,12 @@ export function gearBonus(equipment) {
 // growLevel (which just adds to the same fields).
 export function syncGear(wizard) {
   const prev = wizard.gearApplied || { power: 0, maxHP: 0, defense: 0 };
-  const next = gearBonus(wizard.equipment);
+  const next = gearBonus(wizard.equipment, wizard.gearLevels);
   wizard.power = +(wizard.power - prev.power + next.power).toFixed(2);
   const dHP = next.maxHP - prev.maxHP;
   wizard.maxHP += dHP;
   if (wizard.hp > 0) wizard.hp = Math.min(wizard.maxHP, Math.max(1, wizard.hp + Math.max(0, dHP)));
-  wizard.defense = wizard.defense - prev.defense + next.defense;
+  wizard.defense = +(wizard.defense - prev.defense + next.defense).toFixed(2);
   wizard.gearApplied = next;
 }
 
@@ -139,12 +172,44 @@ export function gearState(wizard, item) {
   return { state: 'unaffordable', needMore: item.price - wizard.gems, over: cur };
 }
 
-// What `item` adds over `over` (the currently equipped item in the same slot).
-export function gearDelta(item, over) {
+// Upgrade info for the item equipped in `slot` (null if none): current level,
+// max, cost of the next level, per-level bonus and whether it is affordable.
+export function upgradeState(wizard, slot) {
+  const item = equippedGear(wizard, slot);
+  if (!item) return null;
+  const level = gearLevel(wizard, slot);
+  const max = ECONOMY.upgradeMaxLevel;
+  if (level >= max) return { item, level, max, maxed: true };
+  const cost = upgradeCost(item, level);
+  const affordable = wizard.gems >= cost;
+  return { item, level, max, maxed: false, cost, affordable, needMore: affordable ? 0 : cost - wizard.gems, step: item.upgrade || {} };
+}
+
+export function upgradeCost(item, level) {
+  return Math.round(item.price * ECONOMY.upgradeCostFrac * Math.pow(ECONOMY.upgradeCostGrowth, level));
+}
+
+export function upgradeGear(wizard, slot) {
+  const st = upgradeState(wizard, slot);
+  if (!st) return { ok: false, reason: 'Nothing equipped there.' };
+  if (st.maxed) return { ok: false, reason: `${st.item.name} is already +${st.max}.` };
+  if (!st.affordable) return { ok: false, reason: `Need ${st.needMore} more 💎.` };
+  wizard.gems -= st.cost;
+  wizard.gearLevels = { wand: 0, robe: 0, ...(wizard.gearLevels || {}), [slot]: st.level + 1 };
+  syncGear(wizard);
+  return { ok: true, item: st.item, level: st.level + 1, cost: st.cost };
+}
+
+// What `item` (at +0, as bought) changes versus `over`, the currently equipped
+// item in the same slot, INCLUDING its upgrade levels — so a heavily upgraded
+// lower tier can show a negative delta against a fresh higher tier.
+export function gearDelta(item, over, overLevel = 0) {
   const d = {};
+  const lvl = cleanLevel(overLevel);
   for (const k of ['power', 'maxHP', 'defense']) {
-    const v = (item.mods[k] || 0) - (over?.mods[k] || 0);
-    if (v) d[k] = +v.toFixed(2);
+    const cur = over ? (over.mods[k] || 0) + lvl * ((over.upgrade && over.upgrade[k]) || 0) : 0;
+    const v = (item.mods[k] || 0) - cur;
+    if (Math.abs(v) > 1e-9) d[k] = +v.toFixed(2);
   }
   return d;
 }
@@ -158,6 +223,7 @@ export function buyGear(wizard, itemId) {
   if (st.state === 'unaffordable') return { ok: false, reason: `Need ${st.needMore} more 💎.` };
   wizard.gems -= item.price;
   wizard.equipment[item.slot] = item.id;
+  wizard.gearLevels = { wand: 0, robe: 0, ...(wizard.gearLevels || {}), [item.slot]: 0 };
   syncGear(wizard);
   return { ok: true, item };
 }
@@ -183,6 +249,13 @@ export function normalizeEconomy(wizard, now) {
     const item = getGear(wizard.equipment[slot.id]);
     if (!item || item.slot !== slot.id) wizard.equipment[slot.id] = null;
   }
+  // Upgrade levels (new field): old saves have none -> 0. Corrupt values
+  // (strings, NaN, negatives, > max) are clamped; an empty slot is always 0.
+  const rawLevels = wizard.gearLevels && typeof wizard.gearLevels === 'object' ? wizard.gearLevels : {};
+  wizard.gearLevels = {};
+  for (const slot of GEAR_SLOTS) {
+    wizard.gearLevels[slot.id] = wizard.equipment[slot.id] ? cleanLevel(rawLevels[slot.id]) : 0;
+  }
   wizard.seenPotHint = !!wizard.seenPotHint;
   // gearApplied must be a plain object of finite numbers, else treat it as
   // (a brand-new wizard has none, and gets {0,0,0} here since equipment is empty)
@@ -192,7 +265,7 @@ export function normalizeEconomy(wizard, now) {
   const gaOk =
     ga && typeof ga === 'object' && !Array.isArray(ga) &&
     ['power', 'maxHP', 'defense'].every((k) => Number.isFinite(ga[k]));
-  if (!gaOk) wizard.gearApplied = gearBonus(wizard.equipment);
+  if (!gaOk) wizard.gearApplied = gearBonus(wizard.equipment, wizard.gearLevels);
   syncGear(wizard);
   if (!hadAnchor) wizard.lastAccrualAt = now;
   accrue(wizard, now, 1);

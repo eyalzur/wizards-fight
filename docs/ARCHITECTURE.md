@@ -60,7 +60,7 @@ js/
   map.js           All Leaflet calls: markers, sense circle, projectile
                    animation. No game logic — pure rendering of whatever
                    state it's handed
-  ui.js            All non-map DOM: HUD, wizard sheet, defend alert, menu,
+  ui.js            All non-map DOM: HUD, wizard sheet, defend strip, menu,
                    log, toasts. Also pure rendering — takes data, wires
                    callbacks, no game logic
   portraits.js     Turns a wizard's `avatar` field into portrait <svg>
@@ -139,6 +139,7 @@ a new coupling to Firebase; `combat.js` still has no import of
   gems,                                // Mana Crystal balance (integer)
   pot, lastAccrualAt,                  // Treasury (float) + epoch ms of last accrual
   equipment: { wand: id|null, robe: id|null },
+  gearLevels: { wand: 0..10, robe: 0..10 }, // upgrade level of the equipped item per slot (0 if empty)
   gearApplied: { power, maxHP, defense }, // how much of the fields above is gear
   seenPotHint,                         // one-time "crystals are gathering" toast shown
   // Runes & Powers (see docs/FEATURES.md) — carried on every wizard for
@@ -187,6 +188,45 @@ the real wizard object, since that gets `saveState()`'d every 2s and a
 derived boolean would otherwise persist as stale data. `js/portraits.js:
 avatarWithRing` reads it to render (or omit) the pulsing shield-bubble.
 
+## Screen layout and layering
+
+`#screen-game` is a vertical flex stack, in this order: `#hud` (in flow) /
+`#defend-overlay` (the defend strip; in flow, shown only while attacked) /
+`#stage` (`flex:1`, `isolation:isolate`) / `#wizard-sheet` (in flow; self,
+NPC, remote and shop all render here) / a safe-area gap
+(`env(safe-area-inset-bottom)` padding on the screen). `#stage` contains
+`#map`, `#menu-scrim` + `#menu-panel` (the ☰ popover), `#toast-container`,
+`#log-panel`, `#powers-panel` (and `#qa-panel` under `?qa=1`) and
+`#down-overlay`. Because HUD, strip and sheet are siblings *around* the
+stage, nothing inside it can cover them, and the sheet shrinks the map
+instead of overlaying it. Floating-over-everything layers (`.gem-pop`,
+`.sign-pad`) are children of `#screen-game` itself.
+
+Z-order lives only as tokens in `:root`: map 0, toast 10, log/powers 20,
+scrim 30, menu 31, down 40, strip 45, HUD 50, gem pop 60, sign pad 100.
+Don't write a literal `z-index`.
+
+**One transient overlay at a time.** Menu, log, powers/QA panels and the
+docked sheet are mutually exclusive. `ui.js` owns the menu/panel half
+(`closeOverlays`, `hasOverlayOpen`, `closeMenu`); the sheet is
+`world.openSheet`, so `main.js` hands `bindHud` an `onBeforeOverlay` hook
+that closes it, and opens sheets through `showSheet()` (which calls
+`ui.closeOverlays()` first). `onMapClick` only dismisses an open overlay
+before it would ever walk. A new incoming projectile id (tracked in
+`main.js:seenIncoming`) calls `ui.closeMenu()` once, nothing else.
+
+**Defend strip DOM** is built once when the strip first appears and then
+only patched (title, "+N more", reason, ring offset, seconds, the button's
+`data-proj`/disabled state); the Counter click is delegated. Rebuilding it
+every 250ms swallowed taps, same reason as the self/shop sheets above.
+
+**Map sizing.** `#map` fills `#stage`. `map.js` observes it with a
+`ResizeObserver` (sheet/strip appearing, window or mobile-toolbar changes) ->
+`invalidateSize` and `keepInView()`, which pans just enough that the player
+marker (and the tapped wizard) stay fully visible. `main.js` calls
+`map.reveal(pos|null)` when a sheet opens/closes to re-measure immediately and
+focus the tapped wizard.
+
 ## The game loop
 
 `main.js` runs `combat.tick(world, now)` every 250ms, then re-renders. A
@@ -208,8 +248,7 @@ tick, in order (`combat.js:tick`):
 Rendering (`main.js:render()`) is a full re-derive from `world` on every
 tick: recompute which NPCs are within sense range, update every map
 marker, rebuild the HUD bars, rebuild the wizard sheet's HTML if one is
-open, rebuild the defend-alert overlay if a projectile targets the
-player. There's no diffing — `ui.js`/`map.js` functions are cheap enough
+open, patch the defend strip if a projectile targets the player. There's no diffing — `ui.js`/`map.js` functions are cheap enough
 (a handful of DOM nodes) that this is simpler than tracking dirty state,
 and it means UI can never drift from `world`. If a future feature makes
 this expensive (e.g. many more NPCs), reach for `docs/WORKFLOW.md`'s tech
@@ -340,7 +379,15 @@ of a tick gap (a live foreground tick is 250ms); longer gaps (closed page,
 sleep, throttled tab) accrue at 1x. Negative gaps earn nothing. `combat.js`
 imports `economy.awardKillBonus` for the kill reward; `main.js` notices the
 balance rise and shows the "+N 💎" pop. Gear is a flat catalog (`GEAR`) with
-`slot`, `tier`, `price`, `mods`; adding tiers or slots is adding rows.
+`slot`, `tier`, `price`, `mods` (base) and `upgrade` (per-level bonus); adding
+tiers or slots is adding rows. Upgrades: `gearLevels[slot]` is the level of the
+equipped item (reset to 0 when a new tier is bought); `gearBonus(equipment,
+levels)` = mods + level x upgrade, still applied only through `syncGear`.
+`upgradeGear`/`upgradeState`/`upgradeCost` and the `upgrade*` keys of `ECONOMY`
+hold the rules and numbers; `normalizeEconomy` clamps `gearLevels` to
+0..`upgradeMaxLevel` (missing/corrupt -> 0), so old saves load unchanged. The
+upgrade confirm uses `shopConfirm` with id `up:<slot>`. `combat.js` clamps a
+shielded hit to at least 1 damage so no gear stack makes a wizard immune.
 
 **Sheet re-rendering:** `render()` runs every 250ms, and replacing `innerHTML`
 that often swallows taps. `ui.js` rebuilds the self and shop sheets only when

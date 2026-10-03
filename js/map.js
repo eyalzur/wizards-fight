@@ -37,7 +37,67 @@ export function initMap(center, onMapClick) {
   }).addTo(map);
   map.on('click', (e) => onMapClick(e.latlng.lat, e.latlng.lng));
   setTimeout(() => map.invalidateSize(), 80);
-  window.addEventListener('resize', () => map && map.invalidateSize());
+  // The map's box changes whenever the docked sheet or the defend strip
+  // appears/disappears (and on window resize / mobile toolbar changes), so
+  // watch the element itself rather than the window.
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+      if (!map) return;
+      map.invalidateSize({ animate: false }); // keeps the centre fixed, no competing pan animation
+      keepInView();
+    }).observe(document.getElementById('map'));
+  } else {
+    window.addEventListener('resize', () => map && map.invalidateSize());
+  }
+}
+
+// Marker footprint in container pixels around its lat/lng point (matches the
+// divIcon's 64x84 box + iconAnchor [32, 74] used by every wizard marker).
+const BOX = { left: 32, right: 32, up: 74, down: 10 };
+const MARGIN = 8;
+let playerLatLng = null;
+let focusLatLng = null; // the wizard whose sheet is open, if any
+
+function boxOf(ll) {
+  const p = map.latLngToContainerPoint(ll);
+  return { x0: p.x - BOX.left, x1: p.x + BOX.right, y0: p.y - BOX.up, y1: p.y + BOX.down };
+}
+
+// How far the view must move along one axis so the span [lo, hi] sits inside
+// [MARGIN, size - MARGIN]. Spans that cannot fit are aligned by their start.
+function axisShift(lo, hi, size) {
+  if (hi - lo > size - 2 * MARGIN) return lo - MARGIN;
+  if (lo < MARGIN) return lo - MARGIN;
+  if (hi > size - MARGIN) return hi - (size - MARGIN);
+  return 0;
+}
+
+// Pans just enough that the player marker (and the focused wizard, when it can
+// fit alongside) is fully inside the visible map. Called after the map's box
+// changes — i.e. when a sheet or the defend strip shrinks it.
+function keepInView() {
+  if (!map || !playerLatLng) return;
+  const size = map.getSize();
+  const boxes = [boxOf(playerLatLng)];
+  if (focusLatLng) boxes.push(boxOf(focusLatLng));
+  const span = (k0, k1) => [Math.min(...boxes.map((b) => b[k0])), Math.max(...boxes.map((b) => b[k1]))];
+  let [x0, x1] = span('x0', 'x1');
+  let [y0, y1] = span('y0', 'y1');
+  if (x1 - x0 > size.x - 2 * MARGIN) [x0, x1] = [focusLatLng ? boxes[1].x0 : boxes[0].x0, focusLatLng ? boxes[1].x1 : boxes[0].x1];
+  if (y1 - y0 > size.y - 2 * MARGIN) [y0, y1] = [focusLatLng ? boxes[1].y0 : boxes[0].y0, focusLatLng ? boxes[1].y1 : boxes[0].y1];
+  const dx = axisShift(x0, x1, size.x);
+  const dy = axisShift(y0, y1, size.y);
+  if (dx || dy) map.panBy([dx, dy]);
+}
+
+// main.js calls this when a sheet opens (with the tapped wizard's position) or
+// closes (null). It re-measures first, because the sheet was just added to the
+// layout and the ResizeObserver callback has not run yet.
+export function reveal(pos) {
+  if (!map) return;
+  focusLatLng = pos ? L.latLng(pos.lat, pos.lng) : null;
+  map.invalidateSize({ animate: false });
+  keepInView();
 }
 
 export function recenter(pos) {
@@ -54,6 +114,7 @@ export function recenter(pos) {
 // the numbers alone.
 export function updatePlayer(pos, wizard, onPlayerClick) {
   playerClickHandler = onPlayerClick;
+  playerLatLng = L.latLng(pos.lat, pos.lng);
   const avatarHtml = avatarWithRing(wizard.avatar, getElement(wizard.element).color, {
     hp: wizard.hp,
     maxHP: wizard.maxHP,

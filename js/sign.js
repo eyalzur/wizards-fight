@@ -20,12 +20,17 @@ export const MAX_MULT = 1.5;
 // Multiplier at/above which a Counterspell lands (score 0.5).
 export const COUNTER_MIN_MULT = 1.0;
 
+// Half-width of the sign's "road" (sign-sized units): ink within this distance
+// of the true line counts as exactly on it, so you don't have to hit a hairline.
+// signpad.js draws the demo stroke this wide so the player can see the margin.
+export const BAND = 0.04;
+
 const SAMPLES = 64;
 // Mean shape distance (in sign-sized units): at or below GOOD_DIST the score is
 // 1, at or above BAD_DIST it is 0, linear in between. Tuned so careful tracing
-// lands ~85-100%, an average hand ~55%, and a sloppy scribble under 25%.
-const GOOD_DIST = 0.025;
-const BAD_DIST = 0.075;
+// lands ~90-100%, a hasty hand ~70-80%, and a sloppy scribble under 30%.
+const GOOD_DIST = 0.002;
+const BAD_DIST = 0.035;
 
 export function scoreToMultiplier(score) {
   return MIN_MULT + (MAX_MULT - MIN_MULT) * Math.max(0, Math.min(1, score));
@@ -68,7 +73,7 @@ function meanNearest(from, to) {
   for (const p of from) {
     let best = Infinity;
     for (const q of to) best = Math.min(best, Math.hypot(p.x - q.x, p.y - q.y));
-    sum += best;
+    sum += Math.max(0, best - BAND);
   }
   return sum / from.length;
 }

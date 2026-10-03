@@ -121,44 +121,55 @@
     </div>
   </section>
 
+  <!-- Game screen = vertical stack: HUD / defend strip / stage / docked sheet.
+       HUD, strip and sheet are in normal flow, so nothing in the stage (map,
+       menu, log, toasts) can ever cover them. See docs/ARCHITECTURE.md
+       "Screen layout and layering". -->
   <section id="screen-game" class="screen">
     <header id="hud">
       <div class="hud-identity">
-        <span id="hud-avatar" class="hud-avatar">🧙</span>
+        <div class="hud-avatar-wrap">
+          <span id="hud-avatar" class="hud-avatar">🧙</span>
+          <span id="hud-level" class="hud-level">Lv.1</span>
+        </div>
         <div class="hud-namecol">
-          <div class="hud-name-row"><span id="hud-name">Wizard</span><span id="hud-level" class="hud-level">Lv.1</span>
-            <button id="hud-gems" class="hud-gems" type="button" title="Mana Crystals - tap for your Treasury"><span class="hud-gems-icon">💎</span><span id="hud-gems-n">0</span><span id="hud-gems-dot" class="hud-gems-dot hidden"></span><span id="hud-gems-fast" class="hud-gems-fast hidden">⚡</span></button>
+          <div id="hud-name" class="hud-name">Wizard</div>
+          <div class="hud-bars">
+            <div class="bar hp-bar" title="Health"><div id="hp-bar-fill" class="bar-fill hp-fill"></div><span id="hp-text" class="bar-text"></span></div>
+            <div class="bar mana-bar" title="Mana"><div id="mana-bar-fill" class="bar-fill mana-fill"></div><span id="mana-text" class="bar-text"></span></div>
           </div>
-          <div class="bar hp-bar"><div id="hp-bar-fill" class="bar-fill hp-fill"></div><span id="hp-text" class="bar-text"></span></div>
-          <div class="bar mana-bar"><div id="mana-bar-fill" class="bar-fill mana-fill"></div><span id="mana-text" class="bar-text"></span></div>
-          <div class="bar xp-bar"><div id="xp-bar-fill" class="bar-fill xp-fill"></div></div>
+          <div class="bar xp-bar" title="Experience"><div id="xp-bar-fill" class="bar-fill xp-fill"></div></div>
         </div>
       </div>
       <div class="hud-actions">
-        <button id="btn-locate" title="Use my location">📍</button>
-        <button id="btn-menu" title="Menu">☰</button>
+        <button id="hud-gems" class="hud-gems" type="button" title="Mana Crystals - tap for your Treasury" aria-label="Mana Crystals - open Treasury"><span class="hud-gems-icon">💎</span><span id="hud-gems-n">0</span><span id="hud-gems-dot" class="hud-gems-dot hidden"></span><span id="hud-gems-fast" class="hud-gems-fast hidden">⚡</span></button>
+        <button id="btn-locate" type="button" title="Use my location" aria-label="Use my location">📍</button>
+        <button id="btn-menu" type="button" title="Menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu-panel">☰</button>
       </div>
-      <div id="menu-panel" class="menu-panel hidden"></div>
     </header>
 
-    <div id="map"></div>
+    <div id="defend-overlay" class="defend-strip hidden"></div>
 
-    <div id="defend-overlay" class="defend-overlay hidden"></div>
-    <div id="down-overlay" class="down-overlay hidden">
-      <div class="down-card">💀 <strong>Defeated!</strong><br/>Catching your breath...</div>
+    <div id="stage">
+      <div id="map"></div>
+      <div id="menu-scrim" class="menu-scrim hidden"></div>
+      <div id="menu-panel" class="menu-panel hidden"></div>
+      <div id="toast-container" class="toast-container"></div>
+      <div id="log-panel" class="log-panel hidden">
+        <div class="log-panel-header">Spellbook Log <button id="btn-log-close" class="log-close" aria-label="Close log">✕</button></div>
+        <div id="log-list" class="log-list"></div>
+      </div>
+      <div id="powers-panel" class="powers-panel hidden">
+        <div class="powers-header">🔮 Runes &amp; Powers <button id="btn-powers-close" class="powers-close" aria-label="Close">✕</button></div>
+        <div id="powers-balance" class="powers-balance"></div>
+        <div id="powers-cards" class="powers-cards"></div>
+      </div>
+      <div id="down-overlay" class="down-overlay hidden">
+        <div class="down-card">💀 <strong>Defeated!</strong><br/>Catching your breath...</div>
+      </div>
     </div>
-    <div id="toast-container" class="toast-container"></div>
 
     <div id="wizard-sheet" class="wizard-sheet hidden"></div>
-    <div id="log-panel" class="log-panel hidden">
-      <div class="log-panel-header">Spellbook Log <button id="btn-log-close" class="log-close">✕</button></div>
-      <div id="log-list" class="log-list"></div>
-    </div>
-    <div id="powers-panel" class="powers-panel hidden">
-      <div class="powers-header">🔮 Runes &amp; Powers <button id="btn-powers-close" class="powers-close">✕</button></div>
-      <div id="powers-balance" class="powers-balance"></div>
-      <div id="powers-cards" class="powers-cards"></div>
-    </div>
   </section>
 
 </div>

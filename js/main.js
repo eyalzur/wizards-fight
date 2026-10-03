@@ -25,6 +25,7 @@ const FLASH_MS = 800;
 let shopConfirm = null; // { itemId, expiresAt } — the "tap again to buy" state lives here, not in the DOM
 let shopFlash = null; // { itemId, until }
 let lastGems = 0;
+const seenIncoming = new Set(); // incoming projectile ids already announced to the UI
 
 // Dev/testing tool, gated behind a URL flag, checked once at boot — never
 // persisted, so it only applies to the page load it was requested on (see
@@ -150,9 +151,14 @@ function boot() {
     onPowersToggle: ui.togglePowersPanel,
     onLogToggle: ui.toggleLog,
     onShop: () => openShop(),
-    onGemsTap: () => {
-      world.openSheet = { kind: 'self' };
-      render();
+    onGemsTap: () => showSheet({ kind: 'self' }),
+    // Opening the menu/log/powers closes the docked sheet (one overlay at a time).
+    onBeforeOverlay: () => {
+      if (world.openSheet) {
+        world.openSheet = null;
+        map.reveal(null);
+        render();
+      }
     },
     onReset: () => {
       if (window.confirm('Start over with a brand new wizard? This erases your current wizard.')) {
@@ -251,10 +257,30 @@ function toggleFullscreen() {
   else document.exitFullscreen?.().catch(() => {});
 }
 
+// Every user-initiated sheet open goes through here: one transient overlay at
+// a time, so the menu/log/powers close, and the map pans the tapped wizard into
+// the (now shorter) visible area.
+function showSheet(sheet, focusPos = null) {
+  ui.closeOverlays();
+  world.openSheet = sheet;
+  render();
+  map.reveal(focusPos);
+}
+
+function closeSheet() {
+  world.openSheet = null;
+  render();
+  map.reveal(null);
+}
+
 function onMapClick(lat, lng) {
+  // A tap on the map while the menu/log is open only dismisses it.
+  if (ui.hasOverlayOpen()) {
+    ui.closeOverlays();
+    return;
+  }
   if (world.openSheet) {
-    world.openSheet = null;
-    render();
+    closeSheet();
     return;
   }
   if (world.playerDown) {
@@ -287,20 +313,28 @@ function animateWalk(wizard, dest) {
 }
 
 function onPlayerClick() {
-  world.openSheet = world.openSheet?.kind === 'self' ? null : { kind: 'self' };
-  render();
+  if (world.openSheet?.kind === 'self') closeSheet();
+  else showSheet({ kind: 'self' });
 }
 
 function onNpcClick(npcId) {
   if (world.playerDown) return;
-  world.openSheet = world.openSheet?.kind === 'npc' && world.openSheet.id === npcId ? null : { kind: 'npc', id: npcId };
-  render();
+  if (world.openSheet?.kind === 'npc' && world.openSheet.id === npcId) {
+    closeSheet();
+    return;
+  }
+  const npc = world.npcs.find((n) => n.id === npcId);
+  showSheet({ kind: 'npc', id: npcId }, npc?.position);
 }
 
 function onRemoteClick(remoteId) {
   if (world.playerDown) return;
-  world.openSheet = world.openSheet?.kind === 'remote' && world.openSheet.id === remoteId ? null : { kind: 'remote', id: remoteId };
-  render();
+  if (world.openSheet?.kind === 'remote' && world.openSheet.id === remoteId) {
+    closeSheet();
+    return;
+  }
+  const remote = (world.remotePlayers || []).find((r) => r.id === remoteId);
+  showSheet({ kind: 'remote', id: remoteId }, remote?.position);
 }
 
 function onSheetAttack(npc) {
@@ -357,8 +391,7 @@ function onCounterspell(projectileId) {
 
 function openShop(slot = 'wand') {
   shopConfirm = null;
-  world.openSheet = { kind: 'shop', slot };
-  render();
+  showSheet({ kind: 'shop', slot });
 }
 
 function onCollect() {
@@ -400,6 +433,29 @@ function onShopBuy(itemId) {
   render();
 }
 
+function onShopUpgrade(slot) {
+  const now = Date.now();
+  const key = `up:${slot}`;
+  if (!(shopConfirm && shopConfirm.itemId === key && now < shopConfirm.expiresAt)) {
+    shopConfirm = { itemId: key, expiresAt: now + BUY_CONFIRM_MS };
+    render();
+    return;
+  }
+  shopConfirm = null;
+  const res = economy.upgradeGear(world.player, slot);
+  if (!res.ok) {
+    ui.toast(res.reason);
+  } else {
+    lastGems = world.player.gems;
+    shopFlash = { itemId: res.item.id, until: now + FLASH_MS };
+    ui.toast(`${res.item.icon} ${res.item.name} +${res.level} · ${ui.describeMods(res.item.upgrade)}`);
+    world.log.unshift(`⬆️ You upgrade ${res.item.icon} ${res.item.name} to +${res.level}.`);
+  }
+  saveState(world);
+  syncSelfIfEnabled();
+  render();
+}
+
 function buildShopData(now) {
   const p = world.player;
   const slot = world.openSheet.slot;
@@ -414,10 +470,17 @@ function buildShopData(now) {
     intro: !p.equipment.wand && !p.equipment.robe,
     rows: items.map((item) => {
       const st = economy.gearState(p, item);
+      const isEquipped = st.state === 'equipped';
+      const up = isEquipped ? economy.upgradeState(p, slot) : null;
       return {
         item,
         ...st,
-        delta: st.over ? economy.gearDelta(item, st.over) : {},
+        up,
+        upConfirming: !!up && confirmId === `up:${slot}`,
+        // current total (base + upgrades) for the equipped row
+        totalMods: isEquipped ? economy.gearBonus({ [slot]: item.id }, { [slot]: up.level }) : null,
+        delta: st.over ? economy.gearDelta(item, st.over, economy.gearLevel(p, slot)) : {},
+        overLevel: economy.gearLevel(p, slot),
         tiers: items.length,
         confirming: confirmId === item.id,
         flash: flashId === item.id,
@@ -528,7 +591,10 @@ function buildSelfSheetData(now) {
     shieldRemainingS: shieldActive ? Math.ceil((p.shieldBuff.expiresAt - now) / 1000) : 0,
     shieldReady,
     shieldReason,
-    gear: { wand: economy.equippedGear(p, 'wand'), robe: economy.equippedGear(p, 'robe') },
+    gear: {
+      wand: economy.equippedGear(p, 'wand') && { ...economy.equippedGear(p, 'wand'), level: economy.gearLevel(p, 'wand') },
+      robe: economy.equippedGear(p, 'robe') && { ...economy.equippedGear(p, 'robe'), level: economy.gearLevel(p, 'robe') },
+    },
     treasury: {
       potWhole: economy.potWhole(p),
       canCollect: economy.potWhole(p) >= 1,
@@ -649,7 +715,7 @@ function render() {
   map.renderProjectiles(world.projectiles.map((p) => ({ ...p, casterColor: casterColorFor(p.casterId) })), now);
 
   ui.renderHud(playerForDisplay, { potReady: economy.potWhole(player) >= 1, fast: world.timeScale > combat.TIME_SCALES.real });
-  ui.setSpeedLabel(world.timeScale > combat.TIME_SCALES.real ? '⚡ Fast' : '🐢 Real');
+  ui.setSpeedLabel(world.timeScale > combat.TIME_SCALES.real ? '⚡ Speed: Fast' : '🐢 Speed: Real');
   ui.setRunesLabel(player.runes || 0);
   ui.renderLog(world.log);
   ui.renderPowersPanel(buildPowersData(), { onBuyPower, onBuyRecovery });
@@ -668,20 +734,29 @@ function render() {
     if (remote) sheetData = buildRemoteSheetData(remote, now);
   }
   ui.renderWizardSheet(sheetData, {
-    onClose: () => {
-      world.openSheet = null;
-      render();
-    },
+    onClose: closeSheet,
     onAttack: sheetData?.kind === 'npc' || sheetData?.kind === 'remote' ? () => onSheetAttack(sheetData.wizard) : null,
     onShield: onSheetShield,
     onCollect,
     onOpenShop: () => openShop(),
     onShopSlot,
     onShopBuy,
+    onShopUpgrade,
   });
 
   const incoming = world.projectiles.filter((p) => !p.resolved && p.targetId === player.id && p.casterId !== player.id);
   ui.renderDefendPrompts(incoming, player, now, onCounterspell);
+  // A NEW incoming attack dismisses the ☰ menu once (the strip must be
+  // reachable); sheets, the shop and other panels are left alone.
+  let hasNew = false;
+  for (const p of incoming) {
+    if (!seenIncoming.has(p.id)) {
+      seenIncoming.add(p.id);
+      hasNew = true;
+    }
+  }
+  for (const id of seenIncoming) if (!incoming.some((p) => p.id === id)) seenIncoming.delete(id);
+  if (hasNew) ui.closeMenu();
 
   if (world.playerDown) ui.showDownOverlay();
   else ui.hideDownOverlay();
