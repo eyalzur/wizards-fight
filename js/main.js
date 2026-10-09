@@ -1,5 +1,5 @@
 import { loadState, saveState, clearState } from './state.js';
-import { ELEMENTS, createWizard, getElement, POWER_UPGRADE, RECOVERY_UPGRADE, upgradeCost, canUpgrade, buyUpgrade, spellCooldownSeconds, setUpgradeLevel } from './wizard.js';
+import { ELEMENTS, createWizard, getElement, POWER_UPGRADE, RECOVERY_UPGRADE, upgradeCost, canUpgrade, buyUpgrade, spellCooldownSeconds, spellPowerMultiplier, setUpgradeLevel } from './wizard.js';
 import { createNpc } from './npc.js';
 import { getSpell } from './spells.js';
 import * as geo from './geo.js';
@@ -24,6 +24,7 @@ const FLASH_MS = 800;
 
 let shopConfirm = null; // { itemId, expiresAt } — the "tap again to buy" state lives here, not in the DOM
 let shopFlash = null; // { itemId, until }
+let shopSlot = 'wand'; // which slot tab the Shop screen currently shows — view-only UI state, not persisted
 let lastGems = 0;
 const seenIncoming = new Set(); // incoming projectile ids already announced to the UI
 
@@ -151,9 +152,10 @@ function boot() {
       saveState(world);
       render();
     },
-    onPowersToggle: ui.togglePowersPanel,
     onLogToggle: ui.toggleLog,
-    onShop: () => openShop(),
+    onGoShop: () => goToShop(),
+    onGoInventory: () => goToScreen('inventory'),
+    onGoCharacter: () => goToScreen('character'),
     onGemsTap: () => showSheet({ kind: 'self' }),
     // Opening the menu/log/powers closes the docked sheet (one overlay at a time).
     onBeforeOverlay: () => {
@@ -171,6 +173,9 @@ function boot() {
     },
   });
   lastGems = world.player.gems;
+  // "← Back to Map" and the off-map incoming-curse banner (see
+  // buildIncoming/render below) on the 3 subscreens both just come back here.
+  ui.initSubscreens(() => goToScreen('map'));
   if (QA_MODE) {
     ui.initQaTools({
       onSetRunes: onQaSetRunes,
@@ -274,6 +279,27 @@ function closeSheet() {
   world.openSheet = null;
   render();
   map.reveal(null);
+}
+
+// Shop/Inventory/Character are full top-level screens, not sheets — the
+// game loop (gameTick/render, see below) keeps running underneath regardless
+// of which screen is showing, so spells in flight keep traveling and the
+// off-map incoming-curse banner (ui.renderOffMapAlert) stays accurate.
+function goToScreen(name) {
+  ui.closeOverlays(); // the ☰ menu doesn't make sense to leave open across a screen switch
+  if (name === 'map') {
+    ui.showScreen('screen-game');
+    map.reveal(null); // re-measure now that #map is visible again (see map.js:reveal)
+  } else {
+    ui.showScreen(`screen-${name}`);
+  }
+  render();
+}
+
+function goToShop(slot = 'wand') {
+  shopSlot = slot;
+  shopConfirm = null;
+  goToScreen('shop');
 }
 
 function onMapClick(lat, lng) {
@@ -392,11 +418,6 @@ function onCounterspell(projectileId) {
   });
 }
 
-function openShop(slot = 'wand') {
-  shopConfirm = null;
-  showSheet({ kind: 'shop', slot });
-}
-
 function onCollect() {
   const n = economy.collectPot(world.player);
   if (n > 0) {
@@ -410,7 +431,7 @@ function onCollect() {
 
 function onShopSlot(slot) {
   shopConfirm = null;
-  world.openSheet = { kind: 'shop', slot };
+  shopSlot = slot;
   render();
 }
 
@@ -461,12 +482,11 @@ function onShopUpgrade(slot) {
 
 function buildShopData(now) {
   const p = world.player;
-  const slot = world.openSheet.slot;
+  const slot = shopSlot;
   const items = economy.gearInSlot(slot);
   const confirmId = shopConfirm && now < shopConfirm.expiresAt ? shopConfirm.itemId : null;
   const flashId = shopFlash && now < shopFlash.until ? shopFlash.itemId : null;
   return {
-    kind: 'shop',
     balance: p.gems,
     slot,
     slots: economy.GEAR_SLOTS,
@@ -567,14 +587,52 @@ function buildUpgradeCardData(upgrade, effectText) {
   };
 }
 
-function buildPowersData() {
+// Character screen: consolidates the avatar/name/element/level/XP that used
+// to live only in the HUD and self wizard-sheet with the final, effective
+// combat stats (post-element, post-level, post-gear — already what
+// `player.hp/maxHP/power/defense/senseRange` hold, see docs/ARCHITECTURE.md
+// "Economy and gear" — plus the Spell Power Rune bonus, which is applied at
+// cast time rather than baked into `power`, so it's multiplied in here for
+// display) and the Runes & Powers upgrade cards that used to be their own
+// bottom sheet. Nemesis's stat boost never applies to the player's own
+// wizard (it boosts whichever NPC holds the title, see npc.js), so there's
+// nothing Nemesis-related to fold in here.
+function buildCharacterData(now) {
   const player = world.player;
   const powerPct = Math.round((player.spellPowerLevel || 0) * POWER_UPGRADE.perLevelBonus * 100);
   const cooldownS = +spellCooldownSeconds(ATTACK_SPELL.cooldown, player).toFixed(1);
   return {
+    wizard: player,
+    element: getElement(player.element),
+    shieldActive: combat.isShieldActive(player, now),
+    effectivePower: +(player.power * spellPowerMultiplier(player)).toFixed(2),
+    cooldownS,
     runes: player.runes || 0,
     power: buildUpgradeCardData(POWER_UPGRADE, `+${powerPct}% damage`),
     recovery: buildUpgradeCardData(RECOVERY_UPGRADE, `${cooldownS}s cooldown`),
+  };
+}
+
+// Inventory screen: today's equipped-loadout view only (2 gear slots, see
+// economy.js:GEAR_SLOTS) — there's no owned-but-unequipped concept to show
+// yet (buying gear replaces and auto-equips), so this mirrors exactly what
+// the self sheet's `.sheet-gear` line and the Shop's "equipped" row already
+// display, just promoted to its own screen.
+function buildInventoryData() {
+  const p = world.player;
+  return {
+    slots: economy.GEAR_SLOTS.map((s) => {
+      const item = economy.equippedGear(p, s.id);
+      const level = economy.gearLevel(p, s.id);
+      return {
+        slotId: s.id,
+        slotLabel: s.label,
+        slotIcon: s.icon,
+        item,
+        level,
+        totalMods: item ? economy.gearBonus({ [s.id]: item.id }, { [s.id]: level }) : null,
+      };
+    }),
   };
 }
 
@@ -732,16 +790,14 @@ function render() {
 
   ui.renderHud(playerForDisplay, { potReady: economy.potWhole(player) >= 1, fast: world.timeScale > combat.TIME_SCALES.real });
   ui.setSpeedLabel(world.timeScale > combat.TIME_SCALES.real ? '⚡ Speed: Fast' : '🐢 Speed: Real');
-  ui.setRunesLabel(player.runes || 0);
+  ui.setCharacterMenuLabel(player.runes || 0);
   ui.renderLog(world.log);
-  ui.renderPowersPanel(buildPowersData(), { onBuyPower, onBuyRecovery });
   if (QA_MODE) {
     ui.renderQaPanel(buildQaData(), { onSetPowerLevel: onQaSetPowerLevel, onSetRecoveryLevel: onQaSetRecoveryLevel });
   }
 
   let sheetData = null;
   if (world.openSheet?.kind === 'self') sheetData = buildSelfSheetData(now);
-  else if (world.openSheet?.kind === 'shop') sheetData = buildShopData(now);
   else if (world.openSheet?.kind === 'npc') {
     const npc = world.npcs.find((n) => n.id === world.openSheet.id);
     if (npc) sheetData = buildNpcSheetData(npc, now);
@@ -754,16 +810,27 @@ function render() {
     onAttack: sheetData?.kind === 'npc' || sheetData?.kind === 'remote' ? () => onSheetAttack(sheetData.wizard) : null,
     onShield: onSheetShield,
     onCollect,
-    onOpenShop: () => openShop(),
-    onShopSlot,
-    onShopBuy,
-    onShopUpgrade,
+    onOpenShop: () => goToShop(),
   });
+
+  // Shop/Inventory/Character are full screens now (siblings of #screen-game,
+  // not sheets), but — like the map/HUD above — they're rebuilt every tick
+  // regardless of which screen is actually active, so switching to one never
+  // shows a stale frame (see docs/ARCHITECTURE.md "The game loop").
+  ui.renderShopScreen(buildShopData(now), { onShopSlot, onShopBuy, onShopUpgrade });
+  ui.renderInventoryScreen(buildInventoryData(), { onGoShop: (slot) => goToShop(slot) });
+  ui.renderCharacterScreen(buildCharacterData(now), { onBuyPower, onBuyRecovery });
 
   const incoming = world.projectiles
     .filter((p) => !p.resolved && p.targetId === player.id && p.casterId !== player.id)
     .map((p) => ({ ...p, casterName: casterNameFor(p.casterId), isNemesisCaster: p.casterId === player.nemesisId }));
   ui.renderDefendPrompts(incoming, player, now, onCounterspell);
+  // Spells keep traveling in real time no matter which screen is open (the
+  // game loop never pauses), so Shop/Inventory/Character each get the same
+  // incoming-curse signal the map's defend strip shows — tapping it (or the
+  // explicit "← Back to Map" button, wired in ui.initSubscreens) jumps back
+  // to the map, where Counterspell is actually castable.
+  ui.renderOffMapAlert(incoming, now);
   // A NEW incoming attack dismisses the ☰ menu once (the strip must be
   // reachable); sheets, the shop and other panels are left alone.
   let hasNew = false;

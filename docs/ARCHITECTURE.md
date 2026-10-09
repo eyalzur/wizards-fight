@@ -61,7 +61,8 @@ js/
                    animation. No game logic — pure rendering of whatever
                    state it's handed
   ui.js            All non-map DOM: HUD, wizard sheet, defend strip, menu,
-                   log, toasts. Also pure rendering — takes data, wires
+                   log, toasts, and the Shop/Inventory/Character full
+                   screens. Also pure rendering — takes data, wires
                    callbacks, no game logic
   portraits.js     Turns a wizard's `avatar` field into portrait <svg>
                    markup referencing index.html's sprite `<symbol>`s. Pure
@@ -108,7 +109,12 @@ a new coupling to Firebase; `combat.js` still has no import of
   projectiles: [...],   // in-flight spells, see below
   outgoingHits: [...],  // pending Firebase writes, drained every tick — see Multiplayer
   log: [string, ...],   // newest first, capped at 60
-  openSheet: null | { kind: 'self' } | { kind: 'npc', id } | { kind: 'remote', id } | { kind: 'shop', slot },
+  openSheet: null | { kind: 'self' } | { kind: 'npc', id } | { kind: 'remote', id },
+  // ^ the shop used to be a fourth kind here (`{ kind: 'shop', slot }`); it's
+  // now its own top-level screen (#screen-shop) instead of a docked sheet —
+  // see "Screen layout and layering" below. The shop's active slot tab lives
+  // as a plain module-level variable in main.js (`shopSlot`), not on `world`,
+  // since it's view-only UI state with nothing to persist.
   playerDown: bool, playerRespawnAt: timestamp | null,
   spawnCenter: {lat, lng},  // original spawn point, used for NPC respawns
   maxWalkMeters: 250,
@@ -222,21 +228,21 @@ avatarWithRing` reads it to render (or omit) the pulsing shield-bubble.
 `#screen-game` is a vertical flex stack, in this order: `#hud` (in flow) /
 `#defend-overlay` (the defend strip; in flow, shown only while attacked) /
 `#stage` (`flex:1`, `isolation:isolate`) / `#wizard-sheet` (in flow; self,
-NPC, remote and shop all render here) / a safe-area gap
+NPC and remote sheets render here) / a safe-area gap
 (`env(safe-area-inset-bottom)` padding on the screen). `#stage` contains
 `#map`, `#menu-scrim` + `#menu-panel` (the ☰ popover), `#toast-container`,
-`#log-panel`, `#powers-panel` (and `#qa-panel` under `?qa=1`) and
-`#down-overlay`. Because HUD, strip and sheet are siblings *around* the
-stage, nothing inside it can cover them, and the sheet shrinks the map
-instead of overlaying it. Floating-over-everything layers (`.gem-pop`,
-`.sign-pad`) are children of `#screen-game` itself.
+`#log-panel` (and `#qa-panel` under `?qa=1`) and `#down-overlay`. Because
+HUD, strip and sheet are siblings *around* the stage, nothing inside it can
+cover them, and the sheet shrinks the map instead of overlaying it.
+Floating-over-everything layers (`.gem-pop`, `.sign-pad`) are children of
+`#screen-game` itself.
 
 Z-order lives only as tokens in `:root`: map 0, toast 10, log/powers 20,
 scrim 30, menu 31, down 40, strip 45, HUD 50, gem pop 60, sign pad 100.
 Don't write a literal `z-index`.
 
-**One transient overlay at a time.** Menu, log, powers/QA panels and the
-docked sheet are mutually exclusive. `ui.js` owns the menu/panel half
+**One transient overlay at a time.** Menu, log/QA panels and the docked
+sheet are mutually exclusive. `ui.js` owns the menu/panel half
 (`closeOverlays`, `hasOverlayOpen`, `closeMenu`); the sheet is
 `world.openSheet`, so `main.js` hands `bindHud` an `onBeforeOverlay` hook
 that closes it, and opens sheets through `showSheet()` (which calls
@@ -247,7 +253,49 @@ before it would ever walk. A new incoming projectile id (tracked in
 **Defend strip DOM** is built once when the strip first appears and then
 only patched (title, "+N more", reason, ring offset, seconds, the button's
 `data-proj`/disabled state); the Counter click is delegated. Rebuilding it
-every 250ms swallowed taps, same reason as the self/shop sheets above.
+every 250ms swallowed taps, same reason as the self sheet above.
+
+**Shop / Inventory / Character (full screens, not sheets).** Added
+2026-10-09, replacing the old "💎 Crystal Shop" docked sheet and "🔮 Runes &
+Powers" bottom panel. `#screen-shop`, `#screen-inventory` and
+`#screen-character` are siblings of `#screen-create`/`#screen-game` (same
+`.screen`/`.active` toggle, driven by `ui.showScreen(id)`), reached from 3
+☰ menu entries (`onGoShop`/`onGoInventory`/`onGoCharacter` in
+`bindHud`) and left via a "← Back to Map" button each screen carries in its
+own header (wired once in `ui.initSubscreens`). They render real `world`
+data via `ui.renderShopScreen`/`renderInventoryScreen`/`renderCharacterScreen`,
+called from `main.js:render()` every tick exactly like the map/HUD —
+unconditionally, regardless of which screen is actually active, so there's
+never a stale frame on switching screens (see "The game loop" below).
+Rationale for 3 screens instead of 3 more bottom sheets: this is a
+product/IA decision (more systems — gear, Runes & Powers, future potions —
+needed real room instead of stacking more cramped sheets over the live
+map), not a game-logic change; no `world`/wizard field changed shape, only
+where existing data renders. The Shop screen reuses the old sheet's
+`shopRowHtml`/`upgradeHtml` markup and two-tap "tap again to buy/upgrade"
+confirm flow (`main.js`'s `shopConfirm`/`shopFlash`, now gated by a plain
+module-level `shopSlot` instead of `world.openSheet.slot`) verbatim, since
+that confirm timing is the one thing on these 3 screens that still needs
+the render-every-250ms-without-rebuilding-the-DOM guard the old sheets used
+(`shopScreenKey` in `ui.js`); the Character/Inventory screens don't have an
+equivalent timing-sensitive interaction, so they just rebuild their
+`innerHTML` unconditionally every render, same as the old Runes & Powers
+panel always did.
+
+**Spells keep traveling while off the map.** `combat.tick()` runs on the
+same `setInterval` regardless of which screen is active (screens only ever
+toggle DOM visibility, never pause the loop — see "The game loop"), so an
+incoming curse's travel timer keeps counting down even while the player is
+browsing Shop/Inventory/Character. To avoid a defenseless surprise, each of
+the 3 screens carries an `.offmap-alert` element in its header
+(`ui.renderOffMapAlert`, fed the same `incoming` array `main.js:render()`
+already builds for `ui.renderDefendPrompts`) that shows the soonest
+incoming spell's caster/name/countdown and is itself a tappable button;
+tapping it (or the explicit "← Back to Map" button — both wired to the same
+handler in `ui.initSubscreens`) returns to the map, where the real defend
+strip and Counterspell are reachable. There's no Counterspell button on the
+3 screens themselves — by design, since casting still needs the sign-pad
+flow that only makes sense once you can see the map/HUD underneath it.
 
 **Map sizing.** `#map` fills `#stage`. `map.js` observes it with a
 `ResizeObserver` (sheet/strip appearing, window or mobile-toolbar changes) ->
@@ -418,11 +466,14 @@ hold the rules and numbers; `normalizeEconomy` clamps `gearLevels` to
 upgrade confirm uses `shopConfirm` with id `up:<slot>`. `combat.js` clamps a
 shielded hit to at least 1 damage so no gear stack makes a wizard immune.
 
-**Sheet re-rendering:** `render()` runs every 250ms, and replacing `innerHTML`
-that often swallows taps. `ui.js` rebuilds the self and shop sheets only when
-their structure changes (a key string), and patches live numbers (pot, HP,
-mana, ward timer) in place. The shop's "tap again to buy" state lives in
-`main.js`, not the DOM.
+**Sheet/screen re-rendering:** `render()` runs every 250ms, and replacing
+`innerHTML` that often swallows taps. `ui.js` rebuilds the self sheet and
+the Shop screen only when their structure changes (a key string), and
+patches live numbers (pot, HP, mana, ward timer) in place. The shop's "tap
+again to buy/upgrade" state lives in `main.js` (`shopConfirm`/`shopFlash`),
+not the DOM. The Inventory and Character screens have no equivalent
+timing-sensitive confirm flow, so they rebuild unconditionally every tick
+(see "Screen layout and layering" above).
 
 ## State persistence
 
@@ -483,9 +534,11 @@ kills. It is a developer tool, not a player-facing feature:
 - Every QA action goes through the same `saveState`/`render` path as a
   normal purchase (`js/wizard.js:buyUpgrade`) — no separate storage
   mechanism, no bypass of the persistence layer.
-- There is no item/inventory/equipment system in this codebase (see
-  `proj-status.md` Decisions Log on Runes & Powers), so QA mode has nothing
-  to grant beyond Runes and the two existing upgrade levels.
+- The Inventory screen (see "Screen layout and layering") is still only an
+  equipped-loadout view, not an owned-items system — there's nothing to
+  grant there beyond what buying gear in the Shop already equips — so QA
+  mode has nothing to grant beyond Runes and the two existing upgrade
+  levels (see `proj-status.md` Decisions Log on Runes & Powers).
 
 ## Deployment
 

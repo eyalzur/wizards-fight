@@ -76,18 +76,30 @@ on top of it when the repo owner has a Firebase project configured (see
   as XP. Runes buy permanent, capped, non-refundable upgrades to two
   attributes — Spell Power (+5%/level Spark Bolt damage, cap Lv.3/+15%)
   and Spell Recovery (−0.1s/level Spark Bolt cooldown, cap Lv.3/1.2s) —
-  from a new "🔮 Runes & Powers" bottom sheet (☰ menu). Player-only; NPCs
-  don't earn or spend Runes. See `docs/FEATURES.md` for exact numbers.
+  from the 🧙 Character screen (☰ menu; see "Shop, Inventory, Character
+  screens" below — this used to be a separate "🔮 Runes & Powers" bottom
+  sheet). Player-only; NPCs don't earn or spend Runes. See
+  `docs/FEATURES.md` for exact numbers.
 - **Persistence** — wizard (including Runes balance and Powers levels) +
   NPCs + spawn point + speed setting saved to `localStorage`. No
   accounts, nothing leaves the browser except the optional multiplayer
   sync below.
 - **Mana Crystals economy (Phase 1)** — 💎 passive income into an uncapped
   Treasury pot (scaled by ⚡ Fast while the page is open), a small kill
-  bonus, and a Crystal Shop selling 5 wand tiers and 5 robe tiers, each
-  upgradable +1..+10 with 💎 (deterministic, no gambling), so a maxed avatar
-  is overwhelmingly stronger than same-level NPCs. Numbers in
+  bonus, and a Shop screen (☰ menu) selling 5 wand tiers and 5 robe tiers,
+  each upgradable +1..+10 with 💎 (deterministic, no gambling), so a maxed
+  avatar is overwhelmingly stronger than same-level NPCs. Numbers in
   `docs/FEATURES.md` are first guesses.
+- **Shop, Inventory, Character screens (2026-10-09)** — the old "💎 Crystal
+  Shop" docked sheet and "🔮 Runes & Powers" bottom panel were replaced by 3
+  full, non-map screens reached from the ☰ menu (🛒 Shop, 🎒 Inventory, 🧙
+  Character), each with a "← Back to Map" button. Inventory is a new
+  (deliberately minimal) equipped-loadout view of the 2 gear slots; the
+  other two just promote existing content to more room. Spells keep
+  traveling while any of the 3 is open (the game loop never pauses), so
+  each carries an off-map incoming-curse banner that jumps back to the map.
+  See `docs/FEATURES.md` "Shop, Inventory and Character screens" and the
+  Decisions Log entry below.
 - **Nemesis System** — whichever NPC most recently defeated you becomes
   your "Nemesis" (one field, `nemesisId`, on your own wizard): called out
   by name in the incoming-curse alert and with a badge on its wizard sheet,
@@ -238,6 +250,48 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-09 — Shop/Inventory/Character promoted from bottom sheets to 3
+  full screens.** Follow-up to an earlier in-session product discussion:
+  with a Crystal Shop, a Runes & Powers panel, gear, and more (potions,
+  etc.) coming, "stack more sheets over the live map" stopped scaling, so
+  the old "💎 Crystal Shop" docked sheet and "🔮 Runes & Powers" bottom panel
+  were retired in favor of 3 new top-level screens (`#screen-shop`,
+  `#screen-inventory`, `#screen-character`, siblings of
+  `#screen-create`/`#screen-game`, same `.screen`/`.active` toggle) reached
+  from 3 new ☰ menu entries, each with a "← Back to Map" button. No
+  game-logic or data-shape change — same `economy.js`/`wizard.js` data,
+  just promoted to bigger, non-cramped containers; `world.openSheet` lost
+  its `'shop'` kind (the Shop screen's active slot tab is now a plain
+  module-level variable in `main.js`, not persisted — it never needed to
+  be). Content moves: Shop's full gear catalog + two-tap buy/upgrade
+  confirm moved as-is; Inventory is a new (but deliberately minimal)
+  equipped-loadout view — just today's 2 gear slots, explicitly **not** a
+  multi-item inventory grid, since there's still no owned-but-unequipped
+  concept; Character consolidates the avatar/name/element/level/XP that
+  used to live only in the HUD/self-sheet with final effective combat
+  stats (HP/mana/power-including-Runes/defense/sense-range/cooldown) and
+  the Spell Power/Spell Recovery upgrade cards that used to be the Runes &
+  Powers panel. **Handled the "blindsided while shopping" risk directly**
+  (the brief flagged it as a must-think-about, not optional): spells keep
+  traveling in real time regardless of screen, since the game loop
+  (`combat.tick`/`render()`) never pauses when a screen other than the map
+  is active — only DOM visibility changes. Rather than rebuild the full
+  reactive Counterspell flow (sign-pad, etc.) on 3 more screens, each
+  screen's header carries an `.offmap-alert` banner fed the same
+  `incoming`-projectiles data the map's defend strip already uses, showing
+  the soonest incoming spell's caster/countdown; tapping it (or the
+  explicit back button) jumps straight back to the map, where the real
+  defend strip and Counterspell are. Verified end-to-end with a throwaway
+  Playwright script (bought/upgraded gear in Shop and confirmed it showed
+  in Inventory, spent Runes on the Character screen and confirmed the
+  upgrade level/cost updated, and — the harder case — waited for a live
+  NPC attack, confirmed the off-map alert surfaced the correct spell/caster/
+  countdown on the Character screen, and confirmed tapping it returned to
+  the map) — not committed, per the project's current testing approach.
+  This was an IA/UI execution task with the layout/content decisions
+  already made in the brief; no new product or visual-design call was
+  made here beyond ordinary implementation judgment (CSS details, exact
+  wording).
 - **2026-10-09 — Nemesis System shipped, NPC-only in this pass.** Whichever
   NPC most recently defeated the player is remembered (`wizard.nemesisId`,
   one new field, no history list) and gets a modest combat edge (+20% max
