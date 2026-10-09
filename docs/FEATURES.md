@@ -184,7 +184,10 @@ current HP/defense/Ward Shield state at that moment, not a guess made on
 your end. Ward Shield still reduces a hit like this normally; there is
 currently no live "incoming spell" warning (and therefore no
 Counterspell option) for an attack from another real player, since that
-would need always-on live syncing this v1 deliberately doesn't do.
+would need always-on live syncing this v1 deliberately doesn't do. A real
+player's hit also never sets the Nemesis System (see "Nemesis System"
+above) — `applyPendingHit` doesn't have a full attacker object for a remote
+caster, so it can't pass one in to mark a Nemesis.
 
 **Attacked while away.** If one or more real players' Spark Bolts landed
 on you while the game wasn't open, the next time you open it you'll see
@@ -217,6 +220,38 @@ more is meaningful. Each NPC gets:
 
 Defeated NPCs respawn 30–50s later at a fresh random point, full HP/mana,
 cooldowns and shield cleared.
+
+## Nemesis System
+
+`js/npc.js` (stat boost/releveling), `js/combat.js:handleDefeat` (setting/
+clearing the title, the defeat bonus). Whichever NPC most recently defeated
+you becomes your **Nemesis** — one field (`nemesisId` on your own wizard),
+no new screen, no history list. Only a local NPC kill can set it; see
+"Multiplayer" below for why a real player's hit never does.
+
+- **Called out by name** wherever it appears: the incoming-curse alert reads
+  "😈 Nemesis {name}'s {spell} incoming!" instead of the generic line, and
+  its wizard sheet shows a small "😈 Nemesis" badge next to its name/level.
+- **Stat boost while it holds the title:** +20% max HP, +15% power, +2 flat
+  defense over what an NPC of its element/level would normally have.
+  Recomputed fresh each time (from element + current level), not stored as
+  a separate delta, so it can never double-stack or drift.
+- **Levels alongside you:** unlike every other NPC (which keeps its spawn-
+  time level forever across respawns), a Nemesis re-rolls its level toward
+  *your* current level (same ±1 spread as a fresh spawn) every time it
+  respawns, and re-boosts for that new level — so it stays a relevant rival
+  instead of falling behind as you grow.
+- **Defeating it back** clears the title, reverts the boost, and pays a
+  **1.75x bonus** on that kill's XP, 🔮 Runes, and 💎 Mana Crystals (logged
+  as "🏆 You've defeated your Nemesis, {name}!" right before the usual
+  defeat/reward lines, which already reflect the bonus amount). Picked
+  within the "noticeable but not economy-breaking" 1.5-2x range considered;
+  not tuned from play data.
+- **Single current Nemesis, no history:** getting freshly defeated by a
+  *different* NPC overwrites `nemesisId` and moves the boost to the new one
+  (the old Nemesis's boost is reverted). Getting defeated again by your
+  current Nemesis just re-confirms the title (no duplicate log line, boost
+  re-applied idempotently).
 
 ## Progression
 

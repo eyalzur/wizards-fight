@@ -146,10 +146,39 @@ a new coupling to Firebase; `combat.js` still has no import of
   // shape consistency with xp/level, but only ever earned/spent by the
   // player; NPCs keep these at 0 forever.
   runes, spellPowerLevel, spellRecoveryLevel,
+  // Player only:
+  nemesisId,                           // Nemesis System — see below
   // NPC only:
   temperament, nextAiCheck, defeated, respawnAt,
 }
 ```
+
+**Nemesis System** (`world.player.nemesisId`, set/cleared/boosted entirely
+in `combat.js:handleDefeat`, stat math in `npc.js`): whichever NPC most
+recently defeated the player (via a local kill — see the scope note below)
+is remembered by id on `world.player.nemesisId`, one field, no new array or
+history. It's called out by name wherever it appears (the incoming-curse
+alert, the NPC wizard sheet's badge — both resolved in `main.js` and handed
+to `ui.js` as plain fields/booleans, never looked up by `ui.js` itself) and
+gets a modest combat boost (`npc.js:applyNemesisBoost` — +20% max HP, +15%
+power, +2 flat defense) while it holds the title. The boost, and the
+Nemesis's level itself, are **recomputed fresh** from the NPC's element +
+current level (via `createWizard`, the same math `createNpc` uses at first
+spawn) every time they're applied or cleared, rather than stored as a
+separate delta — so this stays one new persisted field, and re-applying or
+clearing the boost twice in a row can't double-stack or drift. Defeating
+your own Nemesis back clears the title, reverts the boost, and grants a
+1.75x bonus on that kill's XP/Runes/Crystals (`combat.js`'s
+`NEMESIS_DEFEAT_BONUS_MULT`). Unlike every other NPC — which keeps its
+spawn-time level forever across respawns (see `npc.js`) — a Nemesis
+re-syncs its level toward the player's current level each time it respawns
+(`npc.js:respawnNpc`'s optional `nemesis` argument), so it stays a relevant
+rival instead of falling behind. Scope cut, deliberate: only a local NPC
+kill (the `resolveImpact` path, where `killer` is a real object) can set a
+Nemesis — a remote player's pending hit defeating you passes `killer = null`
+to `handleDefeat` (see `applyPendingHit`) because the target device doesn't
+have full attacker identity for a remote caster; extending Nemesis to real
+players is a future product decision, not built here.
 
 **remoteWizard** (another real player, fetched from Firebase — see
 Multiplayer; a read-only snapshot, never ticked/simulated locally the way
