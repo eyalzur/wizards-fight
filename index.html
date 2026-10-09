@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>Wizards Fight</title>
 <meta name="description" content="Create a wizard, sense others nearby on a real street map, and duel with spells that take time to land." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%99%3C/text%3E%3C/svg%3E" />
@@ -159,17 +159,46 @@
         <div class="log-panel-header">Spellbook Log <button id="btn-log-close" class="log-close" aria-label="Close log">✕</button></div>
         <div id="log-list" class="log-list"></div>
       </div>
-      <div id="powers-panel" class="powers-panel hidden">
-        <div class="powers-header">🔮 Runes &amp; Powers <button id="btn-powers-close" class="powers-close" aria-label="Close">✕</button></div>
-        <div id="powers-balance" class="powers-balance"></div>
-        <div id="powers-cards" class="powers-cards"></div>
-      </div>
       <div id="down-overlay" class="down-overlay hidden">
         <div class="down-card">💀 <strong>Defeated!</strong><br/>Catching your breath...</div>
       </div>
     </div>
 
     <div id="wizard-sheet" class="wizard-sheet hidden"></div>
+  </section>
+
+  <!-- Shop / Inventory / Character: full non-map screens (siblings of
+       screen-create/screen-game, same show/hide mechanism — see
+       docs/ARCHITECTURE.md "Screen layout and layering"). Spells keep
+       traveling in real time while any of these is open (the game loop never
+       stops), so each gets an `.offmap-alert` banner that surfaces an
+       incoming curse and jumps back to the map (where the real defend strip
+       lives) when tapped — see js/ui.js:renderOffMapAlert. -->
+  <section id="screen-shop" class="screen subscreen">
+    <header class="subscreen-header">
+      <button class="btn-back-map" data-back type="button">← Back to Map</button>
+      <h2 class="subscreen-title">🛒 Crystal Shop</h2>
+    </header>
+    <button type="button" class="offmap-alert hidden" aria-live="polite"></button>
+    <div id="shop-content" class="subscreen-content"></div>
+  </section>
+
+  <section id="screen-inventory" class="screen subscreen">
+    <header class="subscreen-header">
+      <button class="btn-back-map" data-back type="button">← Back to Map</button>
+      <h2 class="subscreen-title">🎒 Inventory</h2>
+    </header>
+    <button type="button" class="offmap-alert hidden" aria-live="polite"></button>
+    <div id="inventory-content" class="subscreen-content"></div>
+  </section>
+
+  <section id="screen-character" class="screen subscreen">
+    <header class="subscreen-header">
+      <button class="btn-back-map" data-back type="button">← Back to Map</button>
+      <h2 class="subscreen-title">🧙 Character</h2>
+    </header>
+    <button type="button" class="offmap-alert hidden" aria-live="polite"></button>
+    <div id="character-content" class="subscreen-content"></div>
   </section>
 
 </div>

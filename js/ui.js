@@ -47,9 +47,55 @@ export function initCreateScreen(elements, onSubmit) {
   });
 }
 
+// All top-level screens (create / game / the 3 menu-driven subscreens) share
+// one show/hide mechanism: exactly one `.screen` has `.active` at a time.
+// See docs/ARCHITECTURE.md "Screen layout and layering".
+const SCREEN_IDS = ['screen-create', 'screen-game', 'screen-shop', 'screen-inventory', 'screen-character'];
+
+export function showScreen(id) {
+  for (const s of SCREEN_IDS) {
+    document.getElementById(s)?.classList.toggle('active', s === id);
+  }
+}
+
 export function showGameScreen() {
-  document.getElementById('screen-create').classList.remove('active');
-  document.getElementById('screen-game').classList.add('active');
+  showScreen('screen-game');
+}
+
+// Wires the "← Back to Map" button and the incoming-curse banner (see
+// renderOffMapAlert) on all 3 subscreens to one callback — same handler
+// either way, since tapping the alert should get you back to the map just
+// as fast as the explicit back button.
+export function initSubscreens(onBackToMap) {
+  document.querySelectorAll('[data-back]').forEach((btn) => btn.addEventListener('click', onBackToMap));
+  document.querySelectorAll('.offmap-alert').forEach((el) => el.addEventListener('click', onBackToMap));
+}
+
+// Surfaces the same "something's incoming" signal the defend strip shows on
+// the map, on the Shop/Inventory/Character screens too — so a player
+// browsing one of them isn't blindsided by a curse they had no way to react
+// to (see docs/ARCHITECTURE.md). `incoming` is the same array main.js already
+// builds for ui.renderDefendPrompts; this only ever reads it, never the raw
+// projectile shape. There's one `.offmap-alert` element per subscreen (only
+// one is ever visible, since only one screen is `.active`), so patching all
+// of them is cheap.
+export function renderOffMapAlert(incoming, now) {
+  const els = document.querySelectorAll('.offmap-alert');
+  if (!incoming.length) {
+    els.forEach((el) => el.classList.add('hidden'));
+    return;
+  }
+  const sorted = [...incoming].sort((a, b) => a.impactTime - b.impactTime);
+  const p = sorted[0];
+  const spell = getSpell(p.spellId);
+  const msLeft = Math.max(0, p.impactTime - now);
+  const more = sorted.length - 1;
+  const who = p.isNemesisCaster ? `😈 Nemesis ${p.casterName}` : (p.casterName || 'A rival wizard');
+  const text = `⚠️ ${who}'s ${spell.icon} ${spell.name} incoming in ${formatCountdown(msLeft)}${more ? ` (+${more} more)` : ''} — tap to defend!`;
+  els.forEach((el) => {
+    el.classList.remove('hidden');
+    if (el.textContent !== text) el.textContent = text;
+  });
 }
 
 // Overlay rule: only ONE transient overlay is open at a time. "Transient"
@@ -82,16 +128,21 @@ export function isMenuOpen() {
   return !document.getElementById('menu-panel').classList.contains('hidden');
 }
 
-export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onPowersToggle, onLogToggle, onReset, onShop, onGemsTap, onBeforeOverlay }) {
+export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onLogToggle, onReset, onGoShop, onGoInventory, onGoCharacter, onGemsTap, onBeforeOverlay }) {
   beforeOverlay = onBeforeOverlay || beforeOverlay;
   document.getElementById('btn-locate').addEventListener('click', onLocate);
 
+  // Shop/Inventory/Character replaced the old "💎 Crystal Shop" and
+  // "🔮 Runes & Powers" bottom-sheet entries — those panels' content moved
+  // onto the 3 full screens these buttons navigate to (see
+  // docs/ARCHITECTURE.md "Screen layout and layering").
   const menuPanel = document.getElementById('menu-panel');
   menuPanel.innerHTML = `
     <button id="menu-fullscreen">⛶ Fullscreen</button>
-    <button id="menu-shop">💎 Crystal Shop</button>
+    <button id="menu-goshop">🛒 Shop</button>
+    <button id="menu-goinventory">🎒 Inventory</button>
+    <button id="menu-gocharacter">🧙 Character · 0</button>
     <button id="menu-speed">⚡ Speed: Fast</button>
-    <button id="menu-powers">🔮 Runes &amp; Powers · 0</button>
     <button id="menu-log">📜 Spell Log</button>
     <div id="menu-sep" class="menu-sep" role="separator"></div>
     <button id="menu-reset" class="menu-danger">🔄 New Wizard</button>
@@ -115,17 +166,21 @@ export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onPowersToggle,
     onFullscreen();
     closeMenu();
   });
-  document.getElementById('menu-shop').addEventListener('click', () => {
+  document.getElementById('menu-goshop').addEventListener('click', () => {
     closeMenu();
-    onShop();
+    onGoShop();
+  });
+  document.getElementById('menu-goinventory').addEventListener('click', () => {
+    closeMenu();
+    onGoInventory();
+  });
+  document.getElementById('menu-gocharacter').addEventListener('click', () => {
+    closeMenu();
+    onGoCharacter();
   });
   document.getElementById('hud-gems').addEventListener('click', onGemsTap);
   // Speed is a setting you want to see change, so the menu stays open.
   document.getElementById('menu-speed').addEventListener('click', onSpeedToggle);
-  document.getElementById('menu-powers').addEventListener('click', () => {
-    closeMenu();
-    onPowersToggle();
-  });
   document.getElementById('menu-log').addEventListener('click', () => {
     closeMenu();
     onLogToggle();
@@ -137,9 +192,6 @@ export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onPowersToggle,
   document.getElementById('btn-log-close').addEventListener('click', () => {
     document.getElementById('log-panel').classList.add('hidden');
   });
-  document.getElementById('btn-powers-close').addEventListener('click', () => {
-    document.getElementById('powers-panel').classList.add('hidden');
-  });
 }
 
 export function setSpeedLabel(text) {
@@ -147,19 +199,18 @@ export function setSpeedLabel(text) {
   if (el) el.textContent = text;
 }
 
-export function setRunesLabel(n) {
-  const el = document.getElementById('menu-powers');
-  if (el) el.textContent = `🔮 Runes & Powers · ${n}`;
+export function setCharacterMenuLabel(n) {
+  const el = document.getElementById('menu-gocharacter');
+  if (el) el.textContent = `🧙 Character · ${n}🔮`;
 }
 
-// The bottom panels (log, powers, and — QA-mode-only — qa) all sit in the
-// same stage area at the same z-index, so leaving one open while opening
-// another would visually stack them and let the hidden one's DOM intercept
-// clicks meant for the one on top. Only one is ever shown at a time;
-// `qa-panel` is looked up defensively since it doesn't exist outside ?qa=1.
+// The bottom panels (log, and — QA-mode-only — qa) sit in the same stage
+// area at the same z-index, so leaving one open while opening another would
+// visually stack them and let the hidden one's DOM intercept clicks meant
+// for the one on top. Only one is ever shown at a time; `qa-panel` is looked
+// up defensively since it doesn't exist outside ?qa=1.
 function closeAllBottomPanels() {
   document.getElementById('log-panel').classList.add('hidden');
-  document.getElementById('powers-panel').classList.add('hidden');
   document.getElementById('qa-panel')?.classList.add('hidden');
 }
 
@@ -184,7 +235,7 @@ export function closeOverlays() {
 export function hasOverlayOpen() {
   return (
     isMenuOpen() ||
-    ['log-panel', 'powers-panel', 'qa-panel'].some((id) => {
+    ['log-panel', 'qa-panel'].some((id) => {
       const el = document.getElementById(id);
       return el && !el.classList.contains('hidden');
     })
@@ -195,23 +246,83 @@ export function toggleLog() {
   toggleBottomPanel('log-panel');
 }
 
-export function togglePowersPanel() {
-  toggleBottomPanel('powers-panel');
-}
-
-// Two stacked power-cards (Spell Power, Spell Recovery) inside #powers-panel.
-// `data` is plain numbers/strings computed by main.js from wizard.js's
-// upgrade helpers — this function only renders and wires clicks.
-export function renderPowersPanel(data, callbacks) {
-  document.getElementById('powers-balance').innerHTML = `Balance: <strong>${data.runes}</strong> 🔮 Runes`;
-  const cardsEl = document.getElementById('powers-cards');
-  cardsEl.innerHTML = renderPowerCard(data.power, 'btn-buy-power') + renderPowerCard(data.recovery, 'btn-buy-recovery');
+// ---------- Character screen ----------
+// Consolidates what used to be scattered across the HUD/self-sheet (avatar,
+// name, element, level/XP, final stats) and the old "🔮 Runes & Powers"
+// bottom sheet (the two upgrade cards) onto one full screen. `data` is
+// plain numbers/strings computed by main.js from wizard.js's helpers — this
+// function only renders and wires clicks. Rebuilt every render() tick, same
+// as the old Runes & Powers panel was — these buttons are plain "buy now"
+// actions with no tap-again timing to protect, unlike the shop's two-tap
+// confirm (see renderShopScreen).
+export function renderCharacterScreen(data, callbacks) {
+  const el = document.getElementById('character-content');
+  if (!el) return;
+  const { wizard: w, element } = data;
+  el.innerHTML = `
+    <div class="char-card">
+      <div class="char-header">
+        <span class="char-avatar">${avatarWithRing(w.avatar, element.color, { hp: w.hp, maxHP: w.maxHP, ringColor: 'var(--mana)', shieldActive: !!data.shieldActive })}</span>
+        <div style="min-width:0">
+          <div class="char-name">${w.name} <small>Lv.${w.level}</small></div>
+          <div class="char-element" style="color:${element.color}">${element.icon} ${element.label}</div>
+        </div>
+      </div>
+      <div class="bar xp-bar" title="Experience"><div class="bar-fill xp-fill" style="width:${pct(w.xp, w.xpToNext)}%"></div></div>
+      <div class="char-xp-label">${w.xp}/${w.xpToNext} XP</div>
+      <div class="char-stats-grid">
+        <div class="char-stat"><span class="char-stat-label">❤️ HP</span><span class="char-stat-value">${w.hp}/${w.maxHP}</span></div>
+        <div class="char-stat"><span class="char-stat-label">💧 Mana</span><span class="char-stat-value">${w.mana}/${w.maxMana}</span></div>
+        <div class="char-stat"><span class="char-stat-label">💥 Power</span><span class="char-stat-value">${data.effectivePower}</span></div>
+        <div class="char-stat"><span class="char-stat-label">🛡️ Defense</span><span class="char-stat-value">${w.defense}</span></div>
+        <div class="char-stat"><span class="char-stat-label">👁️ Sense Range</span><span class="char-stat-value">${w.senseRange}m</span></div>
+        <div class="char-stat"><span class="char-stat-label">⏱️ Bolt Cooldown</span><span class="char-stat-value">${data.cooldownS}s</span></div>
+        ${data.shieldActive ? `<div class="char-stat"><span class="char-stat-label">🛡️ Ward</span><span class="char-stat-value">${data.shieldHp}/${data.shieldMaxHP}</span></div>` : ''}
+      </div>
+    </div>
+    <div class="char-powers">
+      <div class="powers-balance">Balance: <strong>${data.runes}</strong> 🔮 Runes</div>
+      <div class="powers-cards">${renderPowerCard(data.power, 'btn-buy-power')}${renderPowerCard(data.recovery, 'btn-buy-recovery')}</div>
+    </div>`;
   if (!data.power.maxed && data.power.canAfford) {
     document.getElementById('btn-buy-power').addEventListener('click', callbacks.onBuyPower);
   }
   if (!data.recovery.maxed && data.recovery.canAfford) {
     document.getElementById('btn-buy-recovery').addEventListener('click', callbacks.onBuyRecovery);
   }
+}
+
+// ---------- Inventory screen ----------
+// Deliberately just today's equipped-loadout view (2 gear slots, see
+// economy.js:GEAR_SLOTS) — there's no owned-but-unequipped concept yet
+// (buying gear replaces and auto-equips), so this is not a multi-item grid.
+// Becomes the natural home for Phase 3 potions etc. later.
+export function renderInventoryScreen(data, callbacks) {
+  const el = document.getElementById('inventory-content');
+  if (!el) return;
+  el.innerHTML = `<div class="inv-grid">${data.slots.map((s) => inventoryRowHtml(s)).join('')}</div>`;
+  el.querySelectorAll('[data-goshop]').forEach((b) => b.addEventListener('click', () => callbacks.onGoShop(b.dataset.goshop)));
+}
+
+function inventoryRowHtml(s) {
+  if (!s.item) {
+    return `<div class="inv-row empty">
+      <span class="shop-icon">${s.slotIcon}</span>
+      <div class="inv-info">
+        <div class="inv-name">No ${s.slotLabel.toLowerCase()} equipped</div>
+        <div class="inv-empty-note">Visit the Shop to gear up.</div>
+      </div>
+      <button class="inv-goshop" data-goshop="${s.slotId}">🛒 Shop</button>
+    </div>`;
+  }
+  return `<div class="inv-row">
+    <span class="shop-icon">${s.item.icon}</span>
+    <div class="inv-info">
+      <div class="inv-name">${s.item.name}${s.level ? ` +${s.level}` : ''}</div>
+      <div class="inv-stats">${fmtMods(s.totalMods)}</div>
+    </div>
+    <button class="inv-goshop" data-goshop="${s.slotId}">🛒 Upgrade</button>
+  </div>`;
 }
 
 function renderPowerCard(card, btnId) {
@@ -267,6 +378,19 @@ export function initQaTools(callbacks) {
         <button id="qa-runes-infinite" class="power-buy">♾️ Infinite</button>
       </div>
     </div>
+    <div class="qa-current-gems" id="qa-current-gems"></div>
+    <div class="qa-section">
+      <label class="qa-label">Set Mana Crystals to exactly</label>
+      <div class="qa-row">
+        <input id="qa-gems-input" type="number" min="0" step="1" placeholder="e.g. 500" />
+        <button id="qa-gems-set" class="power-buy">Set</button>
+      </div>
+      <div class="qa-row">
+        <button id="qa-gems-add-100" class="power-buy">+100</button>
+        <button id="qa-gems-add-1000" class="power-buy">+1000</button>
+        <button id="qa-gems-infinite" class="power-buy">♾️ Infinite</button>
+      </div>
+    </div>
     <div class="qa-section" id="qa-power-row"></div>
     <div class="qa-section" id="qa-recovery-row"></div>
   `;
@@ -280,16 +404,24 @@ export function initQaTools(callbacks) {
   document.getElementById('qa-runes-add-100').addEventListener('click', () => callbacks.onAddRunes(100));
   document.getElementById('qa-runes-add-1000').addEventListener('click', () => callbacks.onAddRunes(1000));
   document.getElementById('qa-runes-infinite').addEventListener('click', () => callbacks.onSetInfiniteRunes());
+  document.getElementById('qa-gems-set').addEventListener('click', () => {
+    const raw = document.getElementById('qa-gems-input').value;
+    callbacks.onSetGems(Number(raw));
+  });
+  document.getElementById('qa-gems-add-100').addEventListener('click', () => callbacks.onAddGems(100));
+  document.getElementById('qa-gems-add-1000').addEventListener('click', () => callbacks.onAddGems(1000));
+  document.getElementById('qa-gems-infinite').addEventListener('click', () => callbacks.onSetInfiniteGems());
 }
 
 // Rebuilds the current-balance text and the two level-stepper rows every
-// render (like renderPowersPanel does for its buy buttons) — deliberately
+// render (like renderCharacterScreen does for its buy buttons) — deliberately
 // does NOT touch #qa-runes-input so the player's in-progress typing in that
 // field survives the game loop's 250ms re-renders.
 export function renderQaPanel(data, callbacks) {
   const panel = document.getElementById('qa-panel');
   if (!panel) return; // ?qa=1 not set — nothing was ever created
   document.getElementById('qa-current-runes').textContent = `Current: ${data.runes} 🔮 Runes`;
+  document.getElementById('qa-current-gems').textContent = `Current: ${data.gems} 💎 Mana Crystals`;
   renderQaLevelRow('qa-power-row', 'qa-power', data.power, callbacks.onSetPowerLevel);
   renderQaLevelRow('qa-recovery-row', 'qa-recovery', data.recovery, callbacks.onSetRecoveryLevel);
 }
@@ -458,7 +590,7 @@ function renderSelfSheet(el, data, callbacks) {
     mpPct: pct(w.mana, w.maxMana),
     pot: treasury.potWhole,
     avatar: avatarWithRing(w.avatar, getElement(w.element).color, { hp: w.hp, maxHP: w.maxHP, ringColor: 'var(--mana)', shieldActive }),
-    shield: shieldActive ? `🛡️ Ward active — ${data.shieldRemainingS}s left` : 'No ward raised',
+    shield: shieldActive ? `🛡️ Warded — ${data.shieldHp}/${data.shieldMaxHP} (${data.shieldRemainingS}s left)` : 'No ward raised',
   };
   // Structure key: same markup with every live number blanked. The shield
   // status text is live, but its active/idle flag is part of the key via the
@@ -531,25 +663,34 @@ function shopRowHtml(r) {
     </div>`;
 }
 
-let shopSlotShown = null; // which slot's list the shop DOM currently shows
+// ---------- Shop screen ----------
+// Promoted from the old docked "🛍️ Crystal Shop" sheet into its own full
+// screen (same economy.js data, same row/upgrade markup, just a bigger
+// non-cramped container — see docs/ARCHITECTURE.md). render() runs every
+// 250ms, and rebuilding this list's innerHTML that often would swallow the
+// "tap again to buy/upgrade" confirm taps (same reason the old sheet guarded
+// against it), so this keeps the same structure-key rebuild guard.
+let shopScreenKey = null;
+let shopScreenSlotShown = null; // which slot's list is currently shown
 
-function renderShopSheet(el, data, callbacks) {
+export function renderShopScreen(data, callbacks) {
+  const el = document.getElementById('shop-content');
+  if (!el) return;
   const html = `
-      <div class="sheet-panel shop">
-        <button class="sheet-close" id="sheet-close" aria-label="Close">✕</button>
-        <div class="shop-head"><div class="sheet-name">🛍️ Crystal Shop</div><div class="shop-balance">💎 ${data.balance}</div></div>
+      <div class="shop-screen">
+        <div class="shop-head"><div class="sheet-name">💎 Balance</div><div class="shop-balance">💎 ${data.balance}</div></div>
         ${data.intro ? '<div class="shop-intro">Spend Mana Crystals on gear. Whatever you buy is equipped right away.</div>' : ''}
         <div class="shop-slots" role="tablist">
           ${data.slots.map((s) => `<button role="tab" class="shop-slot${s.id === data.slot ? ' active' : ''}" data-slot="${s.id}" aria-selected="${s.id === data.slot}">${s.icon} ${s.label}</button>`).join('')}
         </div>
         <div class="shop-list">${data.rows.map(shopRowHtml).join('')}</div>
       </div>`;
-  if (html === sheetKey && el.firstElementChild) return;
+  if (html === shopScreenKey && el.firstElementChild) return;
   // Rebuilding replaces the scrolling list, so carry its scroll position over;
   // on first open / tab switch, bring the equipped (or next) row into view.
   const oldList = el.querySelector('.shop-list');
-  const keepScroll = oldList && shopSlotShown === data.slot ? oldList.scrollTop : null;
-  sheetKey = html;
+  const keepScroll = oldList && shopScreenSlotShown === data.slot ? oldList.scrollTop : null;
+  shopScreenKey = html;
   el.innerHTML = html;
   const list = el.querySelector('.shop-list');
   if (keepScroll !== null) list.scrollTop = keepScroll;
@@ -557,19 +698,21 @@ function renderShopSheet(el, data, callbacks) {
     const focus = list.querySelector('.shop-row.equipped') || list.querySelector('.shop-row.affordable, .shop-row.unaffordable');
     if (focus) list.scrollTop = Math.max(0, focus.getBoundingClientRect().top - list.getBoundingClientRect().top - 4);
   }
-  shopSlotShown = data.slot;
-  document.getElementById('sheet-close').addEventListener('click', callbacks.onClose);
+  shopScreenSlotShown = data.slot;
   el.querySelectorAll('[data-slot]').forEach((b) => b.addEventListener('click', () => callbacks.onShopSlot(b.dataset.slot)));
   el.querySelectorAll('[data-buy]:not([disabled])').forEach((b) => b.addEventListener('click', () => callbacks.onShopBuy(b.dataset.buy)));
   el.querySelectorAll('[data-upgrade]:not([disabled])').forEach((b) => b.addEventListener('click', () => callbacks.onShopUpgrade(b.dataset.upgrade)));
 }
 
 // Tapping a wizard (yourself or an NPC) opens this sheet in place of the old
-// always-on spellbook — casting is contextual to whoever you tapped.
+// always-on spellbook — casting is contextual to whoever you tapped. The
+// shop used to be a third kind here ('shop'); it's now the full Shop screen
+// (renderShopScreen above) instead, so this only ever handles 'self',
+// 'npc' and 'remote'.
 //
 // render() runs every 250ms. Rebuilding innerHTML that often swallows taps
 // (the button under your finger is replaced between press and release), so the
-// self and shop sheets only rebuild when their *structure* changes (sheetKey);
+// self sheet only rebuilds when its *structure* changes (sheetKey);
 // fast-changing numbers are patched in place with textContent / style.
 let sheetKey = null;
 
@@ -579,18 +722,12 @@ export function renderWizardSheet(data, callbacks) {
     el.classList.add('hidden');
     el.innerHTML = '';
     sheetKey = null;
-    shopSlotShown = null;
     return;
   }
-  if (data.kind !== 'shop') shopSlotShown = null;
   el.classList.remove('hidden');
 
   if (data.kind === 'self') {
     renderSelfSheet(el, data, callbacks);
-    return;
-  }
-  if (data.kind === 'shop') {
-    renderShopSheet(el, data, callbacks);
     return;
   }
   // NPC / remote sheets: the shell is only (re)created when the target
@@ -641,7 +778,7 @@ export function renderWizardSheet(data, callbacks) {
     return;
   }
 
-  const { wizard: npc, atkSpell, canAttack, reason, dist, shieldActive, isNemesis } = data;
+  const { wizard: npc, atkSpell, canAttack, reason, dist, shieldActive, shieldHp, shieldMaxHP, isNemesis } = data;
   body.innerHTML = `
     <div class="sheet-header">
       <span class="sheet-avatar">${avatarWithRing(npc.avatar, getElement(npc.element).color, { hp: npc.hp, maxHP: npc.maxHP, ringColor: 'var(--pink)', shieldActive: !!shieldActive })}</span>
@@ -653,6 +790,7 @@ export function renderWizardSheet(data, callbacks) {
     <div class="sheet-stats">
       <div class="bar hp-bar"><div class="bar-fill hp-fill" style="width:${pct(npc.hp, npc.maxHP)}%"></div><span class="bar-text">${npc.hp}/${npc.maxHP} HP</span></div>
     </div>
+    ${shieldActive ? `<div class="sheet-shield-status active">🛡️ Warded — ${shieldHp}/${shieldMaxHP}</div>` : ''}
     <div class="sheet-actions">
       <button id="sheet-attack" class="sheet-btn attack${canAttack ? '' : ' disabled'}">
         <span class="sheet-btn-icon">${atkSpell.icon}</span> Cast ${atkSpell.name}

@@ -40,21 +40,30 @@ on top of it when the repo owner has a Firebase project configured (see
   - **Spark Bolt** (attack) — travels at a real 1 m/s, so a cast takes
     real minutes to land at "Real" time scale. A ⚡/🐢 toggle in the ☰
     menu speeds this up 30x for testing.
-  - **Ward Shield** (defend) — a proactive stance, raised ahead of time,
-    lasts 2 real minutes, softens every hit while it holds (not consumed
-    per-hit).
+  - **Ward Shield** (defend) — a proactive stance, raised ahead of time.
+    Gives an absorb pool sized off your own max HP (`shieldFraction: 0.35`
+    × sign-mult — a first guess, see Decisions log); hits subtract from the
+    pool (full absorb = 0 real damage) until it breaks (overflow gets
+    through), or it expires after a 2-minute backstop timer if never
+    broken.
   - **Counterspell** (defend) — reactive: cast during the incoming-curse
     alert to negate that *specific* spell outright.
-- **Sign drawing** — every cast (Spark Bolt, Ward Shield, Counterspell) opens
-  a pad that draws the ⭐ Star Sigil (a one-stroke pentagram) point by point,
-  then makes it vanish; the player redraws it from memory against a timer
-  (10s at Lv.1, −0.5s per level, floor 4s) — the sign is shown as a wide band (±4% of its size) and ink anywhere inside
-  it counts as on the line — only Clear and Cast buttons, the
-  Cast button turns green→red with the seconds left and auto-casts at zero and similarity (position/size/direction-independent) maps to a ×0.5–×1.5
-  power multiplier (attack damage, shield mitigation). A Counterspell needs
+- **Sign drawing** — every cast opens a pad that draws that spell's sign
+  point by point, then makes it vanish; the player redraws it from memory
+  against a timer (10s at Lv.1, −0.5s per level, floor 4s) — the sign is
+  shown as a wide band (±4% of its size) and ink anywhere inside it counts
+  as on the line — only Clear and Cast buttons, the Cast button turns
+  green→red with the seconds left and auto-casts at zero and similarity
+  (position/size/direction-independent) maps to a ×0.5–×1.5 power
+  multiplier (attack damage, shield pool size). A Counterspell needs
   ×1.0+ or it fizzles (mana still spent). NPCs cast at ×1. Scoring in
-  `js/sign.js`, overlay in `js/signpad.js`. Only one sign so far; thresholds
-  are first guesses.
+  `js/sign.js`, overlay in `js/signpad.js`. Each spell has its own fixed
+  sign, no player choice: Spark Bolt draws the ⭐ Star Sigil (a one-stroke
+  pentagram), Ward Shield draws the 🛡️ Ward Rune (a closed hexagon/shield
+  outline), Counterspell draws the 🌀 Break Sigil (an open jagged
+  zigzag/lightning-crack). All three score against the same thresholds —
+  this is shape variety, not per-sign difficulty tuning; thresholds are
+  first guesses.
 - **Incoming-curse alert** — however many curses are in flight, one slim card
   shows the one landing soonest (name, countdown, "+N more" chip) with a
   single Counterspell button that targets it; countering reveals the next.
@@ -76,18 +85,30 @@ on top of it when the repo owner has a Firebase project configured (see
   as XP. Runes buy permanent, capped, non-refundable upgrades to two
   attributes — Spell Power (+5%/level Spark Bolt damage, cap Lv.3/+15%)
   and Spell Recovery (−0.1s/level Spark Bolt cooldown, cap Lv.3/1.2s) —
-  from a new "🔮 Runes & Powers" bottom sheet (☰ menu). Player-only; NPCs
-  don't earn or spend Runes. See `docs/FEATURES.md` for exact numbers.
+  from the 🧙 Character screen (☰ menu; see "Shop, Inventory, Character
+  screens" below — this used to be a separate "🔮 Runes & Powers" bottom
+  sheet). Player-only; NPCs don't earn or spend Runes. See
+  `docs/FEATURES.md` for exact numbers.
 - **Persistence** — wizard (including Runes balance and Powers levels) +
   NPCs + spawn point + speed setting saved to `localStorage`. No
   accounts, nothing leaves the browser except the optional multiplayer
   sync below.
 - **Mana Crystals economy (Phase 1)** — 💎 passive income into an uncapped
   Treasury pot (scaled by ⚡ Fast while the page is open), a small kill
-  bonus, and a Crystal Shop selling 5 wand tiers and 5 robe tiers, each
-  upgradable +1..+10 with 💎 (deterministic, no gambling), so a maxed avatar
-  is overwhelmingly stronger than same-level NPCs. Numbers in
+  bonus, and a Shop screen (☰ menu) selling 5 wand tiers and 5 robe tiers,
+  each upgradable +1..+10 with 💎 (deterministic, no gambling), so a maxed
+  avatar is overwhelmingly stronger than same-level NPCs. Numbers in
   `docs/FEATURES.md` are first guesses.
+- **Shop, Inventory, Character screens (2026-10-09)** — the old "💎 Crystal
+  Shop" docked sheet and "🔮 Runes & Powers" bottom panel were replaced by 3
+  full, non-map screens reached from the ☰ menu (🛒 Shop, 🎒 Inventory, 🧙
+  Character), each with a "← Back to Map" button. Inventory is a new
+  (deliberately minimal) equipped-loadout view of the 2 gear slots; the
+  other two just promote existing content to more room. Spells keep
+  traveling while any of the 3 is open (the game loop never pauses), so
+  each carries an off-map incoming-curse banner that jumps back to the map.
+  See `docs/FEATURES.md` "Shop, Inventory and Character screens" and the
+  Decisions Log entry below.
 - **Nemesis System** — whichever NPC most recently defeated you becomes
   your "Nemesis" (one field, `nemesisId`, on your own wizard): called out
   by name in the incoming-curse alert and with a badge on its wizard sheet,
@@ -121,8 +142,9 @@ on top of it when the repo owner has a Firebase project configured (see
 - Multiplayer (see "What's live now") has no live presence indicators, no
   matchmaking, and no chat — deferred by design for v1, not an oversight
   (see Decisions Log). It also has no reactive Counterspell window against
-  a real player's incoming attack (only Ward Shield's passive mitigation
-  applies) — that would need live syncing this v1 deliberately doesn't do.
+  a real player's incoming attack (only Ward Shield's absorb pool, if one
+  is up, applies) — that would need live syncing this v1 deliberately
+  doesn't do.
 - Real-player density is expected to be near zero in most areas for a
   while (this is a small hobby project, not a live service with a user
   base) — NPCs staying as the primary opponent is intentional, not a
@@ -238,6 +260,99 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-09 — Ward Shield redesigned from flat-% mitigation to an absorb
+  pool; QA Tools gets a Mana Crystals setter.** Ward Shield used to set
+  `shieldBuff = { mitigation, expiresAt }` and quietly shave a flat % off
+  every hit for its whole 2-minute duration — invisible and not very
+  game-like (no concept of the shield itself being "used up"). Redesigned
+  so casting it gives `shieldBuff = { hp, maxHP, expiresAt }`: a pool sized
+  off the **caster's own** `maxHP × shieldFraction × sign-mult`
+  (`shieldFraction: 0.35` in `spells.js`'s `ward_shield`, replacing the old
+  `mitigation` field) — off the defender's own HP investment, not the
+  attacker's power, since the defender can't know the attacker's stats in
+  this async real-time-travel game. Each hit now subtracts from the pool:
+  fully covered → a true 0 damage to real HP (the old "never below 1" rule
+  doesn't apply here — that rule only existed to stop % rounding from
+  giving a free pass, not to protect a pool that genuinely covers the hit);
+  not covered → the shield breaks (pool to 0, `expiresAt` set to `now` so
+  `isShieldActive` reads false immediately) and the overflow, still floored
+  at 1, reaches real HP. The 2-minute `buffDuration` stays as a backstop
+  expiry. The duplicate absorb math that used to live separately in
+  `resolveImpact` (local hits) and `applyPendingHit` (remote hits) is now
+  one shared `combat.js:resolveShieldedDamage` helper. `shieldFraction:
+  0.35` is a first guess like every other number in `docs/FEATURES.md`'s
+  economy — picked so a sloppy sign gives a shield worth ~17.5% of max HP
+  and a well-drawn one ~52.5%, pending real playtest, not tuned from data.
+  Verified with a throwaway Playwright script: drove the real
+  `combat.js`/`spells.js` module functions in-browser for the pool-size,
+  full-absorb and shield-break math (including the log lines and
+  `isShieldActive` flipping false immediately on break), then drove the
+  actual UI to raise a shield through the real sign-pad flow and confirm
+  the self sheet shows the live pool ("🛡️ Warded — 18/18 (120s left)"), not
+  just a binary flag. Alongside this, QA Tools (`?qa=1`) gets a "Set Mana
+  Crystals to exactly" section mirroring the existing Runes control exactly
+  (same +100/+1000/♾️ Infinite pattern, `QA_INFINITE_GEMS` in `main.js`) —
+  new wizards still start at 0 💎 by design, this just makes the Shop's
+  higher gear tiers reachable for testing without a grind. Verified via the
+  same Playwright pass: set/added gems through the QA panel and confirmed
+  both the panel's own balance text and the Shop screen's balance updated,
+  then bought a gear item and confirmed the balance actually decremented.
+- **2026-10-09 — Shop/Inventory/Character promoted from bottom sheets to 3
+  full screens.** Follow-up to an earlier in-session product discussion:
+  with a Crystal Shop, a Runes & Powers panel, gear, and more (potions,
+  etc.) coming, "stack more sheets over the live map" stopped scaling, so
+  the old "💎 Crystal Shop" docked sheet and "🔮 Runes & Powers" bottom panel
+  were retired in favor of 3 new top-level screens (`#screen-shop`,
+  `#screen-inventory`, `#screen-character`, siblings of
+  `#screen-create`/`#screen-game`, same `.screen`/`.active` toggle) reached
+  from 3 new ☰ menu entries, each with a "← Back to Map" button. No
+  game-logic or data-shape change — same `economy.js`/`wizard.js` data,
+  just promoted to bigger, non-cramped containers; `world.openSheet` lost
+  its `'shop'` kind (the Shop screen's active slot tab is now a plain
+  module-level variable in `main.js`, not persisted — it never needed to
+  be). Content moves: Shop's full gear catalog + two-tap buy/upgrade
+  confirm moved as-is; Inventory is a new (but deliberately minimal)
+  equipped-loadout view — just today's 2 gear slots, explicitly **not** a
+  multi-item inventory grid, since there's still no owned-but-unequipped
+  concept; Character consolidates the avatar/name/element/level/XP that
+  used to live only in the HUD/self-sheet with final effective combat
+  stats (HP/mana/power-including-Runes/defense/sense-range/cooldown) and
+  the Spell Power/Spell Recovery upgrade cards that used to be the Runes &
+  Powers panel. **Handled the "blindsided while shopping" risk directly**
+  (the brief flagged it as a must-think-about, not optional): spells keep
+  traveling in real time regardless of screen, since the game loop
+  (`combat.tick`/`render()`) never pauses when a screen other than the map
+  is active — only DOM visibility changes. Rather than rebuild the full
+  reactive Counterspell flow (sign-pad, etc.) on 3 more screens, each
+  screen's header carries an `.offmap-alert` banner fed the same
+  `incoming`-projectiles data the map's defend strip already uses, showing
+  the soonest incoming spell's caster/countdown; tapping it (or the
+  explicit back button) jumps straight back to the map, where the real
+  defend strip and Counterspell are. Verified end-to-end with a throwaway
+  Playwright script (bought/upgraded gear in Shop and confirmed it showed
+  in Inventory, spent Runes on the Character screen and confirmed the
+  upgrade level/cost updated, and — the harder case — waited for a live
+  NPC attack, confirmed the off-map alert surfaced the correct spell/caster/
+  countdown on the Character screen, and confirmed tapping it returned to
+  the map) — not committed, per the project's current testing approach.
+  This was an IA/UI execution task with the layout/content decisions
+  already made in the brief; no new product or visual-design call was
+  made here beyond ordinary implementation judgment (CSS details, exact
+  wording).
+- **2026-10-09 — Sign drawing: each spell gets its own sign.** All three
+  spells used to make the player draw the same ⭐ Star Sigil (pentagram) on
+  every cast, which got repetitive. Now Spark Bolt keeps the pentagram,
+  Ward Shield draws a new 🛡️ Ward Rune (closed hexagon/shield outline, fits
+  a proactive protective stance), and Counterspell draws a new 🌀 Break
+  Sigil (open jagged zigzag/lightning-crack, matching its existing "shatter
+  one incoming curse" flavor text). `js/sign.js` exports `WARD_RUNE` and
+  `BREAK_SIGIL` alongside the existing `SIGN` (pentagram) — same scoring
+  math, no per-sign tuning; `js/signpad.js:openSignPad` gained a `sign`
+  option (defaults to the pentagram) instead of hardcoding one shape, and
+  `js/main.js`'s three `openSignPad` call sites each pass their spell's own
+  sign. No player choice, no unlock system — this is purely "which fixed
+  shape goes with which spell," not the variants-with-caps idea logged
+  under Future feature concepts.
 - **2026-10-09 — Nemesis System shipped, NPC-only in this pass.** Whichever
   NPC most recently defeated the player is remembered (`wizard.nemesisId`,
   one new field, no history list) and gets a modest combat edge (+20% max

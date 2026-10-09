@@ -72,13 +72,32 @@ means a cast can take real minutes to land — the whole point being that
 the **target has that entire window to react** with a defend spell.
 
 ### Ward Shield (defend — proactive stance) 🛡️
-`manaCost 18, buffDuration 120000ms (2 min), mitigation 0.5, cooldown 25s`
+`manaCost 18, buffDuration 120000ms (2 min), shieldFraction 0.35, cooldown 25s`
 
-Cast any time, on yourself, from your own wizard sheet. Unlike a
-single-use buff, it is **not consumed** by a hit — it reduces damage from
-every hit that lands while it's active, and only goes away when its
-2-minute timer runs out (`js/combat.js:isShieldActive`). Re-casting while
-already active refreshes the timer.
+Cast any time, on yourself, from your own wizard sheet. As of this pass,
+Ward Shield is an **absorb pool with its own HP**, not a flat damage
+percentage: casting it gives you a pool worth `maxHP × 0.35 × sign-mult`
+(a sloppy sign draw gives ~17.5% of your own max HP, a well-drawn one
+~52.5%) — sized off **your own** maxHP (gear included), never the
+attacker's power, since the defender has no way to know the attacker's
+stats in this async real-time-travel game. Every hit that lands while it's
+up is subtracted from the pool:
+- If the pool can fully cover the hit, the hit does **zero** real damage —
+  a true zero, not the old "never below 1" rounding rule (that rule only
+  existed to stop a flat-% reduction from rounding a hit down to nothing;
+  a pool that can literally cover the hit means it genuinely didn't get
+  through).
+- If the hit is bigger than what's left, the shield **breaks**: the pool
+  drops to 0 and expires immediately, and the overflow (floored at 1, same
+  as any other landed hit) reaches your real HP.
+
+The 2-minute timer is still a backstop — the shield also expires on its
+own if it's never broken (`js/combat.js:isShieldActive`). Re-casting while
+already active overwrites it with a fresh pool and timer (no stacking, no
+carrying over whatever was left). The self/NPC wizard sheet shows the
+current pool, e.g. "🛡️ Warded — 38/80 (95s left)", not just an active/idle
+flag. `shieldFraction: 0.35` is a first guess, not tuned from real play
+data (same as every other number in this doc) — pending playtest.
 
 While active, a soft pulsing bubble renders behind the wizard's ring on the
 map, HUD, and sheet (`js/portraits.js:avatarWithRing`'s `shieldActive`
@@ -106,14 +125,16 @@ to `localStorage` (`world.timeScale`).
 
 Tapping any wizard on the map opens a docked bottom sheet (`js/ui.js:renderWizardSheet`)
 instead of the old always-on spellbook. The sheet sits under the map and
-shrinks it (max height `min(46dvh, 380px)`, shop up to ~58dvh with only its
-item list scrolling) — it never covers the map, your wizard marker or the
-map attribution. The map pans just enough to keep your wizard (and the
-tapped one) in view. Your own sheet's 🛍️ Shop button carries a text label.
+shrinks it (max height `min(46dvh, 380px)`) — it never covers the map, your
+wizard marker or the map attribution. The map pans just enough to keep your
+wizard (and the tapped one) in view. Your own sheet's 🛍️ Shop button (text
+label) takes you to the full Shop screen (see "Shop, Inventory and
+Character screens" below) rather than opening a sheet.
 
-- **Your own wizard** → HP/mana, whether Ward Shield is active and its
-  remaining time, and a Raise/Refresh Ward Shield button (disabled with a
-  reason — not enough mana, still recharging — when it can't be cast).
+- **Your own wizard** → HP/mana, whether Ward Shield is active with its
+  current absorb pool and remaining time (e.g. "🛡️ Warded — 38/80 (95s
+  left)"), and a Raise/Refresh Ward Shield button (disabled with a reason —
+  not enough mana, still recharging — when it can't be cast).
 - **An NPC** → their HP, distance, and a Cast Spark Bolt button, disabled
   with a reason (out of range, recharging, not enough mana, already
   defeated) when it can't fire.
@@ -126,7 +147,7 @@ The game screen is a vertical stack, top to bottom: **HUD** (avatar with Lv
 badge, name, HP and MP side by side, thin XP line; 💎 chip that glows gold
 when crystals are ready to collect, 📍, ☰ — all 44px targets), the
 **defend strip** (only while attacked), the **map stage**, the **docked
-sheet** (self / NPC / shop), and the phone's safe-area gap. Nothing urgent
+sheet** (self / NPC / remote), and the phone's safe-area gap. Nothing urgent
 floats over the HUD, and all text is at least 12px.
 
 - **Defend strip:** its own lane directly under the HUD. One compact card
@@ -134,18 +155,57 @@ floats over the HUD, and all text is at least 12px.
   "+N more incoming", and a 44px Counter button (with mana cost). When it
   can't be cast the reason ("Not enough mana" / "Recharging") shows next to
   the "+N more" text. The map just gets shorter while it is shown.
-- **One overlay at a time:** the ☰ menu, Spell Log, Runes & Powers panel
-  and the docked sheet are mutually exclusive — opening one closes the
-  others. Tapping the map or the dimmed scrim while the menu or a panel is
-  open only dismisses it (it never walks your wizard); Esc closes the
-  menu. A *new* incoming attack closes the ☰ menu once (so the strip is
-  reachable) but leaves an open sheet or shop alone.
+- **One overlay at a time:** the ☰ menu, Spell Log/QA panel and the docked
+  sheet are mutually exclusive — opening one closes the others. Tapping the
+  map or the dimmed scrim while the menu or a panel is open only dismisses
+  it (it never walks your wizard); Esc closes the menu. A *new* incoming
+  attack closes the ☰ menu once (so the strip is reachable) but leaves an
+  open sheet alone.
 - **☰ menu:** a popover inside the map area, width `min(260px, 100% - 16px)`,
-  48px rows with spelled-out labels (Fullscreen, Crystal Shop, "Speed:
-  Real/Fast", Runes & Powers · N, Spell Log, and QA Tools under `?qa=1`),
-  and a separated red "New Wizard" last.
+  48px rows with spelled-out labels (Fullscreen, 🛒 Shop, 🎒 Inventory,
+  "🧙 Character · N" (N = Rune balance), "Speed: Real/Fast", Spell Log, and
+  QA Tools under `?qa=1`), and a separated red "New Wizard" last.
 - Toasts appear at the top of the map area so they are never hidden behind
   the bottom panels.
+
+## Shop, Inventory and Character screens
+
+Added 2026-10-09, replacing the old "💎 Crystal Shop" docked sheet and
+"🔮 Runes & Powers" bottom panel with 3 full, non-map screens reached from
+the ☰ menu — now that there's gear, two currencies and item upgrades, a
+cramped bottom sheet stopped being enough room. Each has a "← Back to Map"
+button in its header.
+
+- **🛒 Shop** — the same Mana Crystal gear catalog as before (see "Mana
+  Crystals, Treasury and Shop" below), just promoted into a full-height
+  screen instead of a sheet capped at ~58dvh. Same two-tap "tap again to
+  buy/upgrade" confirm, same per-slot tabs (🪄 Wand / 🧥 Robe), same tier
+  pips/lock/owned states.
+- **🎒 Inventory** — today's equipped-loadout view: one row per gear slot
+  (wand, robe) showing the equipped item's icon/name/upgrade level and the
+  stats it's contributing, or a "No wand/robe equipped — visit the Shop"
+  prompt with a shortcut button for an empty slot. Deliberately **not** a
+  multi-item inventory grid — there's still no "owned but unequipped"
+  concept (buying gear replaces and auto-equips, same as always); this
+  screen is the natural home for Phase 3 potions etc. once those exist.
+- **🧙 Character** — consolidates what used to be scattered across the HUD
+  and self wizard-sheet (avatar, name, element, level, XP bar) with your
+  final effective combat stats (HP/mana, **Power** — your base power times
+  the Spell Power Rune multiplier, i.e. what Spark Bolt's damage actually
+  uses — defense, sense range, and Spark Bolt's current cooldown after
+  Spell Recovery) and the Spell Power/Spell Recovery upgrade cards that
+  used to be the separate "🔮 Runes & Powers" panel (see "Runes & Powers"
+  below) — now bought from this screen instead.
+
+**Spells keep traveling while you're on one of these screens** — the game
+loop never pauses, so an incoming curse's travel timer keeps counting down
+regardless of which screen is open. Each of the 3 screens shows an
+`.offmap-alert` banner (header area) with the soonest incoming spell's
+caster, name and countdown whenever one is in flight; tapping it (or the
+"← Back to Map" button) returns to the map immediately, where the real
+defend strip and Counterspell are reachable. There's no Counterspell button
+on these 3 screens themselves — casting still goes through the sign-pad
+flow over the map/HUD.
 
 ## Multiplayer (real players)
 
@@ -181,7 +241,8 @@ travel-time window. Unlike an NPC hit, a hit on a real player doesn't
 resolve on your screen — it's recorded for their device to apply next
 time it's running (even if that's minutes or hours later), using *their*
 current HP/defense/Ward Shield state at that moment, not a guess made on
-your end. Ward Shield still reduces a hit like this normally; there is
+your end. Ward Shield's absorb pool still applies to a hit like this
+normally; there is
 currently no live "incoming spell" warning (and therefore no
 Counterspell option) for an attack from another real player, since that
 would need always-on live syncing this v1 deliberately doesn't do. A real
@@ -289,7 +350,8 @@ not tuned from play data.**
   reloads.
 - **Kill bonus:** defeating an NPC adds `3 + npcLevel` 💎 straight to your
   balance (not the pot, not scaled by Fast).
-- **Shop** (wizard sheet → 🛍️ Shop button, or ☰ → 💎 Crystal Shop): one equipped
+- **Shop** (wizard sheet → 🛍️ Shop button, or ☰ → 🛒 Shop — its own full
+  screen, see "Shop, Inventory and Character screens" above): one equipped
   item per slot, strict tier order within a slot (5 tiers per slot), no
   downgrades, full price, no refunds, no level gates. Buying is two taps
   ("Tap again to buy" for 3s) and the item is equipped immediately (at +0).
@@ -341,8 +403,10 @@ upgrades are the only "wasted" spend. The self sheet shows levels ("Aurora Wand
 
 Max gear (T5 wand +10 and T5 robe +10) adds +15.5 power, +580 max HP and +9
 defense: about 21 total power (about 200 damage per Spark Bolt at a perfect
-sign), 680+ max HP at level 1. Every hit, even through Ward Shield, still does
-at least 1 damage (the shield rounding no longer drops a hit to 0).
+sign), 680+ max HP at level 1. Every hit that lands on an *unshielded* wizard
+still does at least 1 damage — but a hit fully covered by an active Ward
+Shield pool now does a true 0 to real HP (see "Ward Shield" above); only the
+overflow once a shield breaks is floored at 1.
 
 Balance reasoning: damage is `round(10 × power − defense)` (min 1), so
 defense is kept small next to max HP, but T5 +10 (9 def, plus 3 for Ice)
@@ -362,8 +426,10 @@ hits a real player for far more than they can currently survive).
 ## Runes & Powers
 
 `js/wizard.js` owns the numbers; `js/combat.js` applies them at cast time;
-`js/ui.js`/`js/main.js` render the ☰ menu → 🔮 Runes & Powers · {n} entry and the
-"🔮 Runes & Powers" panel it opens.
+`js/ui.js`/`js/main.js` render the upgrade cards on the 🧙 Character screen
+(☰ menu → "🧙 Character · {n}", {n} = Rune balance — see "Shop, Inventory
+and Character screens" above; this used to be a separate "🔮 Runes & Powers"
+bottom panel).
 
 - **Earning Runes** — every NPC kill grants `15 + npcLevel × 5` Runes
   (`npcLevel` = the *defeated NPC's* level), the exact same formula and

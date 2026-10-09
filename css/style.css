@@ -49,6 +49,12 @@ html, body {
   color: var(--text);
   font-family: var(--font-body);
   overscroll-behavior: none;
+  /* Pinch-zoom and double-tap-zoom are gestures the browser handles itself,
+     independent of the viewport meta's maximum-scale/user-scalable (Safari
+     in particular has long been inconsistent about honoring those) — this
+     is the layer that actually blocks them reliably, while still allowing
+     normal panning/scrolling. */
+  touch-action: pan-x pan-y;
 }
 
 #app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
@@ -630,7 +636,7 @@ html, body {
 
 /* QA/dev tools panel (?qa=1 only — see docs/ARCHITECTURE.md). Reuses the
    powers-panel shell; only the innards below are QA-specific. */
-.qa-current-runes { color: var(--gold-soft); font-weight: 700; margin-bottom: 12px; }
+.qa-current-runes, .qa-current-gems { color: var(--gold-soft); font-weight: 700; margin-bottom: 12px; }
 .qa-section {
   background: var(--bg-panel-2); border-radius: 14px; padding: 12px 14px;
   border: 1px solid rgba(226,177,60,0.2); margin-bottom: 12px;
@@ -656,6 +662,91 @@ html, body {
   .create-card { max-width: 560px; }
   .element-options { grid-template-columns: 1fr 1fr 1fr; }
 }
+
+/* ---------- Shop / Inventory / Character full screens ---------- */
+/* Siblings of #screen-create/#screen-game (see docs/ARCHITECTURE.md), shown
+   via the same .screen/.active toggle. `.screen.active` only sets
+   `display:flex`; direction is row by default, so these need their own
+   column layout. */
+.subscreen {
+  flex-direction: column; min-height: 0;
+  background: var(--bg-panel);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.subscreen-header {
+  flex: none; display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  background: var(--bg-panel); border-bottom: 1px solid var(--line-gold);
+}
+.btn-back-map {
+  flex: none; min-height: var(--tap); padding: 0 14px; border-radius: 10px;
+  border: 1px solid var(--gold); background: var(--bg-panel-2); color: var(--gold-soft);
+  font-family: var(--font-body); font-weight: 800; font-size: 0.9rem; cursor: pointer;
+}
+.btn-back-map:hover, .btn-back-map:focus-visible { background: rgba(226,177,60,0.15); }
+.subscreen-title {
+  margin: 0; font-family: var(--font-head); font-size: 1.05rem; font-weight: 700; color: var(--gold-soft);
+}
+/* Incoming-curse banner: surfaced here too so a player browsing Shop/
+   Inventory/Character isn't blindsided — tapping it jumps back to the map,
+   where the real defend strip and Counterspell button live (see
+   js/ui.js:renderOffMapAlert, js/main.js). Reuses the defend strip's pink
+   alert styling so it reads as the same kind of urgency. */
+.offmap-alert {
+  flex: none; display: block; width: 100%; margin: 0; padding: 10px 14px;
+  border: none; border-bottom: 2px solid var(--pink); background: var(--alert-bg);
+  color: var(--text); font-family: var(--font-body); font-weight: 800; font-size: 0.85rem;
+  text-align: left; cursor: pointer;
+  animation: pulse-red 1.2s ease-in-out infinite;
+}
+.offmap-alert.hidden { display: none; }
+@media (prefers-reduced-motion: reduce) { .offmap-alert { animation: none; } }
+.subscreen-content { flex: 1; min-height: 0; overflow-y: auto; padding: 14px; }
+
+/* Character screen */
+.char-card {
+  max-width: 480px; margin: 0 auto 16px; background: var(--bg-panel-2);
+  border: 1px solid rgba(226,177,60,0.25); border-radius: 14px; padding: 14px;
+}
+.char-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.char-name { font-weight: 800; font-size: 1.1rem; }
+.char-name small { color: var(--text-dim); font-weight: 600; margin-left: 4px; }
+.char-element { font-weight: 700; font-size: 0.85rem; margin-top: 2px; }
+.char-xp-label { font-size: 0.72rem; color: var(--text-dim); margin-top: 3px; text-align: right; }
+.char-stats-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px;
+}
+.char-stat {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  background: var(--bg-panel); border-radius: 10px; padding: 8px 10px;
+}
+.char-stat-label { font-size: 0.8rem; color: var(--text-dim); font-weight: 700; }
+.char-stat-value { font-weight: 800; font-variant-numeric: tabular-nums; }
+.char-powers { max-width: 480px; margin: 0 auto; }
+
+/* Inventory screen */
+.inv-grid { display: flex; flex-direction: column; gap: 10px; max-width: 480px; margin: 0 auto; }
+.inv-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px;
+  background: var(--bg-panel-2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius);
+}
+.inv-row.empty { opacity: 0.75; }
+.inv-info { flex: 1; min-width: 0; }
+.inv-name { font-weight: 800; font-size: 0.95rem; }
+.inv-stats { font-size: 0.8rem; color: var(--gold-soft); font-weight: 700; margin-top: 2px; }
+.inv-empty-note { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; }
+.inv-goshop {
+  flex: none; min-height: var(--tap); padding: 0 14px; border-radius: 12px; border: none; cursor: pointer;
+  font-family: var(--font-head); font-weight: 700; font-size: 0.85rem;
+  color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+}
+
+/* Shop screen: reuses .shop-* row/list/icon classes from the old docked
+   sheet (generic, not nested under .sheet-panel.shop) in a plain full-width
+   column instead of a height-capped sheet. */
+.shop-screen { display: flex; flex-direction: column; gap: 10px; max-width: 480px; margin: 0 auto; }
+.shop-screen .shop-head { padding-right: 0; }
+.shop-screen .shop-list { overflow: visible; }
 
 /* Sign drawing pad */
 .sign-pad {
