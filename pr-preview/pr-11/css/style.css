@@ -49,6 +49,12 @@ html, body {
   color: var(--text);
   font-family: var(--font-body);
   overscroll-behavior: none;
+  /* Pinch-zoom and double-tap-zoom are gestures the browser handles itself,
+     independent of the viewport meta's maximum-scale/user-scalable (Safari
+     in particular has long been inconsistent about honoring those) — this
+     is the layer that actually blocks them reliably, while still allowing
+     normal panning/scrolling. */
+  touch-action: pan-x pan-y;
 }
 
 #app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
