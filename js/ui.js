@@ -641,12 +641,12 @@ export function renderWizardSheet(data, callbacks) {
     return;
   }
 
-  const { wizard: npc, atkSpell, canAttack, reason, dist, shieldActive } = data;
+  const { wizard: npc, atkSpell, canAttack, reason, dist, shieldActive, isNemesis } = data;
   body.innerHTML = `
     <div class="sheet-header">
       <span class="sheet-avatar">${avatarWithRing(npc.avatar, getElement(npc.element).color, { hp: npc.hp, maxHP: npc.maxHP, ringColor: 'var(--pink)', shieldActive: !!shieldActive })}</span>
       <div>
-        <div class="sheet-name">${npc.name} <small>Lv.${npc.level}</small></div>
+        <div class="sheet-name">${npc.name} <small>Lv.${npc.level}</small>${isNemesis ? ' <span class="nemesis-badge">😈 Nemesis</span>' : ''}</div>
         <div class="sheet-sub">${dist}m away</div>
       </div>
     </div>
@@ -722,7 +722,13 @@ export function renderDefendPrompts(incoming, player, now, onCounter) {
   const reason = lowMana ? 'Not enough mana' : onCooldown ? 'Recharging' : '';
   const more = sorted.length - 1;
 
-  patchText(strip.querySelector('.defend-title'), `${spell.icon} ${spell.name} incoming!`);
+  // Nemesis System: main.js resolves the caster's name/Nemesis status (see
+  // casterNameFor there) and hands it over as plain fields — ui.js never
+  // looks wizards up by id itself.
+  const titleText = p.isNemesisCaster
+    ? `😈 Nemesis ${p.casterName}'s ${spell.name} incoming!`
+    : `${spell.icon} ${spell.name} incoming!`;
+  patchText(strip.querySelector('.defend-title'), titleText);
   patchText(strip.querySelector('.defend-more'), more ? `+${more} more incoming` : '');
   patchText(strip.querySelector('.defend-reason'), reason);
   strip.querySelector('.defend-sub').classList.toggle('hidden', !more && !reason);

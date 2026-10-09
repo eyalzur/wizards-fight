@@ -63,6 +63,7 @@ function locate(onOk, onFail) {
 
 function onCreateWizard({ name, avatar, elementId }) {
   const player = createWizard({ id: uid(), name, avatar, element: elementId, isNPC: false });
+  player.nemesisId = null; // Nemesis System — see combat.js:handleDefeat
   economy.normalizeEconomy(player, Date.now());
   locate(
     (pos) => {
@@ -109,6 +110,8 @@ function resumeGame(saved) {
   saved.player.runes = saved.player.runes || 0;
   saved.player.spellPowerLevel = saved.player.spellPowerLevel || 0;
   saved.player.spellRecoveryLevel = saved.player.spellRecoveryLevel || 0;
+  // Defensive default for saves written before the Nemesis System existed.
+  saved.player.nemesisId = saved.player.nemesisId || null;
   world = {
     player: saved.player,
     npcs: saved.npcs || [],
@@ -625,6 +628,7 @@ function buildNpcSheetData(npc, now) {
     reason,
     dist: Math.round(dist),
     shieldActive: combat.isShieldActive(npc, now),
+    isNemesis: npc.id === world.player.nemesisId,
   };
 }
 
@@ -632,6 +636,18 @@ function casterColorFor(casterId) {
   if (world.player.id === casterId) return getElement(world.player.element).color;
   const npc = world.npcs.find((n) => n.id === casterId);
   return npc ? getElement(npc.element).color : '#b9903f';
+}
+
+// ui.js must stay free of game-logic lookups (see docs/ARCHITECTURE.md), so
+// the defend strip's caster name/Nemesis check is resolved here and handed
+// to ui.renderDefendPrompts as plain fields on each incoming projectile —
+// same pattern as casterColorFor/casterColor above.
+function casterNameFor(casterId) {
+  if (world.player.id === casterId) return world.player.name;
+  const npc = world.npcs.find((n) => n.id === casterId);
+  if (npc) return npc.name;
+  const remote = (world.remotePlayers || []).find((r) => r.id === casterId);
+  return remote ? remote.name : 'A rival wizard';
 }
 
 function buildRemoteSheetData(remote, now) {
@@ -744,7 +760,9 @@ function render() {
     onShopUpgrade,
   });
 
-  const incoming = world.projectiles.filter((p) => !p.resolved && p.targetId === player.id && p.casterId !== player.id);
+  const incoming = world.projectiles
+    .filter((p) => !p.resolved && p.targetId === player.id && p.casterId !== player.id)
+    .map((p) => ({ ...p, casterName: casterNameFor(p.casterId), isNemesisCaster: p.casterId === player.nemesisId }));
   ui.renderDefendPrompts(incoming, player, now, onCounterspell);
   // A NEW incoming attack dismisses the ☰ menu once (the strip must be
   // reachable); sheets, the shop and other panels are left alone.

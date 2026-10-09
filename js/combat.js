@@ -1,13 +1,20 @@
 import { getSpell } from './spells.js';
 import { distanceMeters } from './geo.js';
 import { growLevel, spellPowerMultiplier, spellCooldownSeconds } from './wizard.js';
-import { respawnNpc } from './npc.js';
+import { respawnNpc, applyNemesisBoost, clearNemesisBoost } from './npc.js';
 import { awardKillBonus } from './economy.js';
 import { COUNTER_MIN_MULT } from './sign.js';
 import { uid, log, pick, randRange } from './utils.js';
 
 const TEMPERAMENT_AGGRO = { passive: 0.06, neutral: 0.16, aggressive: 0.32 };
 const TEMPERAMENT_DEFEND = { passive: 0.7, neutral: 0.45, aggressive: 0.2 };
+
+// Nemesis System (see npc.js for the stat-boost/releveling half): defeating
+// your own Nemesis back grants a one-time bonus on that kill's XP/Runes/
+// Crystals. 1.75x — inside the "noticeable but not economy-breaking" 1.5-2x
+// range considered — picked as the midpoint since there's no play data yet
+// to tune off of.
+const NEMESIS_DEFEAT_BONUS_MULT = 1.75;
 
 // A spell's `speed` in spells.js is tuned for real time (a cast takes real
 // minutes to land). world.timeScale divides travel time so testing doesn't
@@ -208,17 +215,35 @@ export function applyPendingHit(world, hit, now) {
 
 function handleDefeat(world, wizard, killer, now) {
   if (wizard.isNPC) {
+    // Nemesis System: `killer` is always the player here (NPCs never attack
+    // each other), so this is "did the player just defeat their own Nemesis."
+    const wasNemesis = !!(killer && !killer.isNPC && wizard.id === killer.nemesisId);
     wizard.defeated = true;
     wizard.respawnAt = now + 30000 + Math.random() * 20000;
     log(world, `💀 ${wizard.name} has been defeated!`);
+    if (wasNemesis) {
+      killer.nemesisId = null;
+      clearNemesisBoost(wizard);
+      log(world, `🏆 You've defeated your Nemesis, ${wizard.name}!`);
+    }
     if (killer && !killer.isNPC) {
-      const xpGain = 15 + wizard.level * 5;
+      const bonusMult = wasNemesis ? NEMESIS_DEFEAT_BONUS_MULT : 1;
+      const xpGain = Math.round((15 + wizard.level * 5) * bonusMult);
       killer.xp += xpGain;
       log(world, `⭐ You gain ${xpGain} XP.`);
-      const gems = awardKillBonus(killer, wizard.level);
+      const gemsBase = awardKillBonus(killer, wizard.level);
+      let gems = gemsBase;
+      if (wasNemesis) {
+        // awardKillBonus already added the unboosted amount; top up the
+        // difference rather than changing economy.js's own formula.
+        const bonusGems = Math.round(gemsBase * (NEMESIS_DEFEAT_BONUS_MULT - 1));
+        killer.gems += bonusGems;
+        gems += bonusGems;
+      }
       log(world, `💎 You find ${gems} Mana Crystals.`);
-      // Runes mirror the XP formula exactly (same defeated-NPC level) — see
-      // docs/FEATURES.md "Runes & Powers" for why they're a separate track.
+      // Runes mirror the XP formula exactly (same defeated-NPC level,
+      // nemesis bonus already baked into xpGain) — see docs/FEATURES.md
+      // "Runes & Powers" for why they're a separate track.
       const runeGain = xpGain;
       killer.runes = (killer.runes || 0) + runeGain;
       log(world, `🔮 You gain ${runeGain} Runes.`);
@@ -228,6 +253,20 @@ function handleDefeat(world, wizard, killer, now) {
     world.playerDown = true;
     world.playerRespawnAt = now + 4000;
     log(world, `💀 You have been defeated! Recovering your strength...`);
+    // Nemesis System: only a local NPC kill can set/refresh the Nemesis —
+    // `killer` is null here when a remote player's pending hit defeated you
+    // (see applyPendingHit/combat.js header), and that case is explicitly
+    // out of scope for this pass (no full attacker identity on this device).
+    if (killer && killer.isNPC) {
+      const isNewNemesis = world.player.nemesisId !== killer.id;
+      if (isNewNemesis) {
+        const prevNemesis = world.npcs.find((n) => n.id === world.player.nemesisId);
+        if (prevNemesis) clearNemesisBoost(prevNemesis);
+        world.player.nemesisId = killer.id;
+        log(world, `😈 ${killer.name} marks you — they are now your Nemesis.`);
+      }
+      applyNemesisBoost(killer); // idempotent — safe even if already your Nemesis
+    }
   }
 }
 
@@ -285,8 +324,9 @@ export function tick(world, now) {
   const center = world.spawnCenter || world.player.position;
   for (const npc of world.npcs) {
     if (npc.defeated && npc.respawnAt && now >= npc.respawnAt) {
-      respawnNpc(npc, center, 60, world.player.senseRange * 2);
-      log(world, `🔮 ${npc.name} returns, magic restored.`);
+      const isNemesis = npc.id === world.player.nemesisId;
+      respawnNpc(npc, center, 60, world.player.senseRange * 2, isNemesis ? { playerLevel: world.player.level } : null);
+      log(world, isNemesis ? `😈 ${npc.name} returns, your Nemesis stronger than before.` : `🔮 ${npc.name} returns, magic restored.`);
     }
   }
 

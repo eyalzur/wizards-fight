@@ -1,6 +1,6 @@
 # Wizards Fight — Project Status
 
-Last updated: 2026-10-02
+Last updated: 2026-10-09
 
 This file is the single source of truth for "what exists, what's next, and
 why we made the calls we made." Run `/resume-proj` to get a suggested next
@@ -88,6 +88,15 @@ on top of it when the repo owner has a Firebase project configured (see
   upgradable +1..+10 with 💎 (deterministic, no gambling), so a maxed avatar
   is overwhelmingly stronger than same-level NPCs. Numbers in
   `docs/FEATURES.md` are first guesses.
+- **Nemesis System** — whichever NPC most recently defeated you becomes
+  your "Nemesis" (one field, `nemesisId`, on your own wizard): called out
+  by name in the incoming-curse alert and with a badge on its wizard sheet,
+  +20% max HP/+15% power/+2 defense while it holds the title, and it levels
+  alongside you (re-syncs toward your level on respawn, unlike every other
+  NPC). Defeating it back clears the title and pays a 1.75x XP/Rune/Crystal
+  bonus on that kill. Local-NPC-kills only — a real player's hit can't set
+  it (see Decisions Log). See `docs/FEATURES.md` "Nemesis System" for the
+  exact numbers.
 - **Multiplayer (optional, needs the repo owner's own Firebase project)**
   — real players' wizards appear on the map like NPCs (last-synced
   position, sense-range gated, distinct purple-badge marker), with a
@@ -132,8 +141,8 @@ Mana Crystals economy phases (Phase 1 is live, see above):
 - **Phase 2** — 📍 walk income (crystals for really moving around). The
   5-tier ladder per slot and item upgrades are DONE (2026-10-02); level
   gates for the ladder were not added. New wizards already default to Real.
-- Open: PvP scaling — a maxed avatar one-shots real players (see Decisions log
-  2026-10-02); needs a product decision (cap/ignore gear vs real players).
+- PvP scaling — DECIDED 2026-10-03: gear stays fully active against real
+  players (see Decisions log). Revisit if real players report it unfun.
 - **Phase 3** — potion slots (heal, mana, power boost).
 - **Phase 4** — element-specific gear and wands that unlock element spells.
   Also tune numbers from real play data.
@@ -165,7 +174,98 @@ Mana Crystals economy phases (Phase 1 is live, see above):
   by distance — fine at hobby-project scale, worth revisiting (geohash
   bucketing or similar) before it isn't.
 
+## Future feature concepts (unprioritized)
+
+Brainstormed 2026-10-09 in a PM-style pass, deliberately aimed past "add
+more content" and toward mechanics that lean on what's actually distinct
+about this game (real GPS map, real-time spell travel, async multiplayer,
+sign-drawing skill check, dual-currency economy). Not yet product-designed
+or sequenced into the Roadmap above — pull an item up into the Roadmap
+proper once it's actually being scoped. **Nemesis System (was #1) shipped
+2026-10-09** — see "What's live now" above and the Decisions Log.
+
+Lower risk, builds on existing systems:
+1. **Bounty Board** — passive quest list (kill N of an element, land N
+   counterspells, walk N km) paying Rune/Crystal bonuses; gives session
+   goals without touching combat math.
+2. **Sigil Variants** — unlockable alternate signs with different
+   risk/reward (easier sign, lower power cap vs. harder sign, higher cap)
+   instead of one Star Sigil for everyone forever.
+3. **Spell Drift (Channeling)** — airborne spells lose some accuracy/power
+   unless the caster taps in occasionally, rewarding active attention over
+   leave-the-tab-open spam.
+4. **Weather & Time-of-Day Magic** — local time (and optionally weather)
+   modifies spell potency by element (storms boost Lightning, night boosts
+   Arcane), deepening the real-world tie-in.
+
+New systems, moderate scope, still fits the no-extra-backend constraint:
+5. **Ley Lines / Territory Control** — real-landmark zones a wizard can
+   claim by standing in them and casting; claimed zones grant a passive
+   buff until someone else claims them. First system giving the map
+   actual stakes beyond "where NPCs spawn."
+6. **Dueling Gloves** — drop an async challenge object at your real
+   location; the next wizard who walks by gets a duel invite resolved
+   whenever both are next online — player-initiated version of the
+   existing pending-hit multiplayer model.
+7. **Familiar Companion** — a permanent scouting pet chosen at creation;
+   extends sense range, can scout ahead, or be sacrificed to auto-block
+   one curse. Progression axis orthogonal to gear/Runes.
+8. **Memory Echoes** — every duel leaves a replay at that map location;
+   other players can watch it or fight a weak AI ghost that mimics the
+   recorded moves. Reusable content generated automatically, no new art.
+9. **Rival Guild Ley-Line Network** — once Ley Lines (#5) exist, let
+   players loosely link claimed zones into a named network for a shared
+   bonus — social structure without building a social feature.
+
+Bigger bets, needs validation first:
+10. **Ritual Circles** — multiple real players converging on one location
+    and co-casting together can summon a rare boss or unlock a buffed
+    zone; needs real player density to ever trigger.
+11. **Seasonal Rift Events** — a weekly time-boxed event alters a random
+    real-world area's rules (2x spell speed, element-swap, double
+    Crystals) for 48h, giving a reason to check in without a specific goal.
+12. **Augmented Reality Sense Mode** — camera + compass overlay showing
+    incoming-curse direction on the real-world camera view. Highest
+    novelty, biggest technical lift (camera/AR permissions, device
+    testing) on this list.
+13. **Spell Fusion** — two casters hitting the same target within a tight
+    sync window combine into an amplified fused effect; needs tighter
+    multiplayer timing than the current async pending-hit model has.
+14. **Rune-Reading Divination** — spend Runes to divine hidden info (an
+    NPC's true temperament, whether a target is likely online, a Ley Line
+    about to flip) — a soft information-economy layer instead of a third
+    currency.
+
 ## Decisions log
+
+- **2026-10-09 — Nemesis System shipped, NPC-only in this pass.** Whichever
+  NPC most recently defeated the player is remembered (`wizard.nemesisId`,
+  one new field, no history list) and gets a modest combat edge (+20% max
+  HP, +15% power, +2 defense) plus a "levels alongside you" re-sync on
+  respawn (every other NPC keeps its spawn-time level forever); defeating
+  it back clears the title and pays a 1.75x XP/Rune/Crystal bonus on that
+  kill. The boost and the Nemesis's level are recomputed fresh from
+  element+level each time (via the same math `createWizard` uses at spawn)
+  rather than stored as a separate delta, specifically so there's exactly
+  one new persisted field and applying/clearing the boost twice can never
+  double-stack. **Deliberately NPC-only**: `combat.js:applyPendingHit`
+  passes `killer = null` to `handleDefeat` when a remote player's pending
+  hit defeats you, because the target device has no full attacker object
+  for a remote caster (see "Multiplayer" in `docs/ARCHITECTURE.md`) — Nemesis
+  for real players would need that identity threaded through the pending-hit
+  shape, which is a bigger change than this pass scoped. The 1.75x bonus
+  multiplier and the +20%/+15%/+2 boost numbers are first guesses (picked
+  within the "slight boost" / "1.5-2x bonus" ranges the brief suggested),
+  not tuned from play data. Verified end-to-end with a throwaway Playwright
+  script (seeded a co-located aggressive NPC via `localStorage`, confirmed
+  the title set/clear, the incoming-curse alert's and wizard sheet's Nemesis
+  tags, and the bonus log line) — not committed, per the project's current
+  testing approach.
+- **2026-10-03 — Gear stays fully active in PvP.** The user chose "fully
+  active" over capping or ignoring gear against real players, so a maxed
+  avatar can one-shot real players (about 200 damage per bolt vs roughly
+  100-300 HP). Recommended alternative was a PvP cap, because one-shotting
+  other players may drive them away; revisit if that shows up in play.
 
 Short-form history of calls that shaped the current build, newest first.
 Keeps future planning from accidentally re-litigating settled questions
