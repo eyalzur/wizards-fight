@@ -1,6 +1,6 @@
 # Wizards Fight — Project Status
 
-Last updated: 2026-10-02
+Last updated: 2026-10-09
 
 This file is the single source of truth for "what exists, what's next, and
 why we made the calls we made." Run `/resume-proj` to get a suggested next
@@ -164,6 +164,71 @@ Mana Crystals economy phases (Phase 1 is live, see above):
   currently fetches *all* players from Firebase and filters client-side
   by distance — fine at hobby-project scale, worth revisiting (geohash
   bucketing or similar) before it isn't.
+
+## Future feature concepts (unprioritized)
+
+Brainstormed 2026-10-09 in a PM-style pass, deliberately aimed past "add
+more content" and toward mechanics that lean on what's actually distinct
+about this game (real GPS map, real-time spell travel, async multiplayer,
+sign-drawing skill check, dual-currency economy). Not yet product-designed
+or sequenced into the Roadmap above — pull an item up into the Roadmap
+proper once it's actually being scoped. **Nemesis System (#1) moved to
+active development on 2026-10-09**, see Decisions log once it ships.
+
+Lower risk, builds on existing systems:
+1. **Nemesis System** — track whichever NPC/player last defeated you; it
+   levels alongside you and gets called out by name in the incoming-curse
+   alert, turning disposable NPCs into recurring rivals.
+2. **Bounty Board** — passive quest list (kill N of an element, land N
+   counterspells, walk N km) paying Rune/Crystal bonuses; gives session
+   goals without touching combat math.
+3. **Sigil Variants** — unlockable alternate signs with different
+   risk/reward (easier sign, lower power cap vs. harder sign, higher cap)
+   instead of one Star Sigil for everyone forever.
+4. **Spell Drift (Channeling)** — airborne spells lose some accuracy/power
+   unless the caster taps in occasionally, rewarding active attention over
+   leave-the-tab-open spam.
+5. **Weather & Time-of-Day Magic** — local time (and optionally weather)
+   modifies spell potency by element (storms boost Lightning, night boosts
+   Arcane), deepening the real-world tie-in.
+
+New systems, moderate scope, still fits the no-extra-backend constraint:
+6. **Ley Lines / Territory Control** — real-landmark zones a wizard can
+   claim by standing in them and casting; claimed zones grant a passive
+   buff until someone else claims them. First system giving the map
+   actual stakes beyond "where NPCs spawn."
+7. **Dueling Gloves** — drop an async challenge object at your real
+   location; the next wizard who walks by gets a duel invite resolved
+   whenever both are next online — player-initiated version of the
+   existing pending-hit multiplayer model.
+8. **Familiar Companion** — a permanent scouting pet chosen at creation;
+   extends sense range, can scout ahead, or be sacrificed to auto-block
+   one curse. Progression axis orthogonal to gear/Runes.
+9. **Memory Echoes** — every duel leaves a replay at that map location;
+   other players can watch it or fight a weak AI ghost that mimics the
+   recorded moves. Reusable content generated automatically, no new art.
+10. **Rival Guild Ley-Line Network** — once Ley Lines (#6) exist, let
+    players loosely link claimed zones into a named network for a shared
+    bonus — social structure without building a social feature.
+
+Bigger bets, needs validation first:
+11. **Ritual Circles** — multiple real players converging on one location
+    and co-casting together can summon a rare boss or unlock a buffed
+    zone; needs real player density to ever trigger.
+12. **Seasonal Rift Events** — a weekly time-boxed event alters a random
+    real-world area's rules (2x spell speed, element-swap, double
+    Crystals) for 48h, giving a reason to check in without a specific goal.
+13. **Augmented Reality Sense Mode** — camera + compass overlay showing
+    incoming-curse direction on the real-world camera view. Highest
+    novelty, biggest technical lift (camera/AR permissions, device
+    testing) on this list.
+14. **Spell Fusion** — two casters hitting the same target within a tight
+    sync window combine into an amplified fused effect; needs tighter
+    multiplayer timing than the current async pending-hit model has.
+15. **Rune-Reading Divination** — spend Runes to divine hidden info (an
+    NPC's true temperament, whether a target is likely online, a Ley Line
+    about to flip) — a soft information-economy layer instead of a third
+    currency.
 
 ## Decisions log
 
