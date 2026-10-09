@@ -636,7 +636,7 @@ html, body {
 
 /* QA/dev tools panel (?qa=1 only — see docs/ARCHITECTURE.md). Reuses the
    powers-panel shell; only the innards below are QA-specific. */
-.qa-current-runes { color: var(--gold-soft); font-weight: 700; margin-bottom: 12px; }
+.qa-current-runes, .qa-current-gems { color: var(--gold-soft); font-weight: 700; margin-bottom: 12px; }
 .qa-section {
   background: var(--bg-panel-2); border-radius: 14px; padding: 12px 14px;
   border: 1px solid rgba(226,177,60,0.2); margin-bottom: 12px;
