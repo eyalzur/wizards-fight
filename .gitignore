@@ -2,6 +2,10 @@
 node_modules/
 *.log
 
+# Claude Code agent worktrees (transient, per-session background-agent
+# checkouts) — never meant to be committed.
+.claude/worktrees/
+
 # Real Firebase project credentials (per-developer, never committed).
 # Copy js/firebase-config.example.js to js/firebase-config.js and fill in
 # your own project's config — see docs/ARCHITECTURE.md "Multiplayer".
