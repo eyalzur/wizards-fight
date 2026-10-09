@@ -8,6 +8,7 @@ import * as map from './map.js';
 import * as ui from './ui.js';
 import * as economy from './economy.js';
 import { openSignPad } from './signpad.js';
+import { WARD_RUNE, BREAK_SIGIL } from './sign.js';
 import * as multiplayer from './multiplayer.js';
 import { uid } from './utils.js';
 
@@ -364,6 +365,7 @@ function onSheetShield() {
   openSignPad({
     level: world.player.level,
     title: `${SHIELD_SPELL.icon} ${SHIELD_SPELL.name}`,
+    sign: WARD_RUNE,
     onDone: (mult) => {
       const res = combat.castShield(world.player, SHIELD_SPELL.id, Date.now(), mult);
       if (!res.ok) ui.toast(res.reason);
@@ -381,6 +383,7 @@ function onCounterspell(projectileId) {
   openSignPad({
     level: world.player.level,
     title: `${spell.icon} ${spell.name}`,
+    sign: BREAK_SIGIL,
     onDone: (mult) => {
       const projectile = world.projectiles.find((p) => p.id === projectileId);
       const res = combat.castCounterspell(world.player, projectile, spell.id, world, Date.now(), mult);

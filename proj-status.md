@@ -45,16 +45,22 @@ on top of it when the repo owner has a Firebase project configured (see
     per-hit).
   - **Counterspell** (defend) — reactive: cast during the incoming-curse
     alert to negate that *specific* spell outright.
-- **Sign drawing** — every cast (Spark Bolt, Ward Shield, Counterspell) opens
-  a pad that draws the ⭐ Star Sigil (a one-stroke pentagram) point by point,
-  then makes it vanish; the player redraws it from memory against a timer
-  (10s at Lv.1, −0.5s per level, floor 4s) — the sign is shown as a wide band (±4% of its size) and ink anywhere inside
-  it counts as on the line — only Clear and Cast buttons, the
-  Cast button turns green→red with the seconds left and auto-casts at zero and similarity (position/size/direction-independent) maps to a ×0.5–×1.5
-  power multiplier (attack damage, shield mitigation). A Counterspell needs
+- **Sign drawing** — every cast opens a pad that draws that spell's sign
+  point by point, then makes it vanish; the player redraws it from memory
+  against a timer (10s at Lv.1, −0.5s per level, floor 4s) — the sign is
+  shown as a wide band (±4% of its size) and ink anywhere inside it counts
+  as on the line — only Clear and Cast buttons, the Cast button turns
+  green→red with the seconds left and auto-casts at zero and similarity
+  (position/size/direction-independent) maps to a ×0.5–×1.5 power
+  multiplier (attack damage, shield mitigation). A Counterspell needs
   ×1.0+ or it fizzles (mana still spent). NPCs cast at ×1. Scoring in
-  `js/sign.js`, overlay in `js/signpad.js`. Only one sign so far; thresholds
-  are first guesses.
+  `js/sign.js`, overlay in `js/signpad.js`. Each spell has its own fixed
+  sign, no player choice: Spark Bolt draws the ⭐ Star Sigil (a one-stroke
+  pentagram), Ward Shield draws the 🛡️ Ward Rune (a closed hexagon/shield
+  outline), Counterspell draws the 🌀 Break Sigil (an open jagged
+  zigzag/lightning-crack). All three score against the same thresholds —
+  this is shape variety, not per-sign difficulty tuning; thresholds are
+  first guesses.
 - **Incoming-curse alert** — however many curses are in flight, one slim card
   shows the one landing soonest (name, countdown, "+N more" chip) with a
   single Counterspell button that targets it; countering reveals the next.
@@ -238,6 +244,20 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-09 — Sign drawing: each spell gets its own sign.** All three
+  spells used to make the player draw the same ⭐ Star Sigil (pentagram) on
+  every cast, which got repetitive. Now Spark Bolt keeps the pentagram,
+  Ward Shield draws a new 🛡️ Ward Rune (closed hexagon/shield outline, fits
+  a proactive protective stance), and Counterspell draws a new 🌀 Break
+  Sigil (open jagged zigzag/lightning-crack, matching its existing "shatter
+  one incoming curse" flavor text). `js/sign.js` exports `WARD_RUNE` and
+  `BREAK_SIGIL` alongside the existing `SIGN` (pentagram) — same scoring
+  math, no per-sign tuning; `js/signpad.js:openSignPad` gained a `sign`
+  option (defaults to the pentagram) instead of hardcoding one shape, and
+  `js/main.js`'s three `openSignPad` call sites each pass their spell's own
+  sign. No player choice, no unlock system — this is purely "which fixed
+  shape goes with which spell," not the variants-with-caps idea logged
+  under Future feature concepts.
 - **2026-10-09 — Nemesis System shipped, NPC-only in this pass.** Whichever
   NPC most recently defeated the player is remembered (`wizard.nemesisId`,
   one new field, no history list) and gets a modest combat edge (+20% max
