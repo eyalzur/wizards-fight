@@ -77,8 +77,14 @@ export function castAttack(caster, target, spellId, world, now, powerMult = 1) {
   return { ok: true, projectile };
 }
 
-// Proactive stance: raise it ahead of time; it's not consumed by any single
-// hit, only by its own expiry (see isShieldActive).
+// Proactive stance: raise it ahead of time. Unlike the old flat-%
+// mitigation, the shield now has its own HP pool sized off the caster's
+// OWN maxHP (never the attacker's power — the defender can't know the
+// attacker's stats in this async real-time-travel game): a sloppy sign
+// draw gives a pool worth ~17.5% of maxHP, a well-drawn one ~52.5% (see
+// spell.shieldFraction in spells.js). Every hit against it is subtracted
+// from the pool (see resolveShieldedDamage below) until it breaks; the
+// 2-minute buffDuration is still a backstop expiry even if never hit.
 export function castShield(wizard, spellId, now, powerMult = 1) {
   const spell = getSpell(spellId);
   if (!spell || spell.type !== 'shield') return { ok: false, reason: 'That spell cannot shield you.' };
@@ -86,12 +92,42 @@ export function castShield(wizard, spellId, now, powerMult = 1) {
   if (!chk.ok) return chk;
   wizard.mana -= spell.manaCost;
   wizard.cooldowns[spell.id] = now + spell.cooldown * 1000;
-  wizard.shieldBuff = { mitigation: Math.min(0.9, spell.mitigation * powerMult), expiresAt: now + spell.buffDuration };
+  const pool = Math.round(wizard.maxHP * spell.shieldFraction * powerMult);
+  wizard.shieldBuff = { hp: pool, maxHP: pool, expiresAt: now + spell.buffDuration };
   return { ok: true };
 }
 
 export function isShieldActive(wizard, now) {
   return !!wizard.shieldBuff && wizard.shieldBuff.expiresAt > now;
+}
+
+// Shared by resolveImpact (local hits) and applyPendingHit (remote hits) —
+// both used to duplicate the same post-defense absorb-% math; this is the
+// one place a hit is actually weighed against an active Ward Shield pool.
+// `dmg` is the already-defense-reduced hit about to land. Returns the
+// damage that should actually reach the wizard's real HP: 0 if the pool
+// covered it outright (a true zero is intentional here — a pool big enough
+// to cover the hit means the hit didn't get through, unlike the old flat-%
+// case where "never below 1" existed only to stop *rounding* from giving a
+// free pass), or the overflow (still floored at 1, same "a hit that lands
+// always does at least 1" rule) if the pool breaks. Mutates shieldBuff in
+// place and logs the shield-specific outcome; the caller is responsible for
+// applying the returned amount to wizard.hp and only logging its own normal
+// "strikes for N" line when `wasShielded` is false (the shield messages
+// below are already the complete story for a shielded hit).
+function resolveShieldedDamage(wizard, dmg, now, world, spell) {
+  if (!isShieldActive(wizard, now)) return { dmg, wasShielded: false };
+  const shield = wizard.shieldBuff;
+  if (dmg <= shield.hp) {
+    shield.hp -= dmg;
+    log(world, `🛡️ ${spell.icon} ${spell.name} is fully absorbed by ${wizard.name}'s ward (${shield.hp}/${shield.maxHP} left)!`);
+    return { dmg: 0, wasShielded: true };
+  }
+  const overflow = Math.max(1, dmg - shield.hp);
+  shield.hp = 0;
+  shield.expiresAt = now; // breaks now — isShieldActive must read false immediately, not linger at 0hp
+  log(world, `🛡️ ${wizard.name}'s ward shatters! ${overflow} damage gets through!`);
+  return { dmg: overflow, wasShielded: true };
 }
 
 // Reactive counter: negates one specific incoming projectile outright,
@@ -173,13 +209,12 @@ function resolveImpact(world, projectile, now) {
   // this one cast on top of that.
   const powerMult = (caster ? caster.power * spellPowerMultiplier(caster) : 1) * (projectile.powerMult ?? 1);
   let dmg = Math.max(1, Math.round(spell.power * powerMult - (target.defense || 0)));
-  let note = '';
-  if (isShieldActive(target, now)) {
-    dmg = Math.max(1, Math.round(dmg * (1 - target.shieldBuff.mitigation))); // a hit never drops below 1, even through a ward
-    note = ` 🛡️ Softened by ${target.name}'s ward!`;
-  }
+  const shieldResult = resolveShieldedDamage(target, dmg, now, world, spell);
+  dmg = shieldResult.dmg;
   target.hp = Math.max(0, target.hp - dmg);
-  log(world, `${spell.icon} ${spell.name} strikes ${target.name} for ${dmg} damage!${note}`);
+  if (!shieldResult.wasShielded) {
+    log(world, `${spell.icon} ${spell.name} strikes ${target.name} for ${dmg} damage!`);
+  }
   if (target.hp <= 0) handleDefeat(world, target, caster, now);
 }
 
@@ -202,13 +237,12 @@ export function applyPendingHit(world, hit, now) {
     return { dmg: 0 };
   }
   let dmg = Math.max(1, Math.round(power * (hit.casterPower || 1) - (target.defense || 0)));
-  let note = '';
-  if (isShieldActive(target, now)) {
-    dmg = Math.max(1, Math.round(dmg * (1 - target.shieldBuff.mitigation))); // a hit never drops below 1, even through a ward
-    note = ` 🛡️ Softened by your ward!`;
-  }
+  const shieldResult = resolveShieldedDamage(target, dmg, now, world, { icon, name });
+  dmg = shieldResult.dmg;
   target.hp = Math.max(0, target.hp - dmg);
-  log(world, `${icon} ${casterName}'s ${name} strikes you for ${dmg} damage!${note}`);
+  if (!shieldResult.wasShielded) {
+    log(world, `${icon} ${casterName}'s ${name} strikes you for ${dmg} damage!`);
+  }
   if (target.hp <= 0) handleDefeat(world, target, null, now);
   return { dmg };
 }

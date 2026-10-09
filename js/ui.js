@@ -277,6 +277,7 @@ export function renderCharacterScreen(data, callbacks) {
         <div class="char-stat"><span class="char-stat-label">🛡️ Defense</span><span class="char-stat-value">${w.defense}</span></div>
         <div class="char-stat"><span class="char-stat-label">👁️ Sense Range</span><span class="char-stat-value">${w.senseRange}m</span></div>
         <div class="char-stat"><span class="char-stat-label">⏱️ Bolt Cooldown</span><span class="char-stat-value">${data.cooldownS}s</span></div>
+        ${data.shieldActive ? `<div class="char-stat"><span class="char-stat-label">🛡️ Ward</span><span class="char-stat-value">${data.shieldHp}/${data.shieldMaxHP}</span></div>` : ''}
       </div>
     </div>
     <div class="char-powers">
@@ -377,6 +378,19 @@ export function initQaTools(callbacks) {
         <button id="qa-runes-infinite" class="power-buy">♾️ Infinite</button>
       </div>
     </div>
+    <div class="qa-current-gems" id="qa-current-gems"></div>
+    <div class="qa-section">
+      <label class="qa-label">Set Mana Crystals to exactly</label>
+      <div class="qa-row">
+        <input id="qa-gems-input" type="number" min="0" step="1" placeholder="e.g. 500" />
+        <button id="qa-gems-set" class="power-buy">Set</button>
+      </div>
+      <div class="qa-row">
+        <button id="qa-gems-add-100" class="power-buy">+100</button>
+        <button id="qa-gems-add-1000" class="power-buy">+1000</button>
+        <button id="qa-gems-infinite" class="power-buy">♾️ Infinite</button>
+      </div>
+    </div>
     <div class="qa-section" id="qa-power-row"></div>
     <div class="qa-section" id="qa-recovery-row"></div>
   `;
@@ -390,6 +404,13 @@ export function initQaTools(callbacks) {
   document.getElementById('qa-runes-add-100').addEventListener('click', () => callbacks.onAddRunes(100));
   document.getElementById('qa-runes-add-1000').addEventListener('click', () => callbacks.onAddRunes(1000));
   document.getElementById('qa-runes-infinite').addEventListener('click', () => callbacks.onSetInfiniteRunes());
+  document.getElementById('qa-gems-set').addEventListener('click', () => {
+    const raw = document.getElementById('qa-gems-input').value;
+    callbacks.onSetGems(Number(raw));
+  });
+  document.getElementById('qa-gems-add-100').addEventListener('click', () => callbacks.onAddGems(100));
+  document.getElementById('qa-gems-add-1000').addEventListener('click', () => callbacks.onAddGems(1000));
+  document.getElementById('qa-gems-infinite').addEventListener('click', () => callbacks.onSetInfiniteGems());
 }
 
 // Rebuilds the current-balance text and the two level-stepper rows every
@@ -400,6 +421,7 @@ export function renderQaPanel(data, callbacks) {
   const panel = document.getElementById('qa-panel');
   if (!panel) return; // ?qa=1 not set — nothing was ever created
   document.getElementById('qa-current-runes').textContent = `Current: ${data.runes} 🔮 Runes`;
+  document.getElementById('qa-current-gems').textContent = `Current: ${data.gems} 💎 Mana Crystals`;
   renderQaLevelRow('qa-power-row', 'qa-power', data.power, callbacks.onSetPowerLevel);
   renderQaLevelRow('qa-recovery-row', 'qa-recovery', data.recovery, callbacks.onSetRecoveryLevel);
 }
@@ -568,7 +590,7 @@ function renderSelfSheet(el, data, callbacks) {
     mpPct: pct(w.mana, w.maxMana),
     pot: treasury.potWhole,
     avatar: avatarWithRing(w.avatar, getElement(w.element).color, { hp: w.hp, maxHP: w.maxHP, ringColor: 'var(--mana)', shieldActive }),
-    shield: shieldActive ? `🛡️ Ward active — ${data.shieldRemainingS}s left` : 'No ward raised',
+    shield: shieldActive ? `🛡️ Warded — ${data.shieldHp}/${data.shieldMaxHP} (${data.shieldRemainingS}s left)` : 'No ward raised',
   };
   // Structure key: same markup with every live number blanked. The shield
   // status text is live, but its active/idle flag is part of the key via the
@@ -756,7 +778,7 @@ export function renderWizardSheet(data, callbacks) {
     return;
   }
 
-  const { wizard: npc, atkSpell, canAttack, reason, dist, shieldActive, isNemesis } = data;
+  const { wizard: npc, atkSpell, canAttack, reason, dist, shieldActive, shieldHp, shieldMaxHP, isNemesis } = data;
   body.innerHTML = `
     <div class="sheet-header">
       <span class="sheet-avatar">${avatarWithRing(npc.avatar, getElement(npc.element).color, { hp: npc.hp, maxHP: npc.maxHP, ringColor: 'var(--pink)', shieldActive: !!shieldActive })}</span>
@@ -768,6 +790,7 @@ export function renderWizardSheet(data, callbacks) {
     <div class="sheet-stats">
       <div class="bar hp-bar"><div class="bar-fill hp-fill" style="width:${pct(npc.hp, npc.maxHP)}%"></div><span class="bar-text">${npc.hp}/${npc.maxHP} HP</span></div>
     </div>
+    ${shieldActive ? `<div class="sheet-shield-status active">🛡️ Warded — ${shieldHp}/${shieldMaxHP}</div>` : ''}
     <div class="sheet-actions">
       <button id="sheet-attack" class="sheet-btn attack${canAttack ? '' : ' disabled'}">
         <span class="sheet-btn-icon">${atkSpell.icon}</span> Cast ${atkSpell.name}

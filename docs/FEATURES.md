@@ -72,13 +72,32 @@ means a cast can take real minutes to land — the whole point being that
 the **target has that entire window to react** with a defend spell.
 
 ### Ward Shield (defend — proactive stance) 🛡️
-`manaCost 18, buffDuration 120000ms (2 min), mitigation 0.5, cooldown 25s`
+`manaCost 18, buffDuration 120000ms (2 min), shieldFraction 0.35, cooldown 25s`
 
-Cast any time, on yourself, from your own wizard sheet. Unlike a
-single-use buff, it is **not consumed** by a hit — it reduces damage from
-every hit that lands while it's active, and only goes away when its
-2-minute timer runs out (`js/combat.js:isShieldActive`). Re-casting while
-already active refreshes the timer.
+Cast any time, on yourself, from your own wizard sheet. As of this pass,
+Ward Shield is an **absorb pool with its own HP**, not a flat damage
+percentage: casting it gives you a pool worth `maxHP × 0.35 × sign-mult`
+(a sloppy sign draw gives ~17.5% of your own max HP, a well-drawn one
+~52.5%) — sized off **your own** maxHP (gear included), never the
+attacker's power, since the defender has no way to know the attacker's
+stats in this async real-time-travel game. Every hit that lands while it's
+up is subtracted from the pool:
+- If the pool can fully cover the hit, the hit does **zero** real damage —
+  a true zero, not the old "never below 1" rounding rule (that rule only
+  existed to stop a flat-% reduction from rounding a hit down to nothing;
+  a pool that can literally cover the hit means it genuinely didn't get
+  through).
+- If the hit is bigger than what's left, the shield **breaks**: the pool
+  drops to 0 and expires immediately, and the overflow (floored at 1, same
+  as any other landed hit) reaches your real HP.
+
+The 2-minute timer is still a backstop — the shield also expires on its
+own if it's never broken (`js/combat.js:isShieldActive`). Re-casting while
+already active overwrites it with a fresh pool and timer (no stacking, no
+carrying over whatever was left). The self/NPC wizard sheet shows the
+current pool, e.g. "🛡️ Warded — 38/80 (95s left)", not just an active/idle
+flag. `shieldFraction: 0.35` is a first guess, not tuned from real play
+data (same as every other number in this doc) — pending playtest.
 
 While active, a soft pulsing bubble renders behind the wizard's ring on the
 map, HUD, and sheet (`js/portraits.js:avatarWithRing`'s `shieldActive`
@@ -112,9 +131,10 @@ wizard (and the tapped one) in view. Your own sheet's 🛍️ Shop button (text
 label) takes you to the full Shop screen (see "Shop, Inventory and
 Character screens" below) rather than opening a sheet.
 
-- **Your own wizard** → HP/mana, whether Ward Shield is active and its
-  remaining time, and a Raise/Refresh Ward Shield button (disabled with a
-  reason — not enough mana, still recharging — when it can't be cast).
+- **Your own wizard** → HP/mana, whether Ward Shield is active with its
+  current absorb pool and remaining time (e.g. "🛡️ Warded — 38/80 (95s
+  left)"), and a Raise/Refresh Ward Shield button (disabled with a reason —
+  not enough mana, still recharging — when it can't be cast).
 - **An NPC** → their HP, distance, and a Cast Spark Bolt button, disabled
   with a reason (out of range, recharging, not enough mana, already
   defeated) when it can't fire.
@@ -221,7 +241,8 @@ travel-time window. Unlike an NPC hit, a hit on a real player doesn't
 resolve on your screen — it's recorded for their device to apply next
 time it's running (even if that's minutes or hours later), using *their*
 current HP/defense/Ward Shield state at that moment, not a guess made on
-your end. Ward Shield still reduces a hit like this normally; there is
+your end. Ward Shield's absorb pool still applies to a hit like this
+normally; there is
 currently no live "incoming spell" warning (and therefore no
 Counterspell option) for an attack from another real player, since that
 would need always-on live syncing this v1 deliberately doesn't do. A real
@@ -382,8 +403,10 @@ upgrades are the only "wasted" spend. The self sheet shows levels ("Aurora Wand
 
 Max gear (T5 wand +10 and T5 robe +10) adds +15.5 power, +580 max HP and +9
 defense: about 21 total power (about 200 damage per Spark Bolt at a perfect
-sign), 680+ max HP at level 1. Every hit, even through Ward Shield, still does
-at least 1 damage (the shield rounding no longer drops a hit to 0).
+sign), 680+ max HP at level 1. Every hit that lands on an *unshielded* wizard
+still does at least 1 damage — but a hit fully covered by an active Ward
+Shield pool now does a true 0 to real HP (see "Ward Shield" above); only the
+overflow once a shield breaks is floored at 1.
 
 Balance reasoning: damage is `round(10 × power − defense)` (min 1), so
 defense is kept small next to max HP, but T5 +10 (9 def, plus 3 for Ice)

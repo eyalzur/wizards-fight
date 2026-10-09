@@ -37,6 +37,7 @@ const QA_MODE = new URLSearchParams(location.search).has('qa');
 // check (`>=`, subtraction, display formatting) working unchanged, and this is
 // far beyond what any current or planned upgrade could ever cost.
 const QA_INFINITE_RUNES = 999999999;
+const QA_INFINITE_GEMS = 999999999;
 
 let world = null;
 let lastSaveAt = 0;
@@ -182,6 +183,9 @@ function boot() {
       onSetRunes: onQaSetRunes,
       onAddRunes: onQaAddRunes,
       onSetInfiniteRunes: onQaSetInfiniteRunes,
+      onSetGems: onQaSetGems,
+      onAddGems: onQaAddGems,
+      onSetInfiniteGems: onQaSetInfiniteGems,
       onSetPowerLevel: onQaSetPowerLevel,
       onSetRecoveryLevel: onQaSetRecoveryLevel,
     });
@@ -550,6 +554,24 @@ function onQaSetInfiniteRunes() {
   render();
 }
 
+function onQaSetGems(n) {
+  world.player.gems = Math.max(0, Math.round(n) || 0);
+  saveState(world);
+  render();
+}
+
+function onQaAddGems(n) {
+  world.player.gems = Math.max(0, (world.player.gems || 0) + n);
+  saveState(world);
+  render();
+}
+
+function onQaSetInfiniteGems() {
+  world.player.gems = QA_INFINITE_GEMS;
+  saveState(world);
+  render();
+}
+
 function onQaSetPowerLevel(level) {
   setUpgradeLevel(POWER_UPGRADE, world.player, level);
   saveState(world);
@@ -566,6 +588,7 @@ function buildQaData() {
   const player = world.player;
   return {
     runes: player.runes || 0,
+    gems: player.gems || 0,
     power: { level: player.spellPowerLevel || 0, maxLevel: POWER_UPGRADE.maxLevel, label: POWER_UPGRADE.label, icon: POWER_UPGRADE.icon },
     recovery: { level: player.spellRecoveryLevel || 0, maxLevel: RECOVERY_UPGRADE.maxLevel, label: RECOVERY_UPGRADE.label, icon: RECOVERY_UPGRADE.icon },
   };
@@ -604,10 +627,13 @@ function buildCharacterData(now) {
   const player = world.player;
   const powerPct = Math.round((player.spellPowerLevel || 0) * POWER_UPGRADE.perLevelBonus * 100);
   const cooldownS = +spellCooldownSeconds(ATTACK_SPELL.cooldown, player).toFixed(1);
+  const shieldActive = combat.isShieldActive(player, now);
   return {
     wizard: player,
     element: getElement(player.element),
-    shieldActive: combat.isShieldActive(player, now),
+    shieldActive,
+    shieldHp: shieldActive ? player.shieldBuff.hp : 0,
+    shieldMaxHP: shieldActive ? player.shieldBuff.maxHP : 0,
     effectivePower: +(player.power * spellPowerMultiplier(player)).toFixed(2),
     cooldownS,
     runes: player.runes || 0,
@@ -653,6 +679,8 @@ function buildSelfSheetData(now) {
     shieldSpell: SHIELD_SPELL,
     shieldActive,
     shieldRemainingS: shieldActive ? Math.ceil((p.shieldBuff.expiresAt - now) / 1000) : 0,
+    shieldHp: shieldActive ? p.shieldBuff.hp : 0,
+    shieldMaxHP: shieldActive ? p.shieldBuff.maxHP : 0,
     shieldReady,
     shieldReason,
     gear: {
@@ -681,6 +709,7 @@ function buildNpcSheetData(npc, now) {
   else if (!inRange) reason = `Out of range (${Math.round(dist)}m away).`;
   else if (!cdReady) reason = 'Recharging.';
   else if (!canAfford) reason = 'Not enough mana.';
+  const shieldActive = combat.isShieldActive(npc, now);
   return {
     kind: 'npc',
     wizard: npc,
@@ -688,7 +717,9 @@ function buildNpcSheetData(npc, now) {
     canAttack,
     reason,
     dist: Math.round(dist),
-    shieldActive: combat.isShieldActive(npc, now),
+    shieldActive,
+    shieldHp: shieldActive ? npc.shieldBuff.hp : 0,
+    shieldMaxHP: shieldActive ? npc.shieldBuff.maxHP : 0,
     isNemesis: npc.id === world.player.nemesisId,
   };
 }

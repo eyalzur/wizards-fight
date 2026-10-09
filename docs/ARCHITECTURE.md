@@ -138,7 +138,7 @@ a new coupling to Firebase; `combat.js` still has no import of
   // current HP via its arc length (hp/maxHP) — one component, two signals.
   spells: ['spark_bolt', 'ward_shield', 'counterspell'],  // always these 3
   cooldowns: { [spellId]: readyAtTimestamp },
-  shieldBuff: null | { mitigation, expiresAt },
+  shieldBuff: null | { hp, maxHP, expiresAt }, // absorb pool, not a flat % — see docs/FEATURES.md "Ward Shield"
   position: {lat, lng} | null,
   nextManaRegen, nextHpRegen,          // internal tick bookkeeping
   // Player only (economy.js:normalizeEconomy fills these for old saves):
@@ -315,8 +315,8 @@ tick, in order (`combat.js:tick`):
    roll temperament-weighted odds; if it hits and an attack spell is
    affordable/in-range/off-cooldown, cast it at the player.
 3. **Projectile resolution** — any projectile past its `impactTime` gets
-   resolved (damage computed, shield mitigation applied, defeat handled)
-   and removed.
+   resolved (damage computed, an active Ward Shield's absorb pool weighed
+   against it, defeat handled) and removed.
 4. **NPC respawns** — defeated NPCs past their `respawnAt` come back at a
    fresh random point.
 5. **Player respawn** — if down and past `playerRespawnAt`, restore to
@@ -531,6 +531,12 @@ kills. It is a developer tool, not a player-facing feature:
   clamped to each upgrade's existing `maxLevel` (`js/wizard.js:setUpgradeLevel`)
   — it can jump straight to the max/"Maxed" state but never past it, since
   the cap itself needs to stay testable as a real boundary.
+- A second, identical section lets you set the player's Mana Crystal (💎)
+  balance the same way (`qa-gems-*` ids, `onSetGems`/`onAddGems`/
+  `onSetInfiniteGems` in `main.js`, `QA_INFINITE_GEMS`) — new wizards start
+  at 0 💎 by design (`economy.js`'s grind economy), so this is the only way
+  to reach the Shop's higher gear tiers without grinding kills first, for
+  testing.
 - Every QA action goes through the same `saveState`/`render` path as a
   normal purchase (`js/wizard.js:buyUpgrade`) — no separate storage
   mechanism, no bypass of the persistence layer.

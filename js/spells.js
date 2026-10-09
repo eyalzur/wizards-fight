@@ -8,11 +8,18 @@ export const SPELLS = [
     description: "A mote of raw magic. Slow, but every wizard knows it.",
   },
   {
-    // Proactive stance: raise it ahead of time, it softens every hit that
-    // lands while it's up, and it isn't used up by any single hit.
+    // Proactive stance: raise it ahead of time. Gives you an absorb pool
+    // sized off your OWN maxHP (shieldFraction is a fraction of the
+    // caster's maxHP, not the old flat mitigation %) — the defender can't
+    // know the attacker's stats in this async real-time-travel game, so the
+    // pool scales with the defender's own HP investment instead. Every hit
+    // subtracts from the pool until it breaks (see combat.js:castShield /
+    // resolveShieldedDamage); buffDuration is still a backstop expiry even
+    // if the shield is never hit. 0.35 is a first guess, not tuned from real
+    // play data (see docs/FEATURES.md).
     id: 'ward_shield', name: 'Ward Shield', icon: '🛡️', type: 'shield',
-    manaCost: 18, buffDuration: 120000, mitigation: 0.5, cooldown: 25,
-    description: 'Raise a ward that softens every hit for as long as it holds.',
+    manaCost: 18, buffDuration: 120000, shieldFraction: 0.35, cooldown: 25,
+    description: 'Raise a ward with an absorb pool that soaks hits until it breaks.',
   },
   {
     // Reactive counter: cast it in the moment you see a specific curse

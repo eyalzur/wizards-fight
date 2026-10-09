@@ -40,9 +40,12 @@ on top of it when the repo owner has a Firebase project configured (see
   - **Spark Bolt** (attack) — travels at a real 1 m/s, so a cast takes
     real minutes to land at "Real" time scale. A ⚡/🐢 toggle in the ☰
     menu speeds this up 30x for testing.
-  - **Ward Shield** (defend) — a proactive stance, raised ahead of time,
-    lasts 2 real minutes, softens every hit while it holds (not consumed
-    per-hit).
+  - **Ward Shield** (defend) — a proactive stance, raised ahead of time.
+    Gives an absorb pool sized off your own max HP (`shieldFraction: 0.35`
+    × sign-mult — a first guess, see Decisions log); hits subtract from the
+    pool (full absorb = 0 real damage) until it breaks (overflow gets
+    through), or it expires after a 2-minute backstop timer if never
+    broken.
   - **Counterspell** (defend) — reactive: cast during the incoming-curse
     alert to negate that *specific* spell outright.
 - **Sign drawing** — every cast opens a pad that draws that spell's sign
@@ -52,7 +55,7 @@ on top of it when the repo owner has a Firebase project configured (see
   as on the line — only Clear and Cast buttons, the Cast button turns
   green→red with the seconds left and auto-casts at zero and similarity
   (position/size/direction-independent) maps to a ×0.5–×1.5 power
-  multiplier (attack damage, shield mitigation). A Counterspell needs
+  multiplier (attack damage, shield pool size). A Counterspell needs
   ×1.0+ or it fizzles (mana still spent). NPCs cast at ×1. Scoring in
   `js/sign.js`, overlay in `js/signpad.js`. Each spell has its own fixed
   sign, no player choice: Spark Bolt draws the ⭐ Star Sigil (a one-stroke
@@ -139,8 +142,9 @@ on top of it when the repo owner has a Firebase project configured (see
 - Multiplayer (see "What's live now") has no live presence indicators, no
   matchmaking, and no chat — deferred by design for v1, not an oversight
   (see Decisions Log). It also has no reactive Counterspell window against
-  a real player's incoming attack (only Ward Shield's passive mitigation
-  applies) — that would need live syncing this v1 deliberately doesn't do.
+  a real player's incoming attack (only Ward Shield's absorb pool, if one
+  is up, applies) — that would need live syncing this v1 deliberately
+  doesn't do.
 - Real-player density is expected to be near zero in most areas for a
   while (this is a small hobby project, not a live service with a user
   base) — NPCs staying as the primary opponent is intentional, not a
@@ -256,6 +260,43 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-09 — Ward Shield redesigned from flat-% mitigation to an absorb
+  pool; QA Tools gets a Mana Crystals setter.** Ward Shield used to set
+  `shieldBuff = { mitigation, expiresAt }` and quietly shave a flat % off
+  every hit for its whole 2-minute duration — invisible and not very
+  game-like (no concept of the shield itself being "used up"). Redesigned
+  so casting it gives `shieldBuff = { hp, maxHP, expiresAt }`: a pool sized
+  off the **caster's own** `maxHP × shieldFraction × sign-mult`
+  (`shieldFraction: 0.35` in `spells.js`'s `ward_shield`, replacing the old
+  `mitigation` field) — off the defender's own HP investment, not the
+  attacker's power, since the defender can't know the attacker's stats in
+  this async real-time-travel game. Each hit now subtracts from the pool:
+  fully covered → a true 0 damage to real HP (the old "never below 1" rule
+  doesn't apply here — that rule only existed to stop % rounding from
+  giving a free pass, not to protect a pool that genuinely covers the hit);
+  not covered → the shield breaks (pool to 0, `expiresAt` set to `now` so
+  `isShieldActive` reads false immediately) and the overflow, still floored
+  at 1, reaches real HP. The 2-minute `buffDuration` stays as a backstop
+  expiry. The duplicate absorb math that used to live separately in
+  `resolveImpact` (local hits) and `applyPendingHit` (remote hits) is now
+  one shared `combat.js:resolveShieldedDamage` helper. `shieldFraction:
+  0.35` is a first guess like every other number in `docs/FEATURES.md`'s
+  economy — picked so a sloppy sign gives a shield worth ~17.5% of max HP
+  and a well-drawn one ~52.5%, pending real playtest, not tuned from data.
+  Verified with a throwaway Playwright script: drove the real
+  `combat.js`/`spells.js` module functions in-browser for the pool-size,
+  full-absorb and shield-break math (including the log lines and
+  `isShieldActive` flipping false immediately on break), then drove the
+  actual UI to raise a shield through the real sign-pad flow and confirm
+  the self sheet shows the live pool ("🛡️ Warded — 18/18 (120s left)"), not
+  just a binary flag. Alongside this, QA Tools (`?qa=1`) gets a "Set Mana
+  Crystals to exactly" section mirroring the existing Runes control exactly
+  (same +100/+1000/♾️ Infinite pattern, `QA_INFINITE_GEMS` in `main.js`) —
+  new wizards still start at 0 💎 by design, this just makes the Shop's
+  higher gear tiers reachable for testing without a grind. Verified via the
+  same Playwright pass: set/added gems through the QA panel and confirmed
+  both the panel's own balance text and the Shop screen's balance updated,
+  then bought a gear item and confirmed the balance actually decremented.
 - **2026-10-09 — Shop/Inventory/Character promoted from bottom sheets to 3
   full screens.** Follow-up to an earlier in-session product discussion:
   with a Crystal Shop, a Runes & Powers panel, gear, and more (potions,
