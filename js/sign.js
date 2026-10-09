@@ -9,6 +9,33 @@ const PENTAGRAM = [0, 2, 4, 1, 3, 0].map((i) => {
 
 export const SIGN = { id: 'pentagram', name: 'Star Sigil', strokes: [PENTAGRAM] };
 
+// Closed hexagon in a unit box, y down — reads as a shield/crest outline.
+// Ward Shield's sign.
+const HEXAGON = [
+  { x: 0.5, y: 0.05 },
+  { x: 0.9, y: 0.3 },
+  { x: 0.9, y: 0.7 },
+  { x: 0.5, y: 0.95 },
+  { x: 0.1, y: 0.7 },
+  { x: 0.1, y: 0.3 },
+  { x: 0.5, y: 0.05 },
+];
+
+export const WARD_RUNE = { id: 'ward_rune', name: 'Ward Rune', strokes: [HEXAGON] };
+
+// Open jagged zigzag ("lightning crack") in a unit box, y down, a single
+// open stroke (not closed). Counterspell's sign.
+const CRACK = [
+  { x: 0.7, y: 0.05 },
+  { x: 0.3, y: 0.4 },
+  { x: 0.6, y: 0.45 },
+  { x: 0.2, y: 0.8 },
+  { x: 0.55, y: 0.6 },
+  { x: 0.35, y: 0.95 },
+];
+
+export const BREAK_SIGIL = { id: 'break_sigil', name: 'Break Sigil', strokes: [CRACK] };
+
 // Time to draw from memory once the sign has vanished: starts generous and
 // tightens with level (10s at Lv.1, -0.5s per level, never below 4s).
 export function drawTimeMs(level = 1) {

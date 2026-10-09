@@ -12,9 +12,9 @@ const FADE_MS = 600; // ...then fades out
 const PAD = 40;
 
 // Points along the sign's strokes, with cumulative arc length, for the demo pen.
-function buildPath(S) {
+function buildPath(S, sign) {
   const pts = [];
-  for (const st of SIGN.strokes) {
+  for (const st of sign.strokes) {
     for (const p of st) pts.push({ x: PAD + p.x * (S - 2 * PAD), y: PAD + p.y * (S - 2 * PAD) });
   }
   const cum = [0];
@@ -38,7 +38,7 @@ function penAt(path, d) {
 // Calls onDone(multiplier, score) once the player has drawn (or time ran out).
 // There is no cancel: once a cast starts, it ends in a cast (auto-cast when the
 // timer runs out). Only one pad can be open at a time.
-export function openSignPad({ title, level = 1, onDone }) {
+export function openSignPad({ title, level = 1, sign = SIGN, onDone }) {
   if (document.getElementById('sign-pad')) return;
   const drawMs = drawTimeMs(level);
   const el = document.createElement('div');
@@ -64,7 +64,7 @@ export function openSignPad({ title, level = 1, onDone }) {
   const clearBtn = el.querySelector('[data-act=clear]');
   const castBtn = el.querySelector('[data-act=cast]');
   const S = canvas.width;
-  const path = buildPath(S);
+  const path = buildPath(S, sign);
   const bandPx = 2 * BAND * (S - 2 * PAD);
 
   let phase = 'watch'; // watch | draw | result
@@ -129,7 +129,7 @@ export function openSignPad({ title, level = 1, onDone }) {
   function startDraw(now) {
     phase = 'draw';
     phaseStart = now;
-    hintEl.textContent = `Draw the ${SIGN.name} from memory!`;
+    hintEl.textContent = `Draw the ${sign.name} from memory!`;
     clearBtn.disabled = false;
     castBtn.disabled = false;
   }
@@ -166,7 +166,7 @@ export function openSignPad({ title, level = 1, onDone }) {
     clearBtn.disabled = true;
     castBtn.disabled = true;
     const pts = strokes.reduce((n, s) => n + s.length, 0);
-    const score = pts < MIN_POINTS ? 0 : scoreDrawing(strokes);
+    const score = pts < MIN_POINTS ? 0 : scoreDrawing(strokes, sign);
     const mult = scoreToMultiplier(score);
     resultEl.textContent = pts < MIN_POINTS
       ? `${timedOut ? "Time's up! " : ''}Nothing drawn → ×${mult.toFixed(2)} power`
@@ -183,6 +183,6 @@ export function openSignPad({ title, level = 1, onDone }) {
     else if (act === 'cast') finish(false);
   });
 
-  hintEl.textContent = `Watch the ${SIGN.name} — you'll draw it from memory in ${Math.round(drawMs / 1000)}s.`;
+  hintEl.textContent = `Watch the ${sign.name} — you'll draw it from memory in ${Math.round(drawMs / 1000)}s.`;
   raf = requestAnimationFrame((now) => { phaseStart = now; loop(now); });
 }
