@@ -1,6 +1,6 @@
 # Wizards Fight — Project Status
 
-Last updated: 2026-10-09
+Last updated: 2026-10-10
 
 This file is the single source of truth for "what exists, what's next, and
 why we made the calls we made." Run `/resume-proj` to get a suggested next
@@ -85,30 +85,35 @@ on top of it when the repo owner has a Firebase project configured (see
   as XP. Runes buy permanent, capped, non-refundable upgrades to two
   attributes — Spell Power (+5%/level Spark Bolt damage, cap Lv.3/+15%)
   and Spell Recovery (−0.1s/level Spark Bolt cooldown, cap Lv.3/1.2s) —
-  from the 🧙 Character screen (☰ menu; see "Shop, Inventory, Character
-  screens" below — this used to be a separate "🔮 Runes & Powers" bottom
-  sheet). Player-only; NPCs don't earn or spend Runes. See
-  `docs/FEATURES.md` for exact numbers.
+  from the 🧙 Character screen (bottom tab bar; see "Shop, Inventory,
+  Character and Missions screens" below — this used to be a separate
+  "🔮 Runes & Powers" bottom sheet). Player-only; NPCs don't earn or spend
+  Runes. See `docs/FEATURES.md` for exact numbers.
 - **Persistence** — wizard (including Runes balance and Powers levels) +
   NPCs + spawn point + speed setting saved to `localStorage`. No
   accounts, nothing leaves the browser except the optional multiplayer
   sync below.
 - **Mana Crystals economy (Phase 1)** — 💎 passive income into an uncapped
   Treasury pot (scaled by ⚡ Fast while the page is open), a small kill
-  bonus, and a Shop screen (☰ menu) selling 5 wand tiers and 5 robe tiers,
-  each upgradable +1..+10 with 💎 (deterministic, no gambling), so a maxed
-  avatar is overwhelmingly stronger than same-level NPCs. Numbers in
+  bonus, and a Shop screen (bottom tab bar) selling 5 wand tiers and 5 robe
+  tiers, each upgradable +1..+10 with 💎 (deterministic, no gambling), so a
+  maxed avatar is overwhelmingly stronger than same-level NPCs. Numbers in
   `docs/FEATURES.md` are first guesses.
-- **Shop, Inventory, Character screens (2026-10-09)** — the old "💎 Crystal
-  Shop" docked sheet and "🔮 Runes & Powers" bottom panel were replaced by 3
-  full, non-map screens reached from the ☰ menu (🛒 Shop, 🎒 Inventory, 🧙
-  Character), each with a "← Back to Map" button. Inventory is a new
-  (deliberately minimal) equipped-loadout view of the 2 gear slots; the
-  other two just promote existing content to more room. Spells keep
-  traveling while any of the 3 is open (the game loop never pauses), so
-  each carries an off-map incoming-curse banner that jumps back to the map.
-  See `docs/FEATURES.md` "Shop, Inventory and Character screens" and the
-  Decisions Log entry below.
+- **Shop, Inventory, Character, Missions screens + persistent bottom tab
+  bar (2026-10-09, menu→tab-bar nav change 2026-10-10)** — the old "💎
+  Crystal Shop" docked sheet and "🔮 Runes & Powers" bottom panel were
+  replaced by full, non-map screens; reached via a persistent 5-tab bottom
+  bar (🗺️ Map / 🛒 Shop / 🎒 Inventory / 🧙 Character / 📜 Missions, visible
+  on every screen except wizard creation), not the ☰ menu or a per-screen
+  "← Back to Map" button any more. Inventory is a new (deliberately
+  minimal) equipped-loadout view of the 2 gear slots; Shop/Character just
+  promote existing content to more room; **Missions is a static
+  placeholder, not a built feature** — see Decisions Log and the Roadmap
+  entry below. Spells keep traveling while any of these 4 screens is open
+  (the game loop never pauses), so each carries an off-map incoming-curse
+  banner that jumps back to the map. See `docs/FEATURES.md` "Shop,
+  Inventory, Character and Missions screens" and the Decisions Log entries
+  below.
 - **Nemesis System** — whichever NPC most recently defeated you becomes
   your "Nemesis" (one field, `nemesisId`, on your own wizard): called out
   by name in the incoming-curse alert and with a badge on its wizard sheet,
@@ -170,6 +175,10 @@ Mana Crystals economy phases (Phase 1 is live, see above):
   Also tune numbers from real play data.
 - Deferred: map-marker gear glyphs.
 
+- **📜 Missions tab is a placeholder (added 2026-10-10, see Decisions
+  log)** — points at Future feature concept #1 (Bounty Board) below. Pull
+  that concept up here and scope it before building anything behind the
+  tab; until then it stays static "Coming soon" copy.
 
 - Reintroduce element-specific attack spells (Fireball, Frost Shard,
   Thunder Jab, Thornwhip) and a heal spell (Minor Renewal), now that the
@@ -260,6 +269,47 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-10 — Shop/Inventory/Character's ☰ menu entries replaced by a
+  persistent bottom tab bar; Missions added as an explicit placeholder,
+  not a built feature.** The 3 menu entries (and each subscreen's own
+  "← Back to Map" button) are gone, replaced by a 5-tab bar — 🗺️ Map / 🛒
+  Shop / 🎒 Inventory / 🧙 Character / 📜 Missions — fixed to the bottom of
+  every screen except wizard creation (no wizard yet to navigate with).
+  **The structural catch, and why this is a Decisions Log entry and not
+  just a menu tweak** (see the 2026-10-02 "UI layering redesign" entry
+  below for the same class of mistake): you can't just drop an
+  always-visible bottom bar as another sibling of the `.screen` elements
+  inside `#app` — the active `.screen` already claims `height:100%` of
+  `#app`'s *full* height (`.screen.active { display:flex }`,
+  `#app { height:100dvh }`), so a bar sibling would either get pushed off
+  the bottom edge or cause overflow, never actually share space with the
+  screen above it. Fixed by wrapping all 6 `.screen` sections in a new
+  `#screens` div (`flex:1;min-height:0`, the same idiom `.subscreen-content`
+  already used) and making `#tab-bar` `#app`'s *other* child
+  (`flex:none`) — now `.screen{height:100%}` resolves against `#screens`'
+  computed height (full height minus the bar), not `#app`'s. See
+  `docs/ARCHITECTURE.md` "Screen layout and layering" for the full
+  breakdown. The iOS safe-area-inset-bottom padding that used to be
+  duplicated on `#screen-game` and `.subscreen` (each padding its own
+  bottom edge, back when each was `#app`'s bottom-most visible element) was
+  removed from both and now lives only on `.tab-bar`, the actual bottom-most
+  element whenever it's visible — verified it isn't double-applied (both
+  are computed `0px` padding now; the bar carries the one `env()` rule).
+  **Missions is deliberately not a real feature**: there is no Bounty Board
+  / session-goals system built anywhere in this codebase, only the
+  brainstormed "Future feature concepts" #1 entry below; `#screen-missions`
+  is static copy ("Coming soon — this will be a bounty board with session
+  goals. Nothing to do here yet.") with no `*-content` div for `main.js` to
+  populate, so nobody mistakes the tab for a shipped system. Verified with
+  a throwaway Playwright script (local static server, a locally-cached
+  Leaflet build substituted in since this sandbox's egress proxy blocks
+  cdnjs.cloudflare.com — unrelated to the app): clicked through all 5 tabs
+  from multiple starting points, measured `#screens`/`.tab-bar`/HUD/stage
+  bounding rects on every screen to confirm no overlap and no viewport
+  overflow, confirmed the active-tab highlight matches the active screen on
+  every tab including Missions, confirmed tap targets are ≥44px, and
+  confirmed the ☰ menu/back-buttons/`.offmap-alert` wiring changed exactly
+  as intended (4 `.offmap-alert` elements now, 0 leftover back buttons).
 - **2026-10-09 — Ward Shield redesigned from flat-% mitigation to an absorb
   pool; QA Tools gets a Mana Crystals setter.** Ward Shield used to set
   `shieldBuff = { mitigation, expiresAt }` and quietly shave a flat % off

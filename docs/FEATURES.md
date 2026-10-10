@@ -128,8 +128,9 @@ instead of the old always-on spellbook. The sheet sits under the map and
 shrinks it (max height `min(46dvh, 380px)`) — it never covers the map, your
 wizard marker or the map attribution. The map pans just enough to keep your
 wizard (and the tapped one) in view. Your own sheet's 🛍️ Shop button (text
-label) takes you to the full Shop screen (see "Shop, Inventory and
-Character screens" below) rather than opening a sheet.
+label) takes you to the full Shop screen (see "Shop, Inventory, Character
+and Missions screens" below) rather than opening a sheet — same place the
+bottom tab bar's 🛒 Shop tab goes.
 
 - **Your own wizard** → HP/mana, whether Ward Shield is active with its
   current absorb pool and remaining time (e.g. "🛡️ Warded — 38/80 (95s
@@ -146,9 +147,13 @@ Tapping empty map closes an open sheet before it tries to move you there.
 The game screen is a vertical stack, top to bottom: **HUD** (avatar with Lv
 badge, name, HP and MP side by side, thin XP line; 💎 chip that glows gold
 when crystals are ready to collect, 📍, ☰ — all 44px targets), the
-**defend strip** (only while attacked), the **map stage**, the **docked
-sheet** (self / NPC / remote), and the phone's safe-area gap. Nothing urgent
-floats over the HUD, and all text is at least 12px.
+**defend strip** (only while attacked), the **map stage**, and the
+**docked sheet** (self / NPC / remote). Nothing urgent floats over the HUD,
+and all text is at least 12px. Below the game screen (and every other
+screen except wizard creation) sits the persistent **bottom tab bar** — see
+"Shop, Inventory, Character and Missions screens" below — which now carries
+the phone's safe-area gap that used to sit at the bottom of each screen
+individually.
 
 - **Defend strip:** its own lane directly under the HUD. One compact card
   for the spell that lands soonest: countdown ring, "<spell> incoming!",
@@ -162,19 +167,31 @@ floats over the HUD, and all text is at least 12px.
   attack closes the ☰ menu once (so the strip is reachable) but leaves an
   open sheet alone.
 - **☰ menu:** a popover inside the map area, width `min(260px, 100% - 16px)`,
-  48px rows with spelled-out labels (Fullscreen, 🛒 Shop, 🎒 Inventory,
-  "🧙 Character · N" (N = Rune balance), "Speed: Real/Fast", Spell Log, and
-  QA Tools under `?qa=1`), and a separated red "New Wizard" last.
+  48px rows with spelled-out labels (Fullscreen, "Speed: Real/Fast", Spell
+  Log, and QA Tools under `?qa=1`), and a separated red "New Wizard" last.
+  Shop/Inventory/Character no longer live here — see below.
 - Toasts appear at the top of the map area so they are never hidden behind
   the bottom panels.
 
-## Shop, Inventory and Character screens
+## Bottom tab bar
 
-Added 2026-10-09, replacing the old "💎 Crystal Shop" docked sheet and
-"🔮 Runes & Powers" bottom panel with 3 full, non-map screens reached from
-the ☰ menu — now that there's gear, two currencies and item upgrades, a
-cramped bottom sheet stopped being enough room. Each has a "← Back to Map"
-button in its header.
+Added 2026-10-10, replacing the ☰ menu's Shop/Inventory/Character entries.
+A persistent 5-tab nav bar — 🗺️ Map / 🛒 Shop / 🎒 Inventory / 🧙 Character /
+📜 Missions — fixed to the bottom of the screen, visible everywhere except
+the wizard-creation screen (there's no wizard yet to navigate with). The
+active tab is highlighted with the same gold accent used elsewhere (e.g.
+the Shop screen's slot tabs). Each tap target is at least 44px tall; the
+bar itself carries the iOS home-indicator safe-area padding.
+
+## Shop, Inventory, Character and Missions screens
+
+Shop/Inventory/Character were added 2026-10-09, replacing the old "💎
+Crystal Shop" docked sheet and "🔮 Runes & Powers" bottom panel with 3 full,
+non-map screens — now that there's gear, two currencies and item upgrades,
+a cramped bottom sheet stopped being enough room. As of 2026-10-10 they're
+reached via the bottom tab bar above (previously the ☰ menu) and left by
+tapping the bar's 🗺️ Map tab (previously a per-screen "← Back to Map"
+button, now removed as redundant).
 
 - **🛒 Shop** — the same Mana Crystal gear catalog as before (see "Mana
   Crystals, Treasury and Shop" below), just promoted into a full-height
@@ -196,16 +213,21 @@ button in its header.
   Spell Recovery) and the Spell Power/Spell Recovery upgrade cards that
   used to be the separate "🔮 Runes & Powers" panel (see "Runes & Powers"
   below) — now bought from this screen instead.
+- **📜 Missions** — **a placeholder, not a built feature.** Static copy
+  only ("Coming soon — this will be a bounty board with session goals.
+  Nothing to do here yet."). There is no Bounty Board / session-goals
+  system implemented anywhere in this game yet; this tab exists so the
+  eventual feature (see `proj-status.md`'s "Future feature concepts") has
+  a clearly-labeled home instead of nowhere to land.
 
 **Spells keep traveling while you're on one of these screens** — the game
 loop never pauses, so an incoming curse's travel timer keeps counting down
-regardless of which screen is open. Each of the 3 screens shows an
+regardless of which screen is open. Each of the 4 screens shows an
 `.offmap-alert` banner (header area) with the soonest incoming spell's
-caster, name and countdown whenever one is in flight; tapping it (or the
-"← Back to Map" button) returns to the map immediately, where the real
-defend strip and Counterspell are reachable. There's no Counterspell button
-on these 3 screens themselves — casting still goes through the sign-pad
-flow over the map/HUD.
+caster, name and countdown whenever one is in flight; tapping it returns to
+the map immediately, where the real defend strip and Counterspell are
+reachable. There's no Counterspell button on these 4 screens themselves —
+casting still goes through the sign-pad flow over the map/HUD.
 
 ## Multiplayer (real players)
 
@@ -350,8 +372,9 @@ not tuned from play data.**
   reloads.
 - **Kill bonus:** defeating an NPC adds `3 + npcLevel` 💎 straight to your
   balance (not the pot, not scaled by Fast).
-- **Shop** (wizard sheet → 🛍️ Shop button, or ☰ → 🛒 Shop — its own full
-  screen, see "Shop, Inventory and Character screens" above): one equipped
+- **Shop** (wizard sheet → 🛍️ Shop button, or the bottom tab bar's 🛒 Shop
+  tab — its own full screen, see "Shop, Inventory, Character and Missions
+  screens" above): one equipped
   item per slot, strict tier order within a slot (5 tiers per slot), no
   downgrades, full price, no refunds, no level gates. Buying is two taps
   ("Tap again to buy" for 3s) and the item is equipped immediately (at +0).
@@ -427,8 +450,8 @@ hits a real player for far more than they can currently survive).
 
 `js/wizard.js` owns the numbers; `js/combat.js` applies them at cast time;
 `js/ui.js`/`js/main.js` render the upgrade cards on the 🧙 Character screen
-(☰ menu → "🧙 Character · {n}", {n} = Rune balance — see "Shop, Inventory
-and Character screens" above; this used to be a separate "🔮 Runes & Powers"
+(bottom tab bar's 🧙 Character tab — see "Shop, Inventory, Character and
+Missions screens" above; this used to be a separate "🔮 Runes & Powers"
 bottom panel).
 
 - **Earning Runes** — every NPC kill grants `15 + npcLevel × 5` Runes

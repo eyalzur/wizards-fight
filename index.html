@@ -99,6 +99,12 @@
 
 <div id="app">
 
+<!-- #screens wraps every .screen so it (not #app) is the flex:1 box that
+     `.screen { height:100% }` resolves against — #app's other child,
+     #tab-bar, needs its own share of #app's height too. See
+     docs/ARCHITECTURE.md "Screen layout and layering". -->
+<div id="screens">
+
   <section id="screen-create" class="screen active">
     <div class="create-card">
       <h1 class="game-title">🧙 Wizards Fight</h1>
@@ -176,7 +182,6 @@
        lives) when tapped — see js/ui.js:renderOffMapAlert. -->
   <section id="screen-shop" class="screen subscreen">
     <header class="subscreen-header">
-      <button class="btn-back-map" data-back type="button">← Back to Map</button>
       <h2 class="subscreen-title">🛒 Crystal Shop</h2>
     </header>
     <button type="button" class="offmap-alert hidden" aria-live="polite"></button>
@@ -185,7 +190,6 @@
 
   <section id="screen-inventory" class="screen subscreen">
     <header class="subscreen-header">
-      <button class="btn-back-map" data-back type="button">← Back to Map</button>
       <h2 class="subscreen-title">🎒 Inventory</h2>
     </header>
     <button type="button" class="offmap-alert hidden" aria-live="polite"></button>
@@ -194,14 +198,42 @@
 
   <section id="screen-character" class="screen subscreen">
     <header class="subscreen-header">
-      <button class="btn-back-map" data-back type="button">← Back to Map</button>
       <h2 class="subscreen-title">🧙 Character</h2>
     </header>
     <button type="button" class="offmap-alert hidden" aria-live="polite"></button>
     <div id="character-content" class="subscreen-content"></div>
   </section>
 
+  <!-- Missions: an honest placeholder, not a built feature — there is no
+       Bounty Board system yet (see proj-status.md "Future feature
+       concepts" #2 and docs/ARCHITECTURE.md). Plain static copy, no
+       `*-content` div for main.js to populate every render. -->
+  <section id="screen-missions" class="screen subscreen">
+    <header class="subscreen-header">
+      <h2 class="subscreen-title">📜 Missions</h2>
+    </header>
+    <button type="button" class="offmap-alert hidden" aria-live="polite"></button>
+    <div class="subscreen-content missions-empty">
+      <p class="missions-empty-icon">📜</p>
+      <p class="missions-empty-text">Coming soon — this will be a bounty board with session goals. Nothing to do here yet.</p>
+    </div>
+  </section>
+
 </div>
+
+<!-- Persistent bottom tab bar: #app's other child (sibling of #screens),
+     hidden until a wizard exists (initTabBar is only ever called from
+     main.js's boot(), which only runs once a wizard is created/resumed —
+     see docs/ARCHITECTURE.md "Screen layout and layering"). Replaces the
+     old ☰-menu Shop/Inventory/Character entries and each subscreen's own
+     "← Back to Map" button. -->
+<nav id="tab-bar" class="tab-bar hidden" aria-label="Main navigation">
+  <button type="button" class="tab-btn" data-tab="map"><span class="tab-icon">🗺️</span><span class="tab-label">Map</span></button>
+  <button type="button" class="tab-btn" data-tab="shop"><span class="tab-icon">🛒</span><span class="tab-label">Shop</span></button>
+  <button type="button" class="tab-btn" data-tab="inventory"><span class="tab-icon">🎒</span><span class="tab-label">Inventory</span></button>
+  <button type="button" class="tab-btn" data-tab="character"><span class="tab-icon">🧙</span><span class="tab-label">Character</span></button>
+  <button type="button" class="tab-btn" data-tab="missions"><span class="tab-icon">📜</span><span class="tab-label">Missions</span></button>
+</nav>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script type="module" src="js/main.js"></script>
