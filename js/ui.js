@@ -47,27 +47,54 @@ export function initCreateScreen(elements, onSubmit) {
   });
 }
 
-// All top-level screens (create / game / the 3 menu-driven subscreens) share
-// one show/hide mechanism: exactly one `.screen` has `.active` at a time.
-// See docs/ARCHITECTURE.md "Screen layout and layering".
-const SCREEN_IDS = ['screen-create', 'screen-game', 'screen-shop', 'screen-inventory', 'screen-character'];
+// All top-level screens (create / game / the 4 tab-bar-driven subscreens)
+// share one show/hide mechanism: exactly one `.screen` has `.active` at a
+// time. See docs/ARCHITECTURE.md "Screen layout and layering".
+const SCREEN_IDS = ['screen-create', 'screen-game', 'screen-shop', 'screen-inventory', 'screen-character', 'screen-missions'];
+
+// Maps a screen id to the bottom tab bar's `data-tab` value it corresponds
+// to, so every call to showScreen keeps the tab highlight in sync without a
+// separate call site main.js has to remember to make. screen-create has no
+// tab (the bar is hidden there — see initTabBar).
+const SCREEN_TO_TAB = {
+  'screen-game': 'map',
+  'screen-shop': 'shop',
+  'screen-inventory': 'inventory',
+  'screen-character': 'character',
+  'screen-missions': 'missions',
+};
 
 export function showScreen(id) {
   for (const s of SCREEN_IDS) {
     document.getElementById(s)?.classList.toggle('active', s === id);
   }
+  setActiveTab(SCREEN_TO_TAB[id] || null);
+}
+
+function setActiveTab(tab) {
+  document.querySelectorAll('#tab-bar [data-tab]').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
 }
 
 export function showGameScreen() {
   showScreen('screen-game');
 }
 
-// Wires the "← Back to Map" button and the incoming-curse banner (see
-// renderOffMapAlert) on all 3 subscreens to one callback — same handler
-// either way, since tapping the alert should get you back to the map just
-// as fast as the explicit back button.
+// Wires the persistent bottom tab bar (5 tabs: Map/Shop/Inventory/
+// Character/Missions — see index.html, docs/ARCHITECTURE.md). Only ever
+// called from main.js's boot(), which only runs once a wizard exists, so
+// the bar stays hidden through wizard creation and is unhidden exactly when
+// the game screen first becomes active.
+export function initTabBar(onTab) {
+  document.querySelectorAll('#tab-bar [data-tab]').forEach((b) => {
+    b.addEventListener('click', () => onTab(b.dataset.tab));
+  });
+  document.getElementById('tab-bar').classList.remove('hidden');
+}
+
+// Wires the incoming-curse banner (see renderOffMapAlert) on all 4
+// subscreens back to the map — the bar's own Map tab is the only way back
+// now (the old per-screen "← Back to Map" button was removed as redundant).
 export function initSubscreens(onBackToMap) {
-  document.querySelectorAll('[data-back]').forEach((btn) => btn.addEventListener('click', onBackToMap));
   document.querySelectorAll('.offmap-alert').forEach((el) => el.addEventListener('click', onBackToMap));
 }
 
@@ -128,20 +155,18 @@ export function isMenuOpen() {
   return !document.getElementById('menu-panel').classList.contains('hidden');
 }
 
-export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onLogToggle, onReset, onGoShop, onGoInventory, onGoCharacter, onGemsTap, onBeforeOverlay }) {
+export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onLogToggle, onReset, onGemsTap, onBeforeOverlay }) {
   beforeOverlay = onBeforeOverlay || beforeOverlay;
   document.getElementById('btn-locate').addEventListener('click', onLocate);
 
-  // Shop/Inventory/Character replaced the old "💎 Crystal Shop" and
-  // "🔮 Runes & Powers" bottom-sheet entries — those panels' content moved
-  // onto the 3 full screens these buttons navigate to (see
-  // docs/ARCHITECTURE.md "Screen layout and layering").
+  // Shop/Inventory/Character used to be 3 ☰ menu entries; they're reached
+  // via the persistent bottom tab bar now (see initTabBar,
+  // docs/ARCHITECTURE.md "Screen layout and layering"), so the menu keeps
+  // only Fullscreen, Speed, Spell Log and New Wizard (+ QA Tools under
+  // ?qa=1, appended by initQaTools).
   const menuPanel = document.getElementById('menu-panel');
   menuPanel.innerHTML = `
     <button id="menu-fullscreen">⛶ Fullscreen</button>
-    <button id="menu-goshop">🛒 Shop</button>
-    <button id="menu-goinventory">🎒 Inventory</button>
-    <button id="menu-gocharacter">🧙 Character · 0</button>
     <button id="menu-speed">⚡ Speed: Fast</button>
     <button id="menu-log">📜 Spell Log</button>
     <div id="menu-sep" class="menu-sep" role="separator"></div>
@@ -166,18 +191,6 @@ export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onLogToggle, on
     onFullscreen();
     closeMenu();
   });
-  document.getElementById('menu-goshop').addEventListener('click', () => {
-    closeMenu();
-    onGoShop();
-  });
-  document.getElementById('menu-goinventory').addEventListener('click', () => {
-    closeMenu();
-    onGoInventory();
-  });
-  document.getElementById('menu-gocharacter').addEventListener('click', () => {
-    closeMenu();
-    onGoCharacter();
-  });
   document.getElementById('hud-gems').addEventListener('click', onGemsTap);
   // Speed is a setting you want to see change, so the menu stays open.
   document.getElementById('menu-speed').addEventListener('click', onSpeedToggle);
@@ -197,11 +210,6 @@ export function bindHud({ onLocate, onFullscreen, onSpeedToggle, onLogToggle, on
 export function setSpeedLabel(text) {
   const el = document.getElementById('menu-speed');
   if (el) el.textContent = text;
-}
-
-export function setCharacterMenuLabel(n) {
-  const el = document.getElementById('menu-gocharacter');
-  if (el) el.textContent = `🧙 Character · ${n}🔮`;
 }
 
 // The bottom panels (log, and — QA-mode-only — qa) sit in the same stage

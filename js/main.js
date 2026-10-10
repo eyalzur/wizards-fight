@@ -155,9 +155,6 @@ function boot() {
       render();
     },
     onLogToggle: ui.toggleLog,
-    onGoShop: () => goToShop(),
-    onGoInventory: () => goToScreen('inventory'),
-    onGoCharacter: () => goToScreen('character'),
     onGemsTap: () => showSheet({ kind: 'self' }),
     // Opening the menu/log/powers closes the docked sheet (one overlay at a time).
     onBeforeOverlay: () => {
@@ -175,9 +172,14 @@ function boot() {
     },
   });
   lastGems = world.player.gems;
-  // "← Back to Map" and the off-map incoming-curse banner (see
-  // buildIncoming/render below) on the 3 subscreens both just come back here.
+  // The off-map incoming-curse banner (see buildIncoming/render below) on
+  // the 4 subscreens comes back to the map here, same place the bar's own
+  // Map tab goes.
   ui.initSubscreens(() => goToScreen('map'));
+  // Persistent bottom tab bar (see docs/ARCHITECTURE.md "Screen layout and
+  // layering") — only wired/unhidden here, once a wizard exists, since
+  // boot() is only ever called after wizard creation/resume.
+  ui.initTabBar((name) => goToScreen(name));
   if (QA_MODE) {
     ui.initQaTools({
       onSetRunes: onQaSetRunes,
@@ -824,7 +826,6 @@ function render() {
 
   ui.renderHud(playerForDisplay, { potReady: economy.potWhole(player) >= 1, fast: world.timeScale > combat.TIME_SCALES.real });
   ui.setSpeedLabel(world.timeScale > combat.TIME_SCALES.real ? '⚡ Speed: Fast' : '🐢 Speed: Real');
-  ui.setCharacterMenuLabel(player.runes || 0);
   ui.renderLog(world.log);
   if (QA_MODE) {
     ui.renderQaPanel(buildQaData(), { onSetPowerLevel: onQaSetPowerLevel, onSetRecoveryLevel: onQaSetRecoveryLevel });
@@ -847,10 +848,12 @@ function render() {
     onOpenShop: () => goToShop(),
   });
 
-  // Shop/Inventory/Character are full screens now (siblings of #screen-game,
-  // not sheets), but — like the map/HUD above — they're rebuilt every tick
-  // regardless of which screen is actually active, so switching to one never
-  // shows a stale frame (see docs/ARCHITECTURE.md "The game loop").
+  // Shop/Inventory/Character are full screens (siblings of #screen-game, not
+  // sheets, reached via the bottom tab bar), but — like the map/HUD above —
+  // they're rebuilt every tick regardless of which screen is actually
+  // active, so switching to one never shows a stale frame (see
+  // docs/ARCHITECTURE.md "The game loop"). Missions has no equivalent
+  // render call — it's static placeholder content, nothing to derive.
   ui.renderShopScreen(buildShopData(now), { onShopSlot, onShopBuy, onShopUpgrade });
   ui.renderInventoryScreen(buildInventoryData(), { onGoShop: (slot) => goToShop(slot) });
   ui.renderCharacterScreen(buildCharacterData(now), { onBuyPower, onBuyRecovery });
@@ -860,10 +863,10 @@ function render() {
     .map((p) => ({ ...p, casterName: casterNameFor(p.casterId), isNemesisCaster: p.casterId === player.nemesisId }));
   ui.renderDefendPrompts(incoming, player, now, onCounterspell);
   // Spells keep traveling in real time no matter which screen is open (the
-  // game loop never pauses), so Shop/Inventory/Character each get the same
-  // incoming-curse signal the map's defend strip shows — tapping it (or the
-  // explicit "← Back to Map" button, wired in ui.initSubscreens) jumps back
-  // to the map, where Counterspell is actually castable.
+  // game loop never pauses), so Shop/Inventory/Character/Missions each get
+  // the same incoming-curse signal the map's defend strip shows — tapping it
+  // (wired in ui.initSubscreens) jumps back to the map, where Counterspell
+  // is actually castable.
   ui.renderOffMapAlert(incoming, now);
   // A NEW incoming attack dismisses the ☰ menu once (the strip must be
   // reachable); sheets, the shop and other panels are left alone.

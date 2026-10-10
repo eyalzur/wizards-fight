@@ -225,6 +225,44 @@ avatarWithRing` reads it to render (or omit) the pulsing shield-bubble.
 
 ## Screen layout and layering
 
+**Top level: `#screens` + the bottom tab bar.** `#app` has exactly two
+children: `#screens` (a plain wrapper around all 6 `.screen` sections,
+`flex:1; min-height:0`) and `#tab-bar` (`flex:none`, the persistent 5-tab
+nav — 🗺️ Map / 🛒 Shop / 🎒 Inventory / 🧙 Character / 📜 Missions). Added
+2026-10-10, replacing the ☰ menu's Shop/Inventory/Character entries and
+each subscreen's own "← Back to Map" button. This wrapper exists because
+`.screen.active { height: 100% }` needs a parent with a real computed
+height to resolve against — before `#tab-bar` existed, that parent was
+`#app` itself (`100dvh`), which was correct; once `#tab-bar` became `#app`'s
+*other* child, `.screen`'s `100%` would have resolved against `#app`'s full
+height again and the bar would have either been pushed off-screen or caused
+overflow, not actually shared space with the screen above it. Wrapping the
+screens in `#screens` (`flex:1;min-height:0`, the same idiom
+`.subscreen-content` already uses) makes `#screens`' own computed height —
+full height minus the bar — the thing `.screen{height:100%}` resolves
+against instead. `ui.js:showScreen(id)` toggles which `.screen` has
+`.active` exactly as before, and now also updates the bar's active-tab
+highlight in the same call (`SCREEN_TO_TAB` map), so there's no separate
+call site to keep in sync. The bar itself is only wired up and unhidden by
+`ui.js:initTabBar()`, called once from `main.js:boot()` — which only ever
+runs after a wizard is created or resumed — so it's correctly absent for
+`#screen-create` (no wizard yet to navigate with) without any extra
+show/hide logic. Tapping a tab calls `main.js:goToScreen(name)`, the same
+function the old back-button used. The iOS home-indicator safe-area inset
+(`env(safe-area-inset-bottom)`) now lives on `.tab-bar` only — it was
+previously duplicated on `#screen-game` and `.subscreen` (both padded their
+own bottom edge because each was, at the time, the bottom-most element of
+`#app`); now that the bar is the bottom-most element whenever it's visible,
+those two rules were removed rather than left to double up.
+
+**Missions is a placeholder, not a built feature.** `#screen-missions` is
+static copy ("📜 Missions… Coming soon — this will be a bounty board with
+session goals. Nothing to do here yet.") — there is no Bounty Board /
+missions system implemented anywhere in this codebase; it's only a
+brainstormed idea in `proj-status.md`'s "Future feature concepts". Unlike
+the other 3 subscreens it has no `*-content` div for `main.js:render()` to
+populate every tick, since there's no data to derive.
+
 `#screen-game` is a vertical flex stack, in this order: `#hud` (in flow) /
 `#defend-overlay` (the defend strip; in flow, shown only while attacked) /
 `#stage` (`flex:1`, `isolation:isolate`) / `#wizard-sheet` (in flow; self,
@@ -259,10 +297,11 @@ every 250ms swallowed taps, same reason as the self sheet above.
 2026-10-09, replacing the old "💎 Crystal Shop" docked sheet and "🔮 Runes &
 Powers" bottom panel. `#screen-shop`, `#screen-inventory` and
 `#screen-character` are siblings of `#screen-create`/`#screen-game` (same
-`.screen`/`.active` toggle, driven by `ui.showScreen(id)`), reached from 3
-☰ menu entries (`onGoShop`/`onGoInventory`/`onGoCharacter` in
-`bindHud`) and left via a "← Back to Map" button each screen carries in its
-own header (wired once in `ui.initSubscreens`). They render real `world`
+`.screen`/`.active` toggle, driven by `ui.showScreen(id)`). As of
+2026-10-10 they're reached via the persistent bottom tab bar (see "Top
+level: `#screens` + the bottom tab bar" above) instead of 3 ☰ menu entries,
+and left by tapping the bar's 🗺️ Map tab instead of a per-screen "← Back to
+Map" button (both removed). They render real `world`
 data via `ui.renderShopScreen`/`renderInventoryScreen`/`renderCharacterScreen`,
 called from `main.js:render()` every tick exactly like the map/HUD —
 unconditionally, regardless of which screen is actually active, so there's
@@ -286,16 +325,16 @@ panel always did.
 same `setInterval` regardless of which screen is active (screens only ever
 toggle DOM visibility, never pause the loop — see "The game loop"), so an
 incoming curse's travel timer keeps counting down even while the player is
-browsing Shop/Inventory/Character. To avoid a defenseless surprise, each of
-the 3 screens carries an `.offmap-alert` element in its header
-(`ui.renderOffMapAlert`, fed the same `incoming` array `main.js:render()`
-already builds for `ui.renderDefendPrompts`) that shows the soonest
-incoming spell's caster/name/countdown and is itself a tappable button;
-tapping it (or the explicit "← Back to Map" button — both wired to the same
-handler in `ui.initSubscreens`) returns to the map, where the real defend
-strip and Counterspell are reachable. There's no Counterspell button on the
-3 screens themselves — by design, since casting still needs the sign-pad
-flow that only makes sense once you can see the map/HUD underneath it.
+browsing Shop/Inventory/Character/Missions. To avoid a defenseless
+surprise, each of those 4 screens carries an `.offmap-alert` element in its
+header (`ui.renderOffMapAlert`, fed the same `incoming` array
+`main.js:render()` already builds for `ui.renderDefendPrompts`) that shows
+the soonest incoming spell's caster/name/countdown and is itself a tappable
+button; tapping it (wired in `ui.initSubscreens`) returns to the map, where
+the real defend strip and Counterspell are reachable — the same place the
+bar's own 🗺️ Map tab goes. There's no Counterspell button on the 4 screens
+themselves — by design, since casting still needs the sign-pad flow that
+only makes sense once you can see the map/HUD underneath it.
 
 **Map sizing.** `#map` fills `#stage`. `map.js` observes it with a
 `ResizeObserver` (sheet/strip appearing, window or mobile-toolbar changes) ->
