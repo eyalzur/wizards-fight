@@ -94,7 +94,12 @@ percentage: casting it gives you a pool worth `maxHP × 0.35 × sign-mult`
 (a sloppy sign draw gives ~17.5% of your own max HP, a well-drawn one
 ~52.5%) — sized off **your own** maxHP (gear included), never the
 attacker's power, since the defender has no way to know the attacker's
-stats in this async real-time-travel game. Every hit that lands while it's
+stats in this async real-time-travel game. The sign-mult itself (0.5x-1.5x,
+from how accurately the sign was drawn) is shown to the player after every
+cast as a whole-number percentage (e.g. "73% power"), not a decimal
+multiplier — same "no decimals in player-facing numbers" convention as
+gear's Power stat above, applied independently since this is a ratio, not
+the `power` stat itself (`js/signpad.js`). Every hit that lands while it's
 up is subtracted from the pool:
 - If the pool can fully cover the hit, the hit does **zero** real damage —
   a true zero, not the old "never below 1" rounding rule (that rule only
@@ -223,7 +228,9 @@ button, now removed as redundant).
   and self wizard-sheet (avatar, name, element, level, XP bar) with your
   final effective combat stats (HP/mana, **Power** — your base power times
   the Spell Power Rune multiplier, i.e. what Spark Bolt's damage actually
-  uses — defense, sense range, and Spark Bolt's current cooldown after
+  uses, shown as a whole-number "power points" value at ×100 scale (see
+  "Mana Crystals, Treasury and Shop" below) rather than the raw internal
+  float — defense, sense range, and Spark Bolt's current cooldown after
   Spell Recovery) and the Spell Power/Spell Recovery upgrade cards that
   used to be the separate "🔮 Runes & Powers" panel (see "Runes & Powers"
   below) — now bought from this screen instead.
@@ -399,11 +406,11 @@ not tuned from play data.**
 
 | Item | Slot | Tier | Price | Base effect (+0) | Per upgrade level | At +10 |
 |------|------|------|-------|------------------|-------------------|--------|
-| Willow Wand | 🪄 wand | 1 | 100 💎 | +0.08 power | +0.02 power | +0.28 power |
-| Moonstone Wand | 🪄 wand | 2 | 350 💎 | +0.18 power | +0.05 power | +0.68 power |
-| Starwood Wand | 🪄 wand | 3 | 900 💎 | +0.40 power | +0.15 power | +1.90 power |
-| Aurora Wand | 🪄 wand | 4 | 2200 💎 | +0.80 power | +0.50 power | +5.80 power |
-| Archmage's Scepter | 🪄 wand | 5 | 5000 💎 | +1.50 power | +1.40 power | +15.50 power |
+| Willow Wand | 🪄 wand | 1 | 100 💎 | +8 power | +2 power | +28 power |
+| Moonstone Wand | 🪄 wand | 2 | 350 💎 | +18 power | +5 power | +68 power |
+| Starwood Wand | 🪄 wand | 3 | 900 💎 | +40 power | +15 power | +190 power |
+| Aurora Wand | 🪄 wand | 4 | 2200 💎 | +80 power | +50 power | +580 power |
+| Archmage's Scepter | 🪄 wand | 5 | 5000 💎 | +150 power | +140 power | +1550 power |
 | Apprentice Robe | 🧥 robe | 1 | 100 💎 | +15 max HP, +1 def | +1 max HP | +25 HP, +1 def |
 | Moonweave Robe | 🧥 robe | 2 | 350 💎 | +30 max HP, +1 def | +2 max HP | +50 HP, +1 def |
 | Starsilk Robe | 🧥 robe | 3 | 900 💎 | +60 max HP, +2 def | +6 max HP, +0.1 def | +120 HP, +3 def |
@@ -411,7 +418,12 @@ not tuned from play data.**
 | Archmage Vestments | 🧥 robe | 5 | 5000 💎 | +180 max HP, +4 def | +40 max HP, +0.5 def | +580 HP, +9 def |
 
 A tier's bonus replaces the previous tier's (not added to it). Base player
-power is about 4.5 (so a +1 power is about +22% damage).
+power is about 4.5 (so a +1 power is about +22% damage). **Power is shown to
+players at ×100 scale** (`js/wizard.js:formatPower`/`POWER_DISPLAY_SCALE`) —
+the table above already reflects that display scale; the underlying `power`
+float (and every damage formula that reads it) is unchanged, e.g. the Willow
+Wand's actual `mods.power` in `economy.js` is still `0.08`, just shown as
+"+8 power". See `proj-status.md` Decisions Log.
 
 ### Item upgrades ("enhancing", +1 to +10)
 
@@ -440,7 +452,10 @@ upgrades are the only "wasted" spend. The self sheet shows levels ("Aurora Wand
 
 Max gear (T5 wand +10 and T5 robe +10) adds +15.5 power, +580 max HP and +9
 defense: about 21 total power (about 200 damage per Spark Bolt at a perfect
-sign), 680+ max HP at level 1. Every hit that lands on an *unshielded* wizard
+sign), 680+ max HP at level 1. (This paragraph uses the internal raw `power`
+float that `combat.js`'s damage formula actually reads, not the ×100 display
+scale the Shop/Character screens show — see the gear table above.) Every hit
+that lands on an *unshielded* wizard
 still does at least 1 damage — but a hit fully covered by an active Ward
 Shield pool now does a true 0 to real HP (see "Ward Shield" above); only the
 overflow once a shield breaks is floored at 1.

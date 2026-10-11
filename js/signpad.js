@@ -168,9 +168,10 @@ export function openSignPad({ title, level = 1, sign = SIGN, onDone }) {
     const pts = strokes.reduce((n, s) => n + s.length, 0);
     const score = pts < MIN_POINTS ? 0 : scoreDrawing(strokes, sign);
     const mult = scoreToMultiplier(score);
+    const multPct = Math.round(mult * 100);
     resultEl.textContent = pts < MIN_POINTS
-      ? `${timedOut ? "Time's up! " : ''}Nothing drawn → ×${mult.toFixed(2)} power`
-      : `${timedOut ? "Time's up! " : ''}Accuracy ${Math.round(score * 100)}% → ×${mult.toFixed(2)} power`;
+      ? `${timedOut ? "Time's up! " : ''}Nothing drawn → ${multPct}% power`
+      : `${timedOut ? "Time's up! " : ''}Accuracy ${Math.round(score * 100)}% → ${multPct}% power`;
     setTimeout(() => { close(); onDone(mult, score, strokes); }, RESULT_MS);
   }
 

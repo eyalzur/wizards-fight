@@ -38,7 +38,11 @@ export const GEAR_SLOTS = [
 // equipped item of a slot and reset to 0 when a higher tier replaces it. To add
 // tiers or a new slot/kind append rows here — nothing else needs to change.
 // ALL first guesses. Fully maxed (+10) tier 5 gear: wand +15.5 power, robe
-// +580 max HP and +9 defense.
+// +580 max HP and +9 defense. (Raw internal `power` scale, as combat.js's
+// damage formula reads it — the Shop/Character screens show `power` mods at
+// a ×100 "power points" display scale instead, see js/wizard.js:formatPower;
+// this comment's numbers are intentionally left in the raw scale since
+// they're balance-math reasoning, not player-facing text.)
 export const GEAR = [
   { id: 'willow_wand', slot: 'wand', tier: 1, name: 'Willow Wand', icon: '🪄', price: 100, mods: { power: 0.08 }, upgrade: { power: 0.02 } },
   { id: 'moonstone_wand', slot: 'wand', tier: 2, name: 'Moonstone Wand', icon: '🪄', price: 350, mods: { power: 0.18 }, upgrade: { power: 0.05 } },

@@ -1,5 +1,5 @@
 import { loadState, saveState, clearState } from './state.js';
-import { ELEMENTS, createWizard, getElement, POWER_UPGRADE, RECOVERY_UPGRADE, upgradeCost, canUpgrade, buyUpgrade, spellCooldownSeconds, spellPowerMultiplier, setUpgradeLevel } from './wizard.js';
+import { ELEMENTS, createWizard, getElement, POWER_UPGRADE, RECOVERY_UPGRADE, upgradeCost, canUpgrade, buyUpgrade, spellCooldownSeconds, spellPowerMultiplier, setUpgradeLevel, formatPower } from './wizard.js';
 import { createNpc } from './npc.js';
 import { getSpell } from './spells.js';
 import * as geo from './geo.js';
@@ -636,7 +636,7 @@ function buildCharacterData(now) {
     shieldActive,
     shieldHp: shieldActive ? player.shieldBuff.hp : 0,
     shieldMaxHP: shieldActive ? player.shieldBuff.maxHP : 0,
-    effectivePower: +(player.power * spellPowerMultiplier(player)).toFixed(2),
+    effectivePower: formatPower(player.power * spellPowerMultiplier(player)),
     cooldownS,
     runes: player.runes || 0,
     power: buildUpgradeCardData(POWER_UPGRADE, `+${powerPct}% damage`),
