@@ -30,6 +30,16 @@ stale.
       instead of moving.
 - [ ] 📍 button re-centers on real location and shows a confirmation
       toast, or a failure toast if location can't be read.
+- [ ] Map zoom: +/- buttons zoom in/out and disable (greyed out) at the
+      bounds (14 min, 19 max); pinch and double-tap zoom work on a touch
+      device/emulator; scroll wheel zooms on desktop. HUD/tab bar/sheets stay
+      a fixed size — only the map tiles/markers/sense circle zoom.
+- [ ] Zoom independence: zoom out, then tap within 250m — it still walks;
+      tap further than 250m — it's still rejected with the correct distance
+      in the toast (the cap is real-meters based via `js/geo.js`, not pixel
+      distance, so it must hold at every zoom level, not just the default).
+      The sense-range circle's radius in meters is unchanged by zoom (only
+      its on-screen pixel size changes).
 
 ## Wizard sheet (tap-to-act)
 

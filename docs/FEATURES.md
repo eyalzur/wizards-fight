@@ -50,6 +50,20 @@ street/city data, styled dark to match the theme — see
 - Tapping a wizard marker (yours or an NPC's) does **not** also trigger a
   walk — click events on markers stop propagation before reaching the
   map's click handler.
+- **Zoomable, within bounds** (reversed 2026-10-11 from the original fixed-
+  zoom decision, by direct user request — see `proj-status.md` Decisions
+  Log). Zoom buttons (+/-), pinch, double-tap and (on desktop, for testing)
+  the scroll wheel all work, bounded to zoom 14 (zoomed out) through 19
+  (zoomed in) — a first guess, not tuned from play, same as every other
+  number in this doc. Box-zoom and keyboard zoom stay off (not useful
+  gestures for a touch-first game). Every gameplay distance (sense range,
+  the 250m tap-to-walk cap, NPC spawn radius) is computed in real meters via
+  `js/geo.js:distanceMeters` (plain lat/lng haversine math, no pixel or zoom
+  term in it anywhere), so none of it changes with zoom — only the on-screen
+  pixel size of the sense-range circle and how much real ground fits in view
+  changes, exactly like panning/zooming any map app. Marker *icons* (avatar
+  portraits, HP rings) stay a fixed pixel size at any zoom, same as a pin on
+  Google Maps.
 - **Identity + HP ring** — every avatar (map marker, HUD, wizard sheet) is
   wrapped in a ring (`js/portraits.js:avatarWithRing`) that does two jobs at
   once: its color is identity (self = mana blue, NPC = pink/garnet, selected

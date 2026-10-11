@@ -248,6 +248,25 @@ html, body {
 
 #stage { position: relative; flex: 1; min-height: 0; isolation: isolate; overflow: hidden; background: #0a0614; }
 #map { position: absolute; inset: 0; z-index: var(--z-map); background: #0a0614; }
+/* The browser's actual touch-gesture routing intersects touch-action across
+   an element and all its ancestors, so the html,body rule above (pan-x
+   pan-y, no pinch/double-tap, to stop the whole page zooming) could in
+   principle also starve Leaflet's own pinch-to-zoom/double-tap-zoom handling
+   on the map of raw touch events. Checked this empirically (Playwright CDP
+   touch-event pinch simulation, with and without this rule — not just
+   assumed) rather than relying on the theory alone: in this app's actual
+   config (dragging stays on by default, touchZoom now on too), Leaflet's own
+   bundled leaflet.css already sets `touch-action: none` directly on
+   `.leaflet-container` (the `#map` element itself, not a child) via its
+   `.leaflet-touch-drag.leaflet-touch-zoom` combo rule — and `none` is the
+   most restrictive value an intersection can produce, so the ancestor rule
+   above can't un-do it. This `#map.leaflet-container` rule is therefore
+   belt-and-suspenders, not currently load-bearing — kept because it pins
+   `none` with higher (ID) specificity than Leaflet's own class-based rule,
+   so this stays correct even if a future change (e.g. disabling `dragging`)
+   stops Leaflet's own classes from combining into the same value. See
+   proj-status.md Decisions Log, 2026-10-11 "map zoom unlocked" entry. */
+#map.leaflet-container { touch-action: none; }
 
 #hud {
   position: relative; z-index: var(--z-hud); flex: none;
