@@ -10,13 +10,22 @@ let projectileMarkers = {};
 let playerClickHandler = null;
 
 export function initMap(center, onMapClick) {
-  // Zoom is fixed on purpose: gameplay distances (sense range, walk limit,
-  // spell range) are tuned for this one view, so there is no zoom UI and every
-  // zoom gesture is off. Panning (dragging) still works.
+  // Zoom used to be fixed at 17 ("distances are tuned for this one view") —
+  // reversed 2026-10-11 by direct user request (see proj-status.md Decisions
+  // Log). Bounded 14..19 is a first guess, same "tune from play later" spirit
+  // as every other number in this project, not a value derived from testing
+  // every zoom level. All gameplay distance math (sense range, the 250m
+  // tap-to-walk cap, NPC spawn radius) lives in js/geo.js:distanceMeters,
+  // real lat/lng haversine math with no pixel/zoom term in it at all — so it
+  // stays correct at any zoom without any code change here; only the sense
+  // circle's and markers' on-screen pixel size change with zoom, same as any
+  // map app. scrollWheelZoom is harmless for desktop testing even though this
+  // is a mobile-first game. boxZoom/keyboard stay off — not useful gestures
+  // for a touch-first game, no reason to add them.
   map = L.map('map', {
-    zoomControl: false, tap: true,
-    minZoom: 17, maxZoom: 17,
-    scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false,
+    zoomControl: true, tap: true,
+    minZoom: 14, maxZoom: 19,
+    scrollWheelZoom: true, doubleClickZoom: true, touchZoom: true, boxZoom: false, keyboard: false,
   }).setView([center.lat, center.lng], 17);
   // iOS Safari ignores viewport maximum-scale; block its page pinch-zoom too.
   document.addEventListener('gesturestart', (e) => e.preventDefault());

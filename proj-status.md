@@ -67,8 +67,13 @@ on top of it when the repo owner has a Firebase project configured (see
 - **Incoming-curse alert** — however many curses are in flight, one slim card
   shows the one landing soonest (name, countdown, "+N more" chip) with a
   single Counterspell button that targets it; countering reveals the next.
-- **Fixed map zoom** — no zoom buttons or gestures (map stays at zoom 17;
-  distances are tuned for it). Panning still works.
+- **Zoomable map, bounded 14–19** — reversed 2026-10-11 from the original
+  "fixed at zoom 17" decision, by direct user request (see Decisions Log).
+  Zoom buttons, pinch, double-tap and scroll wheel all work; the 14–19
+  bound is a first guess, not tuned from play. Every gameplay distance
+  (sense range, the 250m tap-to-walk cap, NPC spawn radius) is real-meters
+  math (`js/geo.js`), independent of zoom, so nothing needed to change
+  there. Panning still works, as before.
 - **Combat UX** — tapping any wizard (yourself or an NPC) opens a
   contextual docked bottom sheet (the map shrinks above it; one overlay at
   a time; incoming attacks get their own strip under the HUD) with their stats and the one relevant action
@@ -277,6 +282,61 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-11 — Map zoom unlocked, reversing the original "fixed zoom"
+  decision, by direct user request.** The map used to launch with
+  `minZoom: maxZoom: 17` and every zoom gesture explicitly off
+  (`zoomControl: false, scrollWheelZoom: false, doubleClickZoom: false,
+  touchZoom: false, boxZoom: false, keyboard: false`), reasoned at the time
+  as "gameplay distances are tuned for this one view." The user asked to be
+  able to zoom; this reverses that call, not a bug fix. Shipped
+  `minZoom: 14, maxZoom: 19` (zoomControl/scrollWheelZoom/doubleClickZoom/
+  touchZoom on; boxZoom/keyboard stay off, not useful gestures for a
+  touch-first game) — the 14–19 range is a first guess, same "tune from
+  play later" spirit as every other number in this project, not derived
+  from testing every level. **Verified the thing this reversal depended on
+  rather than assuming it**: every gameplay distance (sense range, the
+  250m tap-to-walk cap, NPC spawn annulus) already runs through
+  `js/geo.js:distanceMeters` — plain lat/lng haversine, no pixel or zoom
+  term anywhere in it (confirmed by reading every call site, not just the
+  function itself) — so none of it needed a code change; only the on-screen
+  pixel size of the sense-range circle and markers changes with zoom
+  (marker *icons* stay fixed pixel size, same as a Google Maps pin, by
+  design, not a gap). **The touch-action interaction flagged as a risk
+  turned out not to be a real bug in this app's actual config, verified
+  empirically rather than assumed either way**: the `html,body { touch-
+  action: pan-x pan-y }` rule (added for page-level pinch-zoom blocking)
+  could in theory also starve Leaflet's own pinch/double-tap handling on
+  the map, since the browser's actual gesture routing intersects
+  touch-action across an element and its ancestors — but Leaflet's own
+  bundled `leaflet.css` already sets `touch-action: none` directly on the
+  map container once both `dragging` (on by default) and the newly-enabled
+  `touchZoom` are active, via its `.leaflet-touch-drag.leaflet-touch-zoom`
+  combo rule, and `none` is the most restrictive value an intersection can
+  produce, so the ancestor rule can't undo it. Added `#map.leaflet-container
+  { touch-action: none }` in `css/style.css` anyway, not because it's
+  currently load-bearing (an A/B Playwright test — same pinch gesture with
+  that rule stripped out via response interception — confirmed pinch still
+  worked without it) but because it pins the correct value at higher (ID)
+  specificity than Leaflet's own class-based rule, so it stays correct even
+  if a future change (e.g. disabling `dragging`) stops Leaflet's own
+  classes from combining into the same value. Verified with a throwaway
+  Playwright script (local static server, the same locally-cached Leaflet
+  1.9.4 build substituted in for the sandbox's blocked cdnjs egress as in
+  prior entries): zoom +/- buttons change zoom and correctly disable at the
+  14/19 bounds; a real two-finger pinch gesture dispatched via CDP
+  `Input.dispatchTouchEvent` (not a mocked API call) changed `getZoom()`
+  both directions; `getComputedStyle` confirmed `touch-action: none` on
+  `#map` and unchanged `pan-x pan-y` on `body`/HUD; HUD and tab-bar
+  bounding rects were pixel-identical before/after zooming (only the map
+  layer zooms, not page chrome); the sense circle's `getRadius()` (meters)
+  was identical at zoom 17 and zoom 14; and, the key distance-independence
+  check, the *same fixed pixel offset* from the player was tapped at
+  different zoom levels and produced genuinely different real-world
+  distances matching an independently-computed haversine value almost
+  exactly (e.g. 280px ≈ 2021m at zoom 14 vs ≈253m at zoom 17; a 150px tap
+  was rejected as too-far at zoom 14 but accepted at zoom 19) — proof the
+  cap is real lat/lng distance, not a pixel-based measurement that would
+  have behaved identically at every zoom.
 - **2026-10-11 — Visual theme reversed from "mature/aged" toward Disney/
   Pixar-leaning, by explicit user request.** The 2026-09-27 "v1 mature"
   pass (desaturated palette, Cinzel/Inter, smaller radii, muted glows —
