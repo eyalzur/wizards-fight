@@ -27,7 +27,7 @@ export function initCreateScreen(elements, onSubmit) {
     .map(
       (e, i) => `<label class="element-choice" style="--el-color:${e.color}">
         <input type="radio" name="element" value="${e.id}" ${i === 0 ? 'checked' : ''}>
-        <svg class="element-icon"><use href="#${e.symbolId}"></use></svg>
+        <span class="element-icon-badge"><svg class="element-icon"><use href="#${e.symbolId}"></use></svg></span>
         <span class="element-label">${e.label}</span>
         <span class="element-desc">${e.desc}</span>
       </label>`
@@ -485,12 +485,23 @@ function formatAgo(ms) {
   return `${h}h ago`;
 }
 
+// Tracks the last HP rendered in the HUD so the ring can play a one-shot
+// bump animation on the tick it actually changes (see .hp-bump in
+// css/style.css) instead of pulsing every render. Lives here, not main.js,
+// since it's purely an animation-timing concern of this one render call —
+// the same category of module-level "last rendered" state `shopScreenKey`/
+// `sheetKey` below already use to guard their own re-renders.
+let lastHudHp = null;
+
 export function renderHud(player, { potReady = false, fast = false } = {}) {
+  const hpChanged = lastHudHp !== null && lastHudHp !== player.hp;
+  lastHudHp = player.hp;
   document.getElementById('hud-avatar').innerHTML = avatarWithRing(player.avatar, getElement(player.element).color, {
     hp: player.hp,
     maxHP: player.maxHP,
     ringColor: 'var(--mana)',
     shieldActive: !!player.shieldActive,
+    pulse: hpChanged,
   });
   document.getElementById('hud-name').textContent = player.name;
   document.getElementById('hud-level').textContent = `Lv.${player.level}`;

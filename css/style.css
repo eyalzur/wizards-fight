@@ -1,24 +1,41 @@
 :root {
-  /* v1 "mature/aged" theme pass — same tokens, desaturated hex values, see
-     proj-status.md Decisions Log. Deliberately a first iteration, not a
-     final look. */
-  --bg-deep: #0c0a12;
-  --bg-panel: #171420;
-  --bg-panel-2: #201c2c;
-  --gold: #b9903f;
-  --gold-soft: #d9b876;
-  --purple: #5d4a99;
-  --pink: #a8394f;
-  --hp: #cc3f52;
-  --mana: #4a92c2;
-  --xp: #cda23f;
-  --parchment: #f5e6c8;
-  --parchment-ink: #3a2a1a;
-  --text: #ece6ff;
-  --text-dim: #8d84a3;
-  --radius: 10px;
-  --font-head: 'Cinzel', serif;
-  --font-body: 'Inter', sans-serif;
+  /* Theme history, newest first (see proj-status.md Decisions Log for the
+     full write-ups):
+     - 2026-10-11 "Disney/Pixar" pass (current) — explicit reversal of the
+       v1 "mature/aged" pass below, by direct user request. Same token
+       names/identity-color meanings throughout (self=mana blue, NPC=pink,
+       selected=gold, HP=red) — only values, type, radius and motion
+       changed. Saturated palette, Fredoka/Nunito instead of Cinzel/Inter,
+       a bigger rounder radius scale, and bouncy "jelly" press states on
+       primary buttons. The dark "magic-hour" backdrop and the faceless
+       hooded avatars are both deliberately NOT touched in this pass (see
+       Decisions Log) — the Pixar read comes from UI chrome saturation/
+       roundness/bounce on top of the existing dark map, not from going
+       light; avatar faces are a separate, bigger future task (Roadmap).
+     - 2026-09-27 "v1 mature/aged" pass (superseded) — same tokens,
+       desaturated hex values, framed at the time as a first iteration, not
+       a final look. */
+  --bg-deep: #140f26;
+  --bg-panel: #241a40;
+  --bg-panel-2: #322352;
+  --gold: #ffb84d;
+  --gold-soft: #ffd27a;
+  --purple: #8c5cf6;
+  --pink: #ff5d8f;
+  --hp: #ff5a5f;
+  --mana: #4fc3ff;
+  --xp: #ffd23f;
+  --parchment: #fff6e0;
+  --parchment-ink: #4a2f12;
+  --text: #fdfbff;
+  --text-dim: #c3b3e8;
+  --radius-sm: 12px;
+  --radius: 18px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --font-head: 'Fredoka', sans-serif;
+  --font-body: 'Nunito', sans-serif;
 
   /* Layering contract (docs/ARCHITECTURE.md "Screen layout and layering").
      HUD, defend strip and docked sheet are in normal flow around #stage, so
@@ -86,18 +103,27 @@ html, body {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   padding: 6px 2px; border: none; background: none; cursor: pointer;
   color: var(--text-dim); font-family: var(--font-body); font-weight: 800;
+  transition: transform 0.16s var(--ease-bounce);
 }
+.tab-btn:active { transform: scale(0.9); }
 .tab-btn .tab-icon { font-size: 1.2rem; line-height: 1; }
 .tab-btn .tab-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.02em; }
-.tab-btn.active { color: var(--gold-soft); background: rgba(226,177,60,0.12); }
+/* Only vertical margin on the active chip — horizontal margin would skew
+   the flex:1 width split between tabs; vertical margin doesn't affect the
+   main-axis distribution, so every tab stays an equal width. */
+.tab-btn.active { color: var(--gold-soft); background: rgba(226,177,60,0.12); border-radius: var(--radius-pill); margin: 4px 0; }
 
 /* ---------- Create screen ---------- */
 
 #screen-create {
-  align-items: center;
+  align-items: center; /* fallback for browsers without `safe` support */
+  align-items: safe center; /* if content is taller than the screen, center
+    it like normal, but don't let that centering push the top out of
+    scroll-reach — `safe` falls back to start-alignment in that case so
+    the whole card, title included, stays reachable. */
   justify-content: center;
   overflow-y: auto;
-  padding: 24px 16px;
+  padding: 16px 16px;
   /* rgba() values below are --purple/--pink resolved to rgb — these two
      glows were still the old bright pre-desaturation accent colors after
      the v1 mature-theme pass (which only touched :root tokens, not hardcoded
@@ -114,8 +140,8 @@ html, body {
   max-width: 480px;
   background: var(--bg-panel);
   border: 1px solid rgba(226, 177, 60, 0.25);
-  border-radius: 14px;
-  padding: 28px 22px 20px;
+  border-radius: var(--radius-lg);
+  padding: 20px 20px 16px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
 
@@ -123,18 +149,18 @@ html, body {
   font-family: var(--font-head);
   color: var(--gold-soft);
   text-align: center;
-  font-size: 2rem;
+  font-size: 1.8rem;
   margin: 0 0 4px;
   text-shadow: 0 0 18px rgba(226,177,60,0.4);
 }
 
-.subtitle { text-align: center; color: var(--text-dim); margin: 0 0 20px; font-weight: 600; }
+.subtitle { text-align: center; color: var(--text-dim); margin: 0 0 14px; font-weight: 600; }
 
 .field-label {
   display: block;
   font-weight: 800;
   color: var(--gold-soft);
-  margin: 18px 0 8px;
+  margin: 14px 0 6px;
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -143,7 +169,7 @@ html, body {
 #name-input {
   width: 100%;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: 1px solid rgba(255,255,255,0.15);
   background: var(--bg-panel-2);
   color: var(--text);
@@ -152,42 +178,59 @@ html, body {
 }
 #name-input:focus { outline: 2px solid var(--purple); }
 
-.avatar-options { display: flex; gap: 12px; flex-wrap: wrap; }
+.avatar-options { display: flex; gap: 10px; flex-wrap: wrap; }
 .avatar-choice input { display: none; }
 .avatar-choice span {
   display: flex; align-items: center; justify-content: center;
-  width: 72px; height: 72px; padding: 6px;
-  border-radius: 16px; background: var(--bg-panel-2);
+  width: 60px; height: 60px; padding: 5px;
+  border-radius: var(--radius-lg); background: var(--bg-panel-2);
   border: 2px solid transparent; cursor: pointer; overflow: hidden;
 }
 .avatar-choice span svg.portrait { width: 100%; height: 100%; display: block; }
 .avatar-choice input:checked + span { border-color: var(--gold); background: rgba(226,177,60,0.15); }
 
-.element-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.element-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .element-choice {
   position: relative;
   display: flex; flex-direction: column; align-items: center; text-align: center;
-  gap: 2px; padding: 12px 8px;
-  border-radius: 14px; background: var(--bg-panel-2);
+  gap: 2px; padding: 9px 8px;
+  border-radius: var(--radius-lg); background: var(--bg-panel-2);
   border: 2px solid transparent; cursor: pointer;
 }
 .element-choice input { position: absolute; opacity: 0; }
 .element-choice input:checked ~ * { }
 .element-choice:has(input:checked) { border-color: var(--el-color); background: color-mix(in srgb, var(--el-color) 18%, var(--bg-panel-2)); }
-.element-icon { width: 1.6rem; height: 1.6rem; color: var(--el-color); }
+/* Filled tinted badge circle behind each element glyph (Pixar pass — see
+   proj-status.md Decisions Log) instead of bare line art floating on the
+   panel background; reuses the same `--el-color` custom property the
+   choice label already sets inline. */
+.element-icon-badge {
+  display: flex; align-items: center; justify-content: center;
+  width: 2.1rem; height: 2.1rem; border-radius: 50%;
+  background: color-mix(in srgb, var(--el-color) 20%, transparent);
+}
+.element-icon { width: 1.3rem; height: 1.3rem; color: var(--el-color); }
 .element-label { font-weight: 800; color: var(--el-color); }
-.element-desc { font-size: 0.75rem; color: var(--text-dim); }
+.element-desc { font-size: 0.72rem; color: var(--text-dim); }
 
 .btn-primary {
-  width: 100%; margin-top: 22px; padding: 14px;
-  border: none; border-radius: 14px; cursor: pointer;
+  width: 100%; margin-top: 16px; padding: 12px;
+  border: none; border-radius: var(--radius-pill); cursor: pointer;
   font-family: var(--font-head); font-size: 1.05rem; font-weight: 700;
   color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
-  box-shadow: 0 8px 24px rgba(226,177,60,0.18);
+  box-shadow:
+    0 6px 0 0 color-mix(in srgb, var(--gold) 65%, black),
+    0 10px 24px rgba(226,177,60,0.3);
+  transition: transform 0.16s var(--ease-bounce), box-shadow 0.16s ease;
 }
-.btn-primary:active { transform: translateY(1px); }
+.btn-primary:active {
+  transform: translateY(5px);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black),
+    0 3px 10px rgba(226,177,60,0.25);
+}
 
-.fineprint { margin-top: 16px; font-size: 0.75rem; color: var(--text-dim); text-align: center; }
+.fineprint { margin-top: 10px; font-size: 0.75rem; color: var(--text-dim); text-align: center; }
 
 /* ---------- Game screen ---------- */
 
@@ -222,7 +265,7 @@ html, body {
 .hud-avatar { display: block; width: 48px; height: 48px; }
 .hud-level {
   position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
-  padding: 0 6px; border-radius: 8px; line-height: 16px; white-space: nowrap;
+  padding: 0 6px; border-radius: var(--radius-pill); line-height: 16px; white-space: nowrap;
   background: var(--bg-deep); border: 1px solid var(--gold); color: var(--gold-soft);
   font-size: 0.75rem; font-weight: 800;
 }
@@ -231,8 +274,8 @@ html, body {
 .hud-bars { display: flex; gap: 4px; margin-top: 2px; }
 .hud-bars .bar { flex: 1; min-width: 0; margin-top: 0; }
 
-.bar { position: relative; height: 9px; border-radius: 6px; background: rgba(255,255,255,0.1); margin-top: 3px; overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 6px; transition: width 0.25s ease; }
+.bar { position: relative; height: 9px; border-radius: var(--radius-pill); background: rgba(255,255,255,0.1); margin-top: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: var(--radius-pill); transition: width 0.25s ease; }
 .hp-fill { background: linear-gradient(90deg, #ff8a9e, var(--hp)); }
 .mana-fill { background: linear-gradient(90deg, #8fe3ff, var(--mana)); }
 .xp-fill { background: linear-gradient(90deg, #fff0b3, var(--xp)); }
@@ -262,11 +305,11 @@ html, body {
   width: min(260px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow-y: auto;
   display: flex; flex-direction: column; gap: 2px;
   background: var(--bg-panel); border: 1px solid rgba(226,177,60,0.4);
-  border-radius: 14px; padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+  border-radius: var(--radius-lg); padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,0.6);
 }
 .menu-panel.hidden { display: none; }
 .menu-panel button {
-  text-align: left; padding: 0 12px; min-height: 48px; border-radius: 10px; border: none;
+  text-align: left; padding: 0 12px; min-height: 48px; border-radius: var(--radius-sm); border: none;
   background: transparent; color: var(--text); font-weight: 700; font-size: 1rem;
   cursor: pointer; font-family: var(--font-body); flex: none;
 }
@@ -349,14 +392,18 @@ html, body {
 .sheet-panel {
   position: relative; width: 100%; max-width: 480px;
   background: var(--bg-panel); border: 1px solid var(--gold);
-  border-bottom: none; border-radius: 14px 14px 0 0;
+  border-bottom: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 12px 14px 12px;
   max-height: min(46dvh, 380px); overflow-y: auto;
   box-shadow: 0 -8px 24px rgba(0,0,0,0.5);
-  animation: sheet-up 0.18s ease-out;
+  animation: sheet-up 0.3s var(--ease-bounce);
 }
 @media (prefers-reduced-motion: reduce) { .sheet-panel { animation: none; } }
-@keyframes sheet-up { from { transform: translateY(16px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
+@keyframes sheet-up {
+  from { transform: translateY(16px); opacity: 0.4; }
+  60% { transform: translateY(-4px); opacity: 1; }
+  to { transform: translateY(0); opacity: 1; }
+}
 .sheet-close {
   position: absolute; top: 2px; right: 4px; width: var(--tap); height: var(--tap);
   border-radius: 50%; border: none; background: transparent;
@@ -374,7 +421,7 @@ html, body {
 /* Nemesis System: a small badge next to the name of whichever NPC most
    recently defeated the player (see js/npc.js, js/combat.js:handleDefeat). */
 .nemesis-badge {
-  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px;
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: var(--radius-pill);
   font-size: 0.68rem; font-weight: 800; color: var(--pink);
   background: rgba(168, 57, 79, 0.18); border: 1px solid rgba(168, 57, 79, 0.45);
   vertical-align: middle;
@@ -383,7 +430,7 @@ html, body {
 .sheet-sub-synced { opacity: 0.85; }
 .sheet-remote-note {
   font-size: 0.75rem; color: var(--text-dim); background: rgba(138,92,246,0.12);
-  border: 1px solid rgba(138,92,246,0.3); border-radius: 10px;
+  border: 1px solid rgba(138,92,246,0.3); border-radius: var(--radius-sm);
   padding: 8px 10px; margin-bottom: 10px;
 }
 .sheet-stats { display: flex; gap: 8px; margin-bottom: 8px; }
@@ -396,12 +443,42 @@ html, body {
 .sheet-actions { display: flex; gap: 8px; }
 .sheet-btn {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 10px; min-height: 44px; border-radius: 12px; border: none; cursor: pointer;
+  padding: 10px; min-height: 44px; border-radius: var(--radius-pill); border: none; cursor: pointer;
   font-family: var(--font-head); font-weight: 700; font-size: 0.88rem;
   color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+  box-shadow:
+    0 5px 0 0 color-mix(in srgb, var(--gold) 65%, black),
+    0 8px 16px rgba(255,184,77,0.3);
+  transition: transform 0.16s var(--ease-bounce), box-shadow 0.16s ease;
 }
-.sheet-btn.attack { background: linear-gradient(135deg, #ff9db3, var(--pink)); }
-.sheet-btn.shield { background: linear-gradient(135deg, #b79bff, var(--purple)); }
+.sheet-btn:active {
+  transform: translateY(4px);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black),
+    0 2px 6px rgba(255,184,77,0.25);
+}
+.sheet-btn.attack {
+  background: linear-gradient(135deg, #ff9db3, var(--pink));
+  box-shadow:
+    0 5px 0 0 color-mix(in srgb, var(--pink) 65%, black),
+    0 8px 16px rgba(255,93,143,0.35);
+}
+.sheet-btn.attack:active {
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--pink) 65%, black),
+    0 2px 6px rgba(255,93,143,0.3);
+}
+.sheet-btn.shield {
+  background: linear-gradient(135deg, #b79bff, var(--purple));
+  box-shadow:
+    0 5px 0 0 color-mix(in srgb, var(--purple) 65%, black),
+    0 8px 16px rgba(140,92,246,0.35);
+}
+.sheet-btn.shield:active {
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--purple) 65%, black),
+    0 2px 6px rgba(140,92,246,0.3);
+}
 .sheet-btn.disabled { opacity: 0.4; pointer-events: none; }
 .sheet-btn-icon { font-size: 1rem; }
 .sheet-btn-cost { font-size: 0.75rem; opacity: 0.75; font-family: var(--font-body); }
@@ -423,7 +500,12 @@ html, body {
   max-width: 480px; margin: 0 auto;
   animation: pulse-red 1.2s ease-in-out infinite;
 }
-@keyframes pulse-red { 0%,100% { filter: none; } 50% { filter: drop-shadow(0 0 6px rgba(168,57,79,0.7)); } }
+/* Deliberately NOT given the jelly/bounce treatment — this is a warning,
+   not a playful bounce (see proj-status.md Decisions Log). Only the color
+   moved to the new --hp value (kept as a literal rgb() to match this
+   file's existing style of pre-resolving token values inside @keyframes,
+   same as .shop-flash/.gem-ready below). */
+@keyframes pulse-red { 0%,100% { filter: none; } 50% { filter: drop-shadow(0 0 6px rgba(255,90,95,0.7)); } }
 @media (prefers-reduced-motion: reduce) { .defend-card { animation: none; } }
 .defend-ring { position: relative; flex: none; width: 44px; height: 44px; }
 .defend-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
@@ -438,9 +520,19 @@ html, body {
 .defend-more { color: var(--gold-soft); }
 .defend-reason { color: var(--text); }
 .defend-btn {
-  flex: none; min-width: var(--tap); min-height: var(--tap); padding: 0 12px; border-radius: 12px; border: none; cursor: pointer;
+  flex: none; min-width: var(--tap); min-height: var(--tap); padding: 0 12px; border-radius: var(--radius-pill); border: none; cursor: pointer;
   background: linear-gradient(135deg, var(--gold-soft), var(--gold)); color: #241448;
   font-family: var(--font-body); font-weight: 800; font-size: 0.9rem; white-space: nowrap;
+  box-shadow:
+    0 4px 0 0 color-mix(in srgb, var(--gold) 65%, black),
+    0 6px 14px rgba(255,184,77,0.3);
+  transition: transform 0.16s var(--ease-bounce), box-shadow 0.16s ease;
+}
+.defend-btn:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black),
+    0 2px 6px rgba(255,184,77,0.25);
 }
 .defend-btn small { font-size: 0.75rem; font-weight: 700; opacity: 0.8; }
 .defend-btn.disabled { opacity: 0.4; pointer-events: none; }
@@ -454,7 +546,7 @@ html, body {
 .down-overlay.hidden { display: none; }
 .down-card {
   background: var(--bg-panel); border: 1px solid var(--hp);
-  padding: 20px 26px; border-radius: 16px; text-align: center; font-size: 1.1rem;
+  padding: 20px 26px; border-radius: var(--radius-lg); text-align: center; font-size: 1.1rem;
 }
 
 /* Toasts: top of the stage, so they never sit behind the bottom-anchored
@@ -465,17 +557,28 @@ html, body {
 }
 .toast {
   background: rgba(20, 10, 35, 0.95); border: 1px solid var(--gold);
-  padding: 8px 14px; border-radius: 10px; font-size: 0.875rem; font-weight: 700;
-  opacity: 0; transform: translateY(-8px); transition: all 0.25s ease;
+  padding: 8px 14px; border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 700;
+  opacity: 0; transform: translateY(-8px) scale(0.92);
+  transition: opacity 0.25s ease, transform 0.25s ease;
   max-width: 90%; text-align: center;
 }
-.toast.show { opacity: 1; transform: translateY(0); }
+/* Pop-and-settle entrance (jelly pass) instead of a flat fade+slide; the
+   disappearing half still uses the plain `transition` above (removing
+   `.show` just reverts toward the base rule), so only the entrance needs
+   its own keyframes. */
+.toast.show { animation: toast-pop 0.3s var(--ease-bounce) forwards; }
+@keyframes toast-pop {
+  0% { opacity: 0; transform: translateY(-8px) scale(0.92); }
+  60% { opacity: 1; transform: translateY(2px) scale(1.04); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .toast.show { animation: none; opacity: 1; transform: none; } }
 
 /* Log panel (opened from the ☰ menu) */
 .log-panel {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--z-log);
   max-height: 80%; background: var(--parchment); color: var(--parchment-ink);
-  border-top: 3px solid var(--gold); border-radius: 16px 16px 0 0;
+  border-top: 3px solid var(--gold); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   display: flex; flex-direction: column;
 }
 .log-panel.hidden { display: none; }
@@ -496,7 +599,7 @@ html, body {
 .hud-actions .hud-gems {
   display: inline-flex; align-items: center; justify-content: center; gap: 3px; position: relative;
   /* the 44px circle from `.hud-actions button` grows into a pill with the count */
-  width: auto; min-width: var(--tap); padding: 0 10px; border-radius: 22px; cursor: pointer;
+  width: auto; min-width: var(--tap); padding: 0 10px; border-radius: var(--radius-pill); cursor: pointer;
   border: 1px solid rgba(226,177,60,0.4); background: var(--bg-panel-2);
   color: var(--gold-soft); font-family: var(--font-body); font-weight: 800; font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
@@ -513,6 +616,16 @@ html, body {
 .hud-actions .hud-gems.bump { animation: gem-bump 0.35s ease-out; }
 @keyframes gem-bump { 0% { transform: scale(1); } 40% { transform: scale(1.22); } 100% { transform: scale(1); } }
 
+/* HP ring pulse (jelly pass): a quick scale-bump on the HUD avatar's
+   identity+HP ring whenever the player's HP changes, extending the exact
+   gem-bump keyframe shape above rather than inventing a new one — see
+   js/ui.js:renderHud (tracks the last-rendered HP to know when to add this
+   class) and docs/ARCHITECTURE.md. Deliberately only the ring wrapper's
+   `transform` scales; the ring's own stroke-dashoffset arc stays on its
+   existing smooth (non-bouncy) transition, since that's the actual HP
+   gauge, not decoration. */
+.marker-ring-wrap.hp-bump { animation: gem-bump 0.35s var(--ease-bounce); }
+
 .gem-pop {
   position: absolute; z-index: var(--z-pop); pointer-events: none; transform: translateX(-50%);
   font-weight: 800; font-size: 1rem; color: var(--gold-soft); text-shadow: 0 1px 4px #000;
@@ -520,7 +633,7 @@ html, body {
 }
 @keyframes gem-pop { 0% { opacity: 0; transform: translate(-50%, 0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, 36px); } }
 @media (prefers-reduced-motion: reduce) {
-  .hud-actions .hud-gems.bump, .hud-actions .hud-gems.ready { animation: none; }
+  .hud-actions .hud-gems.bump, .hud-actions .hud-gems.ready, .marker-ring-wrap.hp-bump { animation: none; }
   .gem-pop { animation: gem-pop-still 1.4s linear forwards; }
   @keyframes gem-pop-still { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
 }
@@ -540,7 +653,9 @@ html, body {
 .sheet-btn.secondary {
   background: transparent; color: var(--gold-soft); border: 1px solid rgba(226,177,60,0.5);
   font-family: var(--font-body); font-weight: 800;
+  box-shadow: none;
 }
+.sheet-btn.secondary:active { transform: none; box-shadow: none; }
 .sheet-btn.secondary.shop-open { flex: 0 0 auto; min-width: 96px; padding: 10px 14px; font-size: 0.9rem; }
 /* The shop is a focused task, so it may take more height than other sheets —
    but only its list scrolls; header and slot tabs stay put. */
@@ -563,7 +678,7 @@ html, body {
 .shop-intro { flex: none; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 8px; }
 .shop-slots { flex: none; display: flex; gap: 6px; margin-bottom: 10px; }
 .shop-slot {
-  flex: 1; min-height: var(--tap); border-radius: 10px; cursor: pointer;
+  flex: 1; min-height: var(--tap); border-radius: var(--radius-pill); cursor: pointer;
   border: 1px solid rgba(255,255,255,0.15); background: var(--bg-panel-2);
   color: var(--text-dim); font-family: var(--font-body); font-weight: 800; font-size: 0.85rem;
 }
@@ -614,12 +729,33 @@ html, body {
 .shop-tag { font-size: 0.75rem; font-weight: 800; color: var(--gold-soft); flex-shrink: 0; }
 .shop-tag.dim { color: var(--text-dim); }
 .shop-price {
-  flex-shrink: 0; min-width: 84px; min-height: 44px; padding: 6px 10px; border-radius: 12px; border: none;
+  flex-shrink: 0; min-width: 84px; min-height: 44px; padding: 6px 10px; border-radius: var(--radius-pill); border: none;
   cursor: pointer; font-family: var(--font-head); font-weight: 700; font-size: 0.85rem;
   color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+  box-shadow:
+    0 4px 0 0 color-mix(in srgb, var(--gold) 65%, black),
+    0 6px 14px rgba(255,184,77,0.3);
+  transition: transform 0.16s var(--ease-bounce), box-shadow 0.16s ease;
 }
-.shop-price.confirm { background: linear-gradient(135deg, #ff9db3, var(--pink)); }
-.shop-price.poor { background: rgba(255,255,255,0.1); color: var(--text-dim); cursor: default; }
+.shop-price:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black),
+    0 2px 6px rgba(255,184,77,0.25);
+}
+.shop-price.confirm {
+  background: linear-gradient(135deg, #ff9db3, var(--pink));
+  box-shadow:
+    0 4px 0 0 color-mix(in srgb, var(--pink) 65%, black),
+    0 6px 14px rgba(255,93,143,0.35);
+}
+.shop-price.confirm:active {
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--pink) 65%, black),
+    0 2px 6px rgba(255,93,143,0.3);
+}
+.shop-price.poor { background: rgba(255,255,255,0.1); color: var(--text-dim); cursor: default; box-shadow: none; }
+.shop-price.poor:active { transform: none; box-shadow: none; }
 
 /* Powers panel (🔮 Runes & Powers, opened from the ☰ menu) — dark
    sheet-panel skin with a gold top border, deliberately NOT the log
@@ -629,7 +765,7 @@ html, body {
   max-height: 100%; overflow-y: auto;
   background: var(--bg-panel); color: var(--text);
   border: 1px solid var(--gold); border-bottom: none;
-  border-radius: 20px 20px 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 14px 16px 16px;
   box-shadow: 0 -8px 32px rgba(0,0,0,0.55);
 }
@@ -646,7 +782,7 @@ html, body {
 .powers-balance { color: var(--gold-soft); font-weight: 700; margin-bottom: 12px; }
 .powers-cards { display: flex; flex-direction: column; gap: 12px; }
 .power-card {
-  background: var(--bg-panel-2); border-radius: 14px; padding: 12px 14px;
+  background: var(--bg-panel-2); border-radius: var(--radius-lg); padding: 12px 14px;
   border: 1px solid rgba(226,177,60,0.2);
 }
 .power-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
@@ -655,29 +791,39 @@ html, body {
 .power-desc { font-size: 0.8rem; color: var(--text-dim); }
 .power-status { font-size: 0.85rem; color: var(--gold-soft); font-weight: 700; margin-bottom: 8px; }
 .power-buy {
-  width: 100%; padding: 10px; border-radius: 12px; border: none; cursor: pointer;
+  width: 100%; padding: 10px; border-radius: var(--radius-pill); border: none; cursor: pointer;
   font-family: var(--font-head); font-weight: 700; font-size: 0.9rem;
   color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+  box-shadow:
+    0 4px 0 0 color-mix(in srgb, var(--gold) 65%, black),
+    0 6px 14px rgba(255,184,77,0.3);
+  transition: transform 0.16s var(--ease-bounce), box-shadow 0.16s ease;
+}
+.power-buy:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black),
+    0 2px 6px rgba(255,184,77,0.25);
 }
 .power-buy.disabled { opacity: 0.4; pointer-events: none; }
 .power-reason { margin-top: 6px; font-size: 0.75rem; color: var(--text-dim); text-align: center; }
 .power-maxed {
   text-align: center; font-weight: 800; color: var(--gold-soft);
-  padding: 8px; border-radius: 12px; background: rgba(226,177,60,0.12);
+  padding: 8px; border-radius: var(--radius); background: rgba(226,177,60,0.12);
 }
 
 /* QA/dev tools panel (?qa=1 only — see docs/ARCHITECTURE.md). Reuses the
    powers-panel shell; only the innards below are QA-specific. */
 .qa-current-runes, .qa-current-gems { color: var(--gold-soft); font-weight: 700; margin-bottom: 12px; }
 .qa-section {
-  background: var(--bg-panel-2); border-radius: 14px; padding: 12px 14px;
+  background: var(--bg-panel-2); border-radius: var(--radius-lg); padding: 12px 14px;
   border: 1px solid rgba(226,177,60,0.2); margin-bottom: 12px;
 }
 .qa-label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; }
 .qa-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
 .qa-row:first-of-type { margin-top: 0; }
 .qa-row input[type="number"] {
-  flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px;
+  flex: 1; min-width: 0; padding: 8px 10px; border-radius: var(--radius-sm);
   border: 1px solid rgba(255,255,255,0.15); background: var(--bg-panel);
   color: var(--text); font-family: var(--font-body); font-size: 0.9rem;
 }
@@ -743,7 +889,7 @@ html, body {
 /* Character screen */
 .char-card {
   max-width: 480px; margin: 0 auto 16px; background: var(--bg-panel-2);
-  border: 1px solid rgba(226,177,60,0.25); border-radius: 14px; padding: 14px;
+  border: 1px solid rgba(226,177,60,0.25); border-radius: var(--radius-lg); padding: 14px;
 }
 .char-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .char-name { font-weight: 800; font-size: 1.1rem; }
@@ -755,7 +901,7 @@ html, body {
 }
 .char-stat {
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
-  background: var(--bg-panel); border-radius: 10px; padding: 8px 10px;
+  background: var(--bg-panel); border-radius: var(--radius-sm); padding: 8px 10px;
 }
 .char-stat-label { font-size: 0.8rem; color: var(--text-dim); font-weight: 700; }
 .char-stat-value { font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -773,9 +919,19 @@ html, body {
 .inv-stats { font-size: 0.8rem; color: var(--gold-soft); font-weight: 700; margin-top: 2px; }
 .inv-empty-note { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; }
 .inv-goshop {
-  flex: none; min-height: var(--tap); padding: 0 14px; border-radius: 12px; border: none; cursor: pointer;
+  flex: none; min-height: var(--tap); padding: 0 14px; border-radius: var(--radius-pill); border: none; cursor: pointer;
   font-family: var(--font-head); font-weight: 700; font-size: 0.85rem;
   color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+  box-shadow:
+    0 4px 0 0 color-mix(in srgb, var(--gold) 65%, black),
+    0 6px 14px rgba(255,184,77,0.3);
+  transition: transform 0.16s var(--ease-bounce), box-shadow 0.16s ease;
+}
+.inv-goshop:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black),
+    0 2px 6px rgba(255,184,77,0.25);
 }
 
 /* Shop screen: reuses .shop-* row/list/icon classes from the old docked
@@ -793,7 +949,7 @@ html, body {
 }
 .sign-card {
   background: var(--bg-panel); border: 1px solid var(--gold);
-  border-radius: 16px; padding: 14px; width: min(340px, calc(100vw - 24px));
+  border-radius: var(--radius-lg); padding: 14px; width: min(340px, calc(100vw - 24px));
   text-align: center;
 }
 .sign-title { font-family: var(--font-head); font-weight: 800; font-size: 1.05rem; }
@@ -801,14 +957,19 @@ html, body {
 .sign-canvas {
   display: block; margin: 0 auto;
   width: min(100%, calc(100dvh - 210px)); aspect-ratio: 1; touch-action: none; cursor: crosshair;
-  background: rgba(255,255,255,0.04); border-radius: 12px;
+  background: rgba(255,255,255,0.04); border-radius: var(--radius);
 }
 .sign-result { min-height: 1.4em; margin: 8px 0; font-weight: 800; color: var(--gold); }
 .sign-actions { display: flex; gap: 8px; justify-content: center; }
 .sign-actions .sign-btn { flex: 1; min-height: 44px; }
 .sign-btn {
-  padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.25);
+  padding: 8px 12px; border-radius: var(--radius-pill); border: 1px solid rgba(255,255,255,0.25);
   background: transparent; color: inherit; font-weight: 800; cursor: pointer;
+  transition: transform 0.16s var(--ease-bounce);
 }
-.sign-btn.primary { background: var(--gold); color: #241448; border-color: var(--gold); }
+.sign-btn.primary {
+  background: var(--gold); color: #241448; border-color: var(--gold);
+  box-shadow: 0 4px 0 0 color-mix(in srgb, var(--gold) 65%, black);
+}
+.sign-btn.primary:active { transform: translateY(3px); box-shadow: 0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black); }
 .sign-btn:disabled { opacity: 0.4; cursor: default; }
