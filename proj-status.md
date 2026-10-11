@@ -1,6 +1,6 @@
 # Wizards Fight — Project Status
 
-Last updated: 2026-10-10
+Last updated: 2026-10-11
 
 This file is the single source of truth for "what exists, what's next, and
 why we made the calls we made." Run `/resume-proj` to get a suggested next
@@ -180,6 +180,14 @@ Mana Crystals economy phases (Phase 1 is live, see above):
   that concept up here and scope it before building anything behind the
   tab; until then it stays static "Coming soon" copy.
 
+- **Avatar face redraw** — give the 5+ hood looks simple expressive faces
+  (Pixar-shorts-simplicity, not full rigging), legibility-tested at the
+  ~40px map-marker scale, possibly reworking the mirrored-variant trick
+  since asymmetric faces can't mirror as cleanly as the current sash hack.
+  Scoped but not started. Deliberately deferred out of the 2026-10-11
+  "Pixar" theme pass (see Decisions Log) — that pass intentionally left
+  the hooded avatars faceless, same as every pass before it.
+
 - Reintroduce element-specific attack spells (Fireball, Frost Shard,
   Thunder Jab, Thornwhip) and a heal spell (Minor Renewal), now that the
   1-attack/2-defend baseline is proven — see Decisions Log for why they
@@ -269,6 +277,82 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-11 — Visual theme reversed from "mature/aged" toward Disney/
+  Pixar-leaning, by explicit user request.** The 2026-09-27 "v1 mature"
+  pass (desaturated palette, Cinzel/Inter, smaller radii, muted glows —
+  see that entry below) was a deliberate first iteration framed at the
+  time as something to revisit; the user has now explicitly asked to
+  pivot the tone toward saturated, rounded, bouncy "jelly" UI chrome —
+  this is a tonal pivot, not an audience-age or mechanics change (still
+  built for the same 13–25 skewing-boys audience, no gameplay numbers
+  touched). Three decisions were made by the user up front, not left to
+  this pass's judgment: (1) **font** — Cinzel is gone everywhere,
+  including the "Wizards Fight" title itself (no "epic fantasy" anchor
+  left); `--font-head` is now Fredoka (400/500/600/700), `--font-body` is
+  back to Nunito (a literal revert of the 09-27 Nunito→Inter swap); (2)
+  **backdrop stays dark** — the CartoDB/Esri map tile source and
+  `js/map.js` were explicitly untouched; the Pixar read comes from
+  saturation/roundness/bounce in the UI chrome sitting on top of the
+  existing dark "magic-hour" map, not from going to a light theme; (3)
+  **avatar faces stay faceless this pass** — the hooded portraits are a
+  separate, bigger future task (new Roadmap line above), not attempted
+  here; no new avatar art was drawn. Shipped, same token names/identity-
+  color meanings throughout (self=mana blue, NPC=pink, selected=gold,
+  HP=red) so nothing that reads meaning by color broke: (a) a full
+  `:root` palette swap to saturated hex values (see the token list in
+  `css/style.css`'s top comment); (b) a 4-step radius scale
+  (`--radius-sm`/`--radius`/`--radius-lg`/`--radius-pill`, replacing the
+  single flat `--radius: 10px`) swept across the file's hardcoded
+  `border-radius` values by bucket (small ~8-10px, medium ~14-16px, full
+  circles left alone, and every "obviously a button/chip" rounding —
+  `.sheet-btn`, `.tab-btn.active`, `.shop-price`, `.power-buy`,
+  `.inv-goshop`, `.btn-primary`, `.defend-btn`, HP/mana/XP bars, badges —
+  promoted to the new fully-rounded `--radius-pill`); (c) a
+  `--ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1)` spring easing applied
+  to button press/release states, the wizard-sheet slide-up (now
+  overshoots slightly before settling instead of a flat fade+slide), and
+  `.toast.show` (pop-and-settle instead of flat translateY fade); (d) a
+  "jelly button" two-part box-shadow (a hard offset shadow in
+  `color-mix(in srgb, <token> 65%, black)` plus a soft ambient blur,
+  sinking via `translateY` on `:active`) on every primary action button,
+  colored per the button's own existing gradient token (gold/pink/
+  purple); (e) the HP ring gets a quick scale-bump (`.marker-ring-wrap.
+  hp-bump`, reusing the existing `gem-bump` keyframe shape rather than a
+  new one) on the HUD avatar specifically when HP actually changes since
+  the last render — tracked via a small `lastHudHp` module-level variable
+  in `js/ui.js:renderHud`, the same "remember what I last rendered to
+  avoid redoing an animation every 250ms tick" idiom `shopScreenKey`/
+  `sheetKey` already use in that file, not a new architectural pattern;
+  (f) the create-screen element icons got thicker rounded-cap/round-join
+  strokes plus a filled tinted badge circle behind each
+  (`.element-icon-badge`, using the element's own existing `color` field
+  from `js/wizard.js:ELEMENTS` via `color-mix`), instead of bare thin line
+  art. **Deliberately NOT bounced**: the HP/mana/XP bar width transitions,
+  the HP ring's own `stroke-dashoffset` transition, and
+  `.defend-overlay`'s `pulse-red` incoming-curse alert (recolored to the
+  new `--hp` value, but kept as a plain non-bouncy pulse — it's a warning,
+  not a toy). **Contrast check performed, no changes needed**: the new
+  `--text-dim` (`#c3b3e8`) against `--bg-deep`/`--bg-panel-2` computes
+  well above WCAG AA even for the small `.shop-note`/`.power-desc` text
+  (it's lighter than the old mature-theme value, not darker); the
+  hardcoded `#241448` button-text color (used against gold-gradient
+  buttons throughout) computes to roughly 10.5:1 contrast against the new,
+  brighter `--gold`/`--gold-soft` — comfortably higher than the old muted
+  gold, so it was left as-is rather than swapped. Verified with a
+  throwaway Playwright script (local static server, a locally-cached
+  Leaflet build substituted in for the sandbox's blocked cdnjs egress,
+  same workaround as the 2026-10-10 entry below): screenshotted the create
+  screen (default and with a non-default avatar/element selected), the
+  HUD with a real "demo location" toast and the self sheet (including a
+  captured `:active` pressed frame on the Raise Shield button), an NPC
+  sheet with a live incoming-curse defend strip and attack button, all 4
+  tab screens (Shop with a captured `:active` price-button frame,
+  Inventory, Character, Missions) and the ☰ menu; measured `#tab-bar`/
+  `#screens` bounding boxes to confirm the 2026-10-10 stacked-layout work
+  still holds (no overlap, exact edge-to-edge handoff); and drove
+  `js/ui.js:renderHud` directly through 3 synthetic renders (same HP, then
+  changed HP) to confirm `.hp-bump` is added only on the render where HP
+  actually changes, not every tick.
 - **2026-10-10 — Shop/Inventory/Character's ☰ menu entries replaced by a
   persistent bottom tab bar; Missions added as an explicit placeholder,
   not a built feature.** The 3 menu entries (and each subscreen's own

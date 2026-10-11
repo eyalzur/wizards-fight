@@ -27,8 +27,10 @@ External dependencies, all loaded via CDN, no local copies:
   reference layers) — the actual map imagery (real OpenStreetMap-derived
   data). Chosen because it's keyless; CartoDB's basemaps started requiring
   an API key in 2026 (see `proj-status.md` Decisions Log).
-- Google Fonts: Cinzel (headings), Inter (body — switched from Nunito in
-  the v1 "mature" theme pass, see `proj-status.md` Decisions Log).
+- Google Fonts: Fredoka (headings/buttons), Nunito (body) — as of the
+  2026-10-11 "Pixar" pass, which reverted the v1 "mature" pass's
+  Cinzel/Inter swap (Nunito was the original body font pre-v1); see
+  `proj-status.md` Decisions Log.
 - **Firebase modular SDK** (`gstatic.com`, v12) — loaded as native ESM
   `import()` statements from inside `js/multiplayer.js`, not a
   `<script>` tag in `index.html`. Firebase's modular SDK is ESM-native

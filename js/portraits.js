@@ -55,12 +55,17 @@ export function avatarWithRing(avatar, elColor, opts = {}) {
     shieldActive = false,
     avatarClass = '',
     wrapClass = '',
+    pulse = false,
   } = opts;
   const frac = maxHP > 0 ? Math.max(0, Math.min(1, hp / maxHP)) : 0;
   const dashoffset = (RING_CIRCUMFERENCE * (1 - frac)).toFixed(2);
   const c = RING_SIZE / 2;
+  // `pulse` (set by the caller when it notices HP changed since its own
+  // last render — see js/ui.js:renderHud) adds a one-shot scale-bump class;
+  // see .marker-ring-wrap.hp-bump in css/style.css.
+  const wrapClasses = [wrapClass, pulse ? 'hp-bump' : ''].filter(Boolean).join(' ');
   return `
-    <div class="marker-ring-wrap${wrapClass ? ` ${wrapClass}` : ''}">
+    <div class="marker-ring-wrap${wrapClasses ? ` ${wrapClasses}` : ''}">
       ${shieldActive ? '<div class="shield-bubble"></div>' : ''}
       <svg class="hp-ring" viewBox="0 0 ${RING_SIZE} ${RING_SIZE}" width="${RING_SIZE}" height="${RING_SIZE}" aria-hidden="true">
         <circle class="hp-ring-track" cx="${c}" cy="${c}" r="${RING_RADIUS}"/>
