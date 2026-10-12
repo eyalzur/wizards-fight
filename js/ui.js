@@ -1,5 +1,5 @@
 import { getSpell } from './spells.js';
-import { getElement } from './wizard.js';
+import { getElement, formatPower } from './wizard.js';
 import { avatarSvg, avatarWithRing } from './portraits.js';
 
 // 5 selectable looks, now 5 genuinely distinct hood artworks (see
@@ -550,7 +550,7 @@ export function hideDownOverlay() {
 
 function fmtMods(mods) {
   const out = [];
-  if (mods.power) out.push(`${mods.power > 0 ? '+' : ''}${mods.power.toFixed(2)} power`);
+  if (mods.power) out.push(`${mods.power > 0 ? '+' : ''}${formatPower(mods.power)} power`);
   if (mods.maxHP) out.push(`${mods.maxHP > 0 ? '+' : ''}${mods.maxHP} max HP`);
   if (mods.defense) out.push(`${mods.defense > 0 ? '+' : ''}${mods.defense} def`);
   return out.join(', ');

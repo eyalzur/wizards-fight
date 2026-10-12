@@ -178,3 +178,18 @@ export function spellCooldownSeconds(baseCooldownSeconds, wizard) {
   const reduced = baseCooldownSeconds - levelOf(RECOVERY_UPGRADE, wizard) * RECOVERY_UPGRADE.perLevelSeconds;
   return Math.max(RECOVERY_UPGRADE.floorSeconds, reduced);
 }
+
+// ---------- Display-only power scaling ----------
+// `power` is kept as a small float internally (player base ~4.5, see
+// PLAYER_POWER_MULT above) so gear bonuses in economy.js's ITEMS/GEAR tables
+// read as tiny fractions (e.g. 0.08 for a tier-1 wand) — fine for the combat
+// math, but those decimals look like noise to a player. Nothing about the
+// stat itself changes; this is purely a presentation convention, used by
+// ui.js (shop gear rows) and main.js (Character screen's Power stat) so the
+// ×100 scale is defined in exactly one place instead of repeated inline.
+// combat.js/economy.js never call this — they only ever work with the real
+// `power` float.
+export const POWER_DISPLAY_SCALE = 100;
+export function formatPower(power) {
+  return Math.round((power || 0) * POWER_DISPLAY_SCALE);
+}

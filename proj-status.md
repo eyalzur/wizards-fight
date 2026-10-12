@@ -282,6 +282,19 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-11 — Player-facing `power` numbers now shown at a ×100 "power
+  points" display scale, not the raw internal float.** `power` is a small
+  float internally (player base ~4.5, gear bonuses like 0.08-1.5 — see
+  `js/wizard.js`/`js/economy.js`) so it reads as meaningless decimals
+  wherever shown directly (Shop gear rows, Character screen's Power stat).
+  Added `js/wizard.js:formatPower`/`POWER_DISPLAY_SCALE` (×100) as the one
+  named place that scale is defined, used by `js/ui.js` (Shop rows) and
+  `js/main.js` (Character screen); `js/signpad.js`'s unrelated sign-draw
+  multiplier (a ratio, 0.5x-1.5x, not the `power` stat) was separately
+  changed from "×0.73 power" to "73% power" for the same reason. Display
+  only — `combat.js`/`economy.js`/`wizard.js`'s actual math is untouched; a
+  future reader seeing "+8 power" in the UI next to `mods: { power: 0.08 }`
+  in `economy.js` should look here instead of re-deriving it.
 - **2026-10-11 — Map zoom unlocked, reversing the original "fixed zoom"
   decision, by direct user request.** The map used to launch with
   `minZoom: maxZoom: 17` and every zoom gesture explicitly off
