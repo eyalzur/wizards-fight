@@ -37,9 +37,11 @@ this is the single gate for both "can I see them" and "can I target them"
 
 ## The map
 
-`js/map.js`, Leaflet + CartoDB Dark Matter tiles (real OpenStreetMap
-street/city data, styled dark to match the theme — see
-[`../proj-status.md`](../proj-status.md) Decisions Log for why not Google Maps or stock OSM).
+`js/map.js`, Leaflet + Esri World Light Gray Canvas tiles (real OpenStreetMap
+street/city data, styled light to match the current theme — see
+[`../proj-status.md`](../proj-status.md) Decisions Log for why not Google Maps
+or stock OSM, and for the 2026-10-14 switch from Esri's dark counterpart to
+this light one to match the "Watercolor Ghibli" theme pass).
 
 - On wizard creation, the browser is asked for geolocation; if denied or
   unavailable, the game starts at a fixed demo location (Times Square)
