@@ -283,6 +283,20 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-14 — `js/wizard.js`'s per-element colors (`ELEMENTS[].color`)
+  retuned for the Watercolor Ghibli theme, closing the contrast gap the
+  theme pass below flagged but deliberately left unfixed as out of its
+  CSS-only scope.** Fire (`#a3523c`) and Nature (`#567151`) simply reuse the
+  shipped `--pink`/`--gold` hexes exactly — both already independently
+  verified ≥4.5:1 against `--bg-deep`/`--bg-panel` in the theme pass's own
+  contrast work. Arcane (`#7f6aa0`) reuses `--purple` the same way. Ice
+  (`#3d6680`) and Lightning (`#7d6420`) are new, darker-than-their-token-fill
+  shades — `--mana`/`--xp`'s own shipped values are only used as borders/
+  fills elsewhere in the CSS, not dark enough to double as text — chosen by
+  computing real WCAG contrast ratios (not eyeballed) against both cream
+  backgrounds until each cleared 4.5:1. No change to combat math or any
+  other data on the wizard object — purely the display-tint hex used by the
+  create screen's element picker and element labels.
 - **2026-10-14 — Visual theme replaced with "Watercolor Ghibli — Painted
   Nature Magic," the user's pick from 5 reviewed mockup directions; this is
   a deliberate reversal of BOTH the 2026-10-11 Disney/Pixar pass below AND

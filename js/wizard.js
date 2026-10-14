@@ -5,11 +5,19 @@ import { uid } from './utils.js';
 // in index.html's sprite sheet, used anywhere an icon renders in its own
 // box (the create screen's element picker) — see js/ui.js.
 export const ELEMENTS = [
-  { id: 'fire', label: 'Fire', icon: '🔥', symbolId: 'el-fire', color: '#ff6b4a', desc: 'Blazing power and bold offense.' },
-  { id: 'ice', label: 'Ice', icon: '❄️', symbolId: 'el-ice', color: '#6fd8ff', desc: 'Cold resilience and steady defense.' },
-  { id: 'lightning', label: 'Lightning', icon: '⚡', symbolId: 'el-lightning', color: '#ffe066', desc: 'Sharp reflexes and keen senses.' },
-  { id: 'nature', label: 'Nature', icon: '🌿', symbolId: 'el-nature', color: '#6bff8f', desc: 'Deep reserves and healing magic.' },
-  { id: 'arcane', label: 'Arcane', icon: '🔮', symbolId: 'el-arcane', color: '#b98bff', desc: 'Swift casting and clever tricks.' },
+  // Colors retuned 2026-10-14 for the "Watercolor Ghibli" light theme — the
+  // previous pastel set (#ff6b4a etc.) was tuned for the old dark backdrop
+  // and fell below readable contrast on the new cream background. Fire and
+  // Nature reuse the shipped --pink/--gold token hexes exactly (already
+  // verified >=4.5:1 against both bg-deep/bg-panel); Ice and Lightning are
+  // new, darker-than-their-token-fill shades (--mana/--xp's own values are
+  // only used as borders/fills elsewhere, not dark enough for text); Arcane
+  // reuses --purple. See proj-status.md Decisions Log.
+  { id: 'fire', label: 'Fire', icon: '🔥', symbolId: 'el-fire', color: '#a3523c', desc: 'Blazing power and bold offense.' },
+  { id: 'ice', label: 'Ice', icon: '❄️', symbolId: 'el-ice', color: '#3d6680', desc: 'Cold resilience and steady defense.' },
+  { id: 'lightning', label: 'Lightning', icon: '⚡', symbolId: 'el-lightning', color: '#7d6420', desc: 'Sharp reflexes and keen senses.' },
+  { id: 'nature', label: 'Nature', icon: '🌿', symbolId: 'el-nature', color: '#567151', desc: 'Deep reserves and healing magic.' },
+  { id: 'arcane', label: 'Arcane', icon: '🔮', symbolId: 'el-arcane', color: '#7f6aa0', desc: 'Swift casting and clever tricks.' },
 ];
 
 export function getElement(id) {
