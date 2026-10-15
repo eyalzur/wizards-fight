@@ -261,22 +261,26 @@ owner has set up their own Firebase project and filled in
 "Setup"); without that, the game is exactly the single-player experience
 described everywhere else in this document.
 
-When active, other real players' wizards appear on the map the same way
-NPCs do — inside your sense-range circle, with an HP bar and name label —
-positioned by wherever their device last synced its location, which can
-be a little stale (each device pushes its own position roughly every 6s
-while playing, and refreshes the list of nearby players roughly every
-15s). They're visually distinct from both you and NPCs: a purple accent
-(reusing the Ward Shield color) plus a small persistent badge dot on the
-marker, so you can tell a real player apart from an NPC before tapping.
+When active, other real players' wizards appear on the map exactly the
+way NPCs do — inside your sense-range circle, with the same pink (gold
+when selected) identity ring, HP bar and name label — positioned by
+wherever their device last synced its location, which can be a little
+stale (each device pushes its own position roughly every 6s while
+playing, and refreshes the list of nearby players roughly every 15s).
+**By design, a player cannot tell a real opponent from an NPC before or
+after tapping** (see `proj-status.md` Decisions Log — an earlier version
+of this feature deliberately marked real players with a purple accent
+ring and a "synced Xm ago"/offline-warning callout on their sheet; that
+was reversed).
 
-Tapping a real player's marker opens the same wizard sheet as an NPC —
-name, level, distance, HP bar, Cast Spark Bolt button with the same
-disabled-reasons — plus two additions:
-- A second line reading "synced Xm ago", so it's clear how fresh their
-  position/HP is.
-- A permanent note: *"A real player — they may be offline. Spark Bolt
-  still travels in real time."*
+Tapping a real player's marker opens the exact same wizard sheet as an
+NPC's — name, level, distance, HP bar, Cast Spark Bolt button with the
+same disabled-reasons and wording, including "Defeated — regrouping..."
+when their HP is 0. The only places that still differ are invisible to
+the player: no shield-status line (this device has no live visibility
+into a remote player's Ward Shield state, so it simply never renders —
+indistinguishable from an NPC with no shield active) and no Nemesis badge
+(Nemesis stays a local-NPC-only mechanic, see below).
 
 Casting Spark Bolt at a real player costs the same mana, has the same
 cooldown, and travels at the same real-world speed as casting at an NPC —

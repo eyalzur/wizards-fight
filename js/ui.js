@@ -476,15 +476,6 @@ function formatCountdown(ms) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function formatAgo(ms) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  if (s < 60) return 'moments ago';
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  return `${h}h ago`;
-}
-
 // Tracks the last HP rendered in the HUD so the ring can play a one-shot
 // bump animation on the tick it actually changes (see .hp-bump in
 // css/style.css) instead of pulsing every render. Lives here, not main.js,
@@ -763,29 +754,29 @@ export function renderWizardSheet(data, callbacks) {
   }
   const body = document.getElementById('sheet-body');
 
-  // A real player's sheet is otherwise identical to an NPC's (same
-  // structure, same Cast Spark Bolt action) but adds a "synced Xm ago" line
-  // and a callout explaining they may be offline — the NPC branch below is
-  // left untouched on purpose, only the real-player case is the surprising
-  // one that needs the explanation. Ring color (purple) carries the
-  // "real player" identity signal now that avatars use the shared ring
-  // component; shieldActive is always false here — this device has no live
-  // visibility into a remote player's shield state (see combat.js).
+  // A real player's sheet is now rendered pixel-identical to an NPC's — by
+  // explicit product decision (see proj-status.md Decisions Log) a player
+  // should not be able to tell a real opponent from an NPC, before or after
+  // tapping. This used to add a "synced Xm ago" line, a purple ring, and a
+  // permanent "they may be offline" callout; all three are gone. What's
+  // left unavoidably different under the hood: no shield-status line (this
+  // device has no live visibility into a remote player's Ward Shield state,
+  // see combat.js — but that just means it never renders, same as an NPC
+  // with no shield active) and no Nemesis badge (Nemesis is a local-NPC-only
+  // mechanic, see combat.js:handleDefeat — not something to fake here).
   if (data.kind === 'remote') {
-    const { wizard: rp, atkSpell, canAttack, reason, dist, syncedAgoMs } = data;
+    const { wizard: rp, atkSpell, canAttack, reason, dist } = data;
     body.innerHTML = `
       <div class="sheet-header">
-        <span class="sheet-avatar">${avatarWithRing(rp.avatar, getElement(rp.element).color, { hp: rp.hp, maxHP: rp.maxHP, ringColor: 'var(--purple)', shieldActive: false })}</span>
+        <span class="sheet-avatar">${avatarWithRing(rp.avatar, getElement(rp.element).color, { hp: rp.hp, maxHP: rp.maxHP, ringColor: 'var(--pink)', shieldActive: false })}</span>
         <div>
           <div class="sheet-name">${rp.name} <small>Lv.${rp.level}</small></div>
           <div class="sheet-sub">${dist}m away</div>
-          <div class="sheet-sub sheet-sub-synced">synced ${formatAgo(syncedAgoMs)}</div>
         </div>
       </div>
       <div class="sheet-stats">
         <div class="bar hp-bar"><div class="bar-fill hp-fill" style="width:${pct(rp.hp, rp.maxHP)}%"></div><span class="bar-text">${rp.hp}/${rp.maxHP} HP</span></div>
       </div>
-      <div class="sheet-remote-note">🌐 A real player — they may be offline. Spark Bolt still travels in real time.</div>
       <div class="sheet-actions">
         <button id="sheet-attack" class="sheet-btn attack${canAttack ? '' : ' disabled'}">
           <span class="sheet-btn-icon">${atkSpell.icon}</span> Cast ${atkSpell.name}
