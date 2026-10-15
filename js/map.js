@@ -71,8 +71,15 @@ export function initMap(center, onMapClick) {
 }
 
 // Marker footprint in container pixels around its lat/lng point (matches the
-// divIcon's 64x84 box + iconAnchor [32, 74] used by every wizard marker).
-const BOX = { left: 32, right: 32, up: 74, down: 10 };
+// divIcon's 64x84 box + iconAnchor [32, 24] used by every wizard marker — the
+// anchor sits at the ring's visual center, not the box's bottom, so `up`/
+// `down` are no longer symmetric-looking numbers; see the comment above
+// updatePlayer() for why). `up` = the 24px from the anchor to the ring's top
+// edge, plus the shield-bubble's 8px `inset: -8px` overhang when a Ward
+// Shield is active (see `.shield-bubble` in css/style.css) = 32. `down` =
+// iconSize.height - iconAnchor.y = 84 - 24 = 60 (the box's reserved panning
+// margin below the content, unchanged invariant from before this fix).
+const BOX = { left: 32, right: 32, up: 32, down: 60 };
 const MARGIN = 8;
 let playerLatLng = null;
 let focusLatLng = null; // the wizard whose sheet is open, if any
@@ -127,10 +134,15 @@ export function recenter(pos) {
 // before calling this (mirroring how `casterColor` is attached to
 // projectiles below) — map.js never imports combat.js to compute it itself,
 // keeping the map.js/combat.js boundary from docs/ARCHITECTURE.md intact.
-// iconSize/iconAnchor are sized to fit the ring + shield-bubble at their
-// largest (bubble present) so the marker never resizes/jumps when a shield
-// toggles on or off — only tune these by eye against the live map, not by
-// the numbers alone.
+// iconSize is sized to fit the ring + shield-bubble at their largest (bubble
+// present) so the marker never resizes/jumps when a shield toggles on or
+// off. iconAnchor targets the ring's true visual center (see
+// js/portraits.js:avatarWithRing — the 48x48 `.marker-ring-wrap` is the
+// first/top child of the icon's HTML, with `.marker-label` below it), not a
+// pin-tip-style bottom anchor — that's what keeps the marker visually
+// centered on the lat/lng it's drawn at (e.g. the player's own sense-range
+// circle, which is a real L.circle centered on that same point). Only tune
+// these by eye against the live map, not by the numbers alone.
 export function updatePlayer(pos, wizard, onPlayerClick) {
   playerClickHandler = onPlayerClick;
   playerLatLng = L.latLng(pos.lat, pos.lng);
@@ -144,7 +156,7 @@ export function updatePlayer(pos, wizard, onPlayerClick) {
     className: 'wizard-marker player-marker',
     html: `${avatarHtml}<div class="marker-label">${wizard.name}</div>`,
     iconSize: [64, 84],
-    iconAnchor: [32, 74],
+    iconAnchor: [32, 24],
   });
   if (!playerMarker) {
     playerMarker = L.marker([pos.lat, pos.lng], { icon, zIndexOffset: 1000 }).addTo(map);
@@ -198,7 +210,7 @@ export function renderNpcs(npcs, onNpcClick, selectedId) {
       wrapClass,
     });
     const html = `${avatarHtml}<div class="marker-label">${npc.name}</div>`;
-    const icon = L.divIcon({ className: 'wizard-marker npc-marker', html, iconSize: [64, 84], iconAnchor: [32, 74] });
+    const icon = L.divIcon({ className: 'wizard-marker npc-marker', html, iconSize: [64, 84], iconAnchor: [32, 24] });
     if (!npcMarkers[npc.id]) {
       const m = L.marker([npc.position.lat, npc.position.lng], { icon }).addTo(map);
       m.on('click', (e) => {
@@ -243,7 +255,7 @@ export function renderRemotePlayers(remotePlayers, onRemoteClick, selectedId) {
       wrapClass,
     });
     const html = `${avatarHtml}<div class="marker-label">${rp.name}</div>`;
-    const icon = L.divIcon({ className: 'wizard-marker remote-marker', html, iconSize: [64, 84], iconAnchor: [32, 74] });
+    const icon = L.divIcon({ className: 'wizard-marker remote-marker', html, iconSize: [64, 84], iconAnchor: [32, 24] });
     if (!remoteMarkers[rp.id]) {
       const m = L.marker([rp.position.lat, rp.position.lng], { icon }).addTo(map);
       m.on('click', (e) => {
