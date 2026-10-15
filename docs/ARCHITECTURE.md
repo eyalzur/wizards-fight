@@ -23,14 +23,17 @@ External dependencies, all loaded via CDN, no local copies:
 - **Leaflet** 1.9.4 (`cdnjs`) — the map engine, loaded as a classic
   global-`L` script tag (see `index.html`) since that's how Leaflet
   ships.
-- **Esri World Dark Gray Canvas tiles** (`server.arcgisonline.com`, base +
+- **Esri World Light Gray Canvas tiles** (`server.arcgisonline.com`, base +
   reference layers) — the actual map imagery (real OpenStreetMap-derived
   data). Chosen because it's keyless; CartoDB's basemaps started requiring
-  an API key in 2026 (see `proj-status.md` Decisions Log).
-- Google Fonts: Fredoka (headings/buttons), Nunito (body) — as of the
-  2026-10-11 "Pixar" pass, which reverted the v1 "mature" pass's
-  Cinzel/Inter swap (Nunito was the original body font pre-v1); see
-  `proj-status.md` Decisions Log.
+  an API key in 2026 (see `proj-status.md` Decisions Log). Switched from
+  Esri's **Dark** Gray Canvas counterpart as of the 2026-10-14 "Watercolor
+  Ghibli" theme pass, to match that pass's light palette — same service
+  family, same base+reference split, still keyless; see `proj-status.md`
+  Decisions Log.
+- Google Fonts: Quicksand (headings/buttons), Lora (body) — as of the
+  2026-10-14 "Watercolor Ghibli" pass, which replaced the 2026-10-11
+  "Pixar" pass's Fredoka/Nunito; see `proj-status.md` Decisions Log.
 - **Firebase modular SDK** (`gstatic.com`, v12) — loaded as native ESM
   `import()` statements from inside `js/multiplayer.js`, not a
   `<script>` tag in `index.html`. Firebase's modular SDK is ESM-native

@@ -29,18 +29,28 @@ export function initMap(center, onMapClick) {
   }).setView([center.lat, center.lng], 17);
   // iOS Safari ignores viewport maximum-scale; block its page pinch-zoom too.
   document.addEventListener('gesturestart', (e) => e.preventDefault());
-  // Dark basemap (real streets/city labels) instead of stock light OSM tiles,
-  // so the map reads clearly against the game's night theme. Esri's Dark
-  // Gray Canvas is keyless (unlike CARTO's basemaps, which started
-  // requiring an API key in 2026); base + reference are two layers because
-  // Esri ships labels separately from the road canvas.
+  // Esri's World Light Gray Canvas (real streets/city labels) — keyless,
+  // unlike CARTO's basemaps (which started requiring an API key in 2026);
+  // base + reference are two layers because Esri ships labels separately
+  // from the road canvas.
+  //
+  // 2026-10-14: switched from Esri's Dark Gray Canvas to this Light Gray
+  // counterpart (same service family, same base+reference split, still
+  // keyless) to match the watercolor theme's light palette — a direct
+  // reversal of the original "map stays dark to match the dark theme"
+  // reasoning (2026-09-26, see proj-status.md Decisions Log), by the user's
+  // own choice after reviewing 5 mockup directions. Every marker/circle
+  // color that assumed a dark backdrop (bright fills, light borders) was
+  // rechecked for contrast against the new light streets too — see
+  // css/style.css's marker/ring/label rules and the sense-circle color just
+  // below.
   const esriAttribution = '&copy; OpenStreetMap contributors &copy; Esri';
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 20,
     maxNativeZoom: 16,
     attribution: esriAttribution,
   }).addTo(map);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 20,
     maxNativeZoom: 16,
   }).addTo(map);
@@ -151,15 +161,17 @@ export function updatePlayer(pos, wizard, onPlayerClick) {
 export function updateSenseCircle(pos, radiusM) {
   if (!senseCircle) {
     senseCircle = L.circle([pos.lat, pos.lng], {
-      // #8a5cf6 was the pre-desaturation --purple accent, hardcoded here
-      // rather than read from the token, so it stayed neon-bright through
-      // the v1 mature-theme pass while every CSS-token color got muted.
-      // Matched to the current --purple (#5d4a99) instead.
+      // Leaflet's vector-layer colors can't read a CSS custom property, so
+      // this is a hardcoded literal matched to the current --purple token
+      // value by hand — update this alongside --purple in css/style.css if
+      // that token's value ever changes again (same maintenance note as the
+      // v1/Pixar passes before this one; this is the watercolor pass's
+      // muted-lavender value, #7f6aa0).
       radius: radiusM,
-      color: '#5d4a99',
+      color: '#7f6aa0',
       weight: 1.5,
-      fillColor: '#5d4a99',
-      fillOpacity: 0.07,
+      fillColor: '#7f6aa0',
+      fillOpacity: 0.1,
       dashArray: '4 6',
     }).addTo(map);
   } else {

@@ -1,41 +1,55 @@
 :root {
   /* Theme history, newest first (see proj-status.md Decisions Log for the
      full write-ups):
-     - 2026-10-11 "Disney/Pixar" pass (current) — explicit reversal of the
-       v1 "mature/aged" pass below, by direct user request. Same token
-       names/identity-color meanings throughout (self=mana blue, NPC=pink,
-       selected=gold, HP=red) — only values, type, radius and motion
-       changed. Saturated palette, Fredoka/Nunito instead of Cinzel/Inter,
-       a bigger rounder radius scale, and bouncy "jelly" press states on
-       primary buttons. The dark "magic-hour" backdrop and the faceless
-       hooded avatars are both deliberately NOT touched in this pass (see
-       Decisions Log) — the Pixar read comes from UI chrome saturation/
-       roundness/bounce on top of the existing dark map, not from going
-       light; avatar faces are a separate, bigger future task (Roadmap).
+     - 2026-10-14 "Watercolor Ghibli — Painted Nature Magic" pass (current)
+       — explicit reversal of BOTH the 2026-10-11 Disney/Pixar pass below
+       AND the 2026-09-26 "map tiles should be dark to match the dark
+       theme" reasoning, by the user's own choice after reviewing 5 mockup
+       directions. Same token names/identity-color meanings throughout
+       (self=mana blue, NPC=pink, selected=gold, HP=red) — only values,
+       type, shape and shadow rendering changed. The page went light (warm
+       cream/parchment palette) for the first time, the map tiles switched
+       from Esri's Dark Gray Canvas to its Light Gray counterpart to match,
+       Fredoka/Nunito gave way to Quicksand/Lora, card/avatar shapes got a
+       subtle hand-painted asymmetry instead of uniform big-radius pills,
+       and the Pixar pass's hard-edged "jelly button" shadows (an offset
+       shadow mixed toward black) were replaced with soft single colored
+       drop-shadows that suit a light backdrop. The bouncy press motion
+       (--ease-bounce) and the pulse-red incoming-curse urgency animation
+       are both deliberately UNCHANGED — this pass is palette/shape/shadow
+       only, not a motion-language change. Primary CTA buttons went from a
+       two-tone diagonal gradient to a flat fill specifically so one text
+       color could hold real contrast against the whole button (see
+       proj-status.md Decisions Log for the contrast math). The user
+       explicitly said another theme round may follow — this is not
+       assumed to be the final look.
+     - 2026-10-11 "Disney/Pixar" pass (superseded) — saturated palette,
+       Fredoka/Nunito, bigger rounder radius scale, bouncy "jelly" press
+       states, dark "magic-hour" backdrop kept from the pass before it.
      - 2026-09-27 "v1 mature/aged" pass (superseded) — same tokens,
        desaturated hex values, framed at the time as a first iteration, not
        a final look. */
-  --bg-deep: #140f26;
-  --bg-panel: #241a40;
-  --bg-panel-2: #322352;
-  --gold: #ffb84d;
-  --gold-soft: #ffd27a;
-  --purple: #8c5cf6;
-  --pink: #ff5d8f;
-  --hp: #ff5a5f;
-  --mana: #4fc3ff;
-  --xp: #ffd23f;
+  --bg-deep: #f7f1e3;
+  --bg-panel: #fffdf7;
+  --bg-panel-2: #e8d9b8;
+  --gold: #567151;
+  --gold-soft: #8fae8b;
+  --purple: #7f6aa0;
+  --pink: #a3523c;
+  --hp: #b73d47;
+  --mana: #5f85a0;
+  --xp: #ab8a30;
   --parchment: #fff6e0;
   --parchment-ink: #4a2f12;
-  --text: #fdfbff;
-  --text-dim: #c3b3e8;
+  --text: #4a4336;
+  --text-dim: #706754;
   --radius-sm: 12px;
   --radius: 18px;
   --radius-lg: 24px;
   --radius-pill: 999px;
   --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --font-head: 'Fredoka', sans-serif;
-  --font-body: 'Nunito', sans-serif;
+  --font-head: 'Quicksand', sans-serif;
+  --font-body: 'Lora', serif;
 
   /* Layering contract (docs/ARCHITECTURE.md "Screen layout and layering").
      HUD, defend strip and docked sheet are in normal flow around #stage, so
@@ -53,7 +67,10 @@
   --z-pop: 60;
   --z-sign: 100;
   --tap: 44px;                              /* minimum touch target */
-  --line-gold: rgba(226, 177, 60, 0.3);
+  /* Name predates the sage-green theme (was literally a gold rgb triple);
+     kept as-is rather than renamed (too many call sites), but its value
+     now tracks whatever --gold is so it can't drift stale again. */
+  --line-gold: color-mix(in srgb, var(--gold) 35%, transparent);
   --alert-bg: color-mix(in srgb, var(--hp) 20%, var(--bg-deep));
 }
 
@@ -111,11 +128,12 @@ html, body {
 /* Only vertical margin on the active chip — horizontal margin would skew
    the flex:1 width split between tabs; vertical margin doesn't affect the
    main-axis distribution, so every tab stays an equal width. */
-.tab-btn.active { color: var(--gold-soft); background: rgba(226,177,60,0.12); border-radius: var(--radius-pill); margin: 4px 0; }
+.tab-btn.active { color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, transparent); border-radius: var(--radius-pill); margin: 4px 0; }
 
 /* ---------- Create screen ---------- */
 
 #screen-create {
+  position: relative;
   align-items: center; /* fallback for browsers without `safe` support */
   align-items: safe center; /* if content is taller than the screen, center
     it like normal, but don't let that centering push the top out of
@@ -124,34 +142,53 @@ html, body {
   justify-content: center;
   overflow-y: auto;
   padding: 16px 16px;
-  /* rgba() values below are --purple/--pink resolved to rgb — these two
-     glows were still the old bright pre-desaturation accent colors after
-     the v1 mature-theme pass (which only touched :root tokens, not hardcoded
-     literals like this), so this radial bloom stayed neon while everything
-     else got muted. Matched to the actual tokens now. */
-  background:
-    radial-gradient(circle at 20% 10%, rgba(93, 74, 153, 0.28), transparent 40%),
-    radial-gradient(circle at 85% 80%, rgba(168, 57, 79, 0.20), transparent 45%),
-    var(--bg-deep);
+  background: var(--bg-deep);
+}
+
+/* Watercolor-pass decorative blobs, replacing the Pixar pass's radial-
+   gradient "bloom" glows. Pure CSS pseudo-elements (no HTML change needed):
+   irregular organic border-radius, low opacity, blurred so there's no hard
+   edge — soft painted color washes instead of a neon glow halo. Positioned
+   fully inside 0–100% of the screen (no negative offsets) so they can't add
+   scroll area even though #screen-create itself scrolls (overflow-y:auto)
+   when the card is taller than the viewport. */
+#screen-create::before, #screen-create::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.2;
+  filter: blur(8px);
+}
+#screen-create::before {
+  top: 4%; left: 4%; width: 46vw; height: 46vw; max-width: 320px; max-height: 320px;
+  background: var(--gold-soft);
+  border-radius: 63% 37% 54% 46% / 43% 37% 63% 57%;
+}
+#screen-create::after {
+  bottom: 4%; right: 4%; width: 50vw; height: 50vw; max-width: 340px; max-height: 340px;
+  background: var(--pink);
+  border-radius: 37% 63% 46% 54% / 57% 43% 57% 43%;
 }
 
 .create-card {
+  position: relative; z-index: 1; /* sits above the decorative blobs above */
   width: 100%;
   max-width: 480px;
   background: var(--bg-panel);
-  border: 1px solid rgba(226, 177, 60, 0.25);
+  border: 1px solid color-mix(in srgb, var(--gold) 25%, transparent);
   border-radius: var(--radius-lg);
   padding: 20px 20px 16px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  box-shadow: 0 20px 50px color-mix(in srgb, var(--text) 18%, transparent);
 }
 
 .game-title {
   font-family: var(--font-head);
-  color: var(--gold-soft);
+  color: var(--gold);
   text-align: center;
   font-size: 1.8rem;
   margin: 0 0 4px;
-  text-shadow: 0 0 18px rgba(226,177,60,0.4);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--gold) 40%, transparent);
 }
 
 .subtitle { text-align: center; color: var(--text-dim); margin: 0 0 14px; font-weight: 600; }
@@ -159,7 +196,7 @@ html, body {
 .field-label {
   display: block;
   font-weight: 800;
-  color: var(--gold-soft);
+  color: var(--gold);
   margin: 14px 0 6px;
   font-size: 0.85rem;
   text-transform: uppercase;
@@ -170,7 +207,7 @@ html, body {
   width: 100%;
   padding: 12px 14px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid color-mix(in srgb, var(--text) 20%, transparent);
   background: var(--bg-panel-2);
   color: var(--text);
   font-family: var(--font-body);
@@ -180,23 +217,29 @@ html, body {
 
 .avatar-options { display: flex; gap: 10px; flex-wrap: wrap; }
 .avatar-choice input { display: none; }
+/* Organic-circle wobble (watercolor pass) instead of the Pixar pass's
+   uniform rounded-square radius — a slightly irregular circle, hand-painted
+   rather than geometric. */
 .avatar-choice span {
   display: flex; align-items: center; justify-content: center;
   width: 60px; height: 60px; padding: 5px;
-  border-radius: var(--radius-lg); background: var(--bg-panel-2);
+  border-radius: 50% 46% 50% 48% / 48% 50% 46% 50%; background: var(--bg-panel-2);
   border: 2px solid transparent; cursor: pointer; overflow: hidden;
 }
 .avatar-choice span svg.portrait { width: 100%; height: 100%; display: block; }
-.avatar-choice input:checked + span { border-color: var(--gold); background: rgba(226,177,60,0.15); }
+.avatar-choice input:checked + span { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 15%, transparent); }
 
 .element-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Alternating asymmetric corner radii (watercolor pass) so a grid of these
+   cards doesn't read as perfectly uniform/geometric — subtle, not a blob. */
 .element-choice {
   position: relative;
   display: flex; flex-direction: column; align-items: center; text-align: center;
   gap: 2px; padding: 9px 8px;
-  border-radius: var(--radius-lg); background: var(--bg-panel-2);
+  border-radius: 22px 18px 22px 18px; background: var(--bg-panel-2);
   border: 2px solid transparent; cursor: pointer;
 }
+.element-choice:nth-child(even) { border-radius: 18px 22px 18px 22px; }
 .element-choice input { position: absolute; opacity: 0; }
 .element-choice input:checked ~ * { }
 .element-choice:has(input:checked) { border-color: var(--el-color); background: color-mix(in srgb, var(--el-color) 18%, var(--bg-panel-2)); }
@@ -213,21 +256,28 @@ html, body {
 .element-label { font-weight: 800; color: var(--el-color); }
 .element-desc { font-size: 0.72rem; color: var(--text-dim); }
 
+/* Primary CTA buttons stay pill-shaped and keep the bouncy press motion
+   (watercolor pass only changes shape/shadow for cards/frames, not CTAs —
+   see proj-status.md Decisions Log). Flat fill instead of the Pixar pass's
+   two-tone diagonal gradient, specifically so one text color can hold real
+   contrast against the whole button — a light-on-dark gradient doesn't
+   leave room for a single text color to read well at both ends once the
+   "dark" end is a muted mid-tone sage/terracotta/lavender rather than a
+   bright saturated color (see proj-status.md Decisions Log for the
+   contrast math). Shadow softened to a single colored drop-shadow instead
+   of the Pixar pass's hard black-mixed offset ledge, which read as a
+   dark-theme technique and looked muddy on cream. */
 .btn-primary {
   width: 100%; margin-top: 16px; padding: 12px;
   border: none; border-radius: var(--radius-pill); cursor: pointer;
   font-family: var(--font-head); font-size: 1.05rem; font-weight: 700;
-  color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
-  box-shadow:
-    0 6px 0 0 color-mix(in srgb, var(--gold) 65%, black),
-    0 10px 24px rgba(226,177,60,0.3);
+  color: var(--bg-panel); background: var(--gold);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--gold) 45%, transparent);
   transition: transform 0.16s var(--ease-bounce), box-shadow 0.16s ease;
 }
 .btn-primary:active {
-  transform: translateY(5px);
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black),
-    0 3px 10px rgba(226,177,60,0.25);
+  transform: translateY(2px);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--gold) 35%, transparent);
 }
 
 .fineprint { margin-top: 10px; font-size: 0.75rem; color: var(--text-dim); text-align: center; }
@@ -246,8 +296,8 @@ html, body {
      docs/ARCHITECTURE.md "Screen layout and layering". */
 }
 
-#stage { position: relative; flex: 1; min-height: 0; isolation: isolate; overflow: hidden; background: #0a0614; }
-#map { position: absolute; inset: 0; z-index: var(--z-map); background: #0a0614; }
+#stage { position: relative; flex: 1; min-height: 0; isolation: isolate; overflow: hidden; background: var(--bg-panel-2); }
+#map { position: absolute; inset: 0; z-index: var(--z-map); background: var(--bg-panel-2); }
 /* The browser's actual touch-gesture routing intersects touch-action across
    an element and all its ancestors, so the html,body rule above (pan-x
    pan-y, no pinch/double-tap, to stop the whole page zooming) could in
@@ -285,7 +335,7 @@ html, body {
 .hud-level {
   position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
   padding: 0 6px; border-radius: var(--radius-pill); line-height: 16px; white-space: nowrap;
-  background: var(--bg-deep); border: 1px solid var(--gold); color: var(--gold-soft);
+  background: var(--bg-deep); border: 1px solid var(--gold); color: var(--gold);
   font-size: 0.75rem; font-weight: 800;
 }
 .hud-namecol { flex: 1; min-width: 0; }
@@ -293,11 +343,11 @@ html, body {
 .hud-bars { display: flex; gap: 4px; margin-top: 2px; }
 .hud-bars .bar { flex: 1; min-width: 0; margin-top: 0; }
 
-.bar { position: relative; height: 9px; border-radius: var(--radius-pill); background: rgba(255,255,255,0.1); margin-top: 3px; overflow: hidden; }
+.bar { position: relative; height: 9px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--text) 10%, transparent); margin-top: 3px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: var(--radius-pill); transition: width 0.25s ease; }
-.hp-fill { background: linear-gradient(90deg, #ff8a9e, var(--hp)); }
-.mana-fill { background: linear-gradient(90deg, #8fe3ff, var(--mana)); }
-.xp-fill { background: linear-gradient(90deg, #fff0b3, var(--xp)); }
+.hp-fill { background: linear-gradient(90deg, #e6b3b7, var(--hp)); }
+.mana-fill { background: linear-gradient(90deg, #9bb7c9, var(--mana)); }
+.xp-fill { background: linear-gradient(90deg, #e9d9af, var(--xp)); }
 /* 12px numbers need a 16px bar to sit in; centered so they read as a gauge label. */
 .bar-text {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -310,10 +360,10 @@ html, body {
 
 .hud-actions { display: flex; align-items: center; gap: 6px; flex: none; }
 .hud-actions button {
-  width: var(--tap); height: var(--tap); border-radius: 50%; border: 1px solid rgba(226,177,60,0.3);
+  width: var(--tap); height: var(--tap); border-radius: 50%; border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent);
   background: var(--bg-panel-2); color: var(--text); font-size: 1.15rem; cursor: pointer; padding: 0;
 }
-.hud-actions button[aria-expanded="true"] { border-color: var(--gold); background: rgba(226,177,60,0.15); }
+.hud-actions button[aria-expanded="true"] { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 15%, transparent); }
 
 /* ☰ menu: a popover anchored inside the stage (never over the HUD or the
    defend strip), with a scrim behind it. */
@@ -323,8 +373,8 @@ html, body {
   position: absolute; top: 8px; right: 8px; z-index: var(--z-menu);
   width: min(260px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow-y: auto;
   display: flex; flex-direction: column; gap: 2px;
-  background: var(--bg-panel); border: 1px solid rgba(226,177,60,0.4);
-  border-radius: var(--radius-lg); padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+  background: var(--bg-panel); border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+  border-radius: var(--radius-lg); padding: 6px; box-shadow: 0 12px 28px color-mix(in srgb, var(--text) 18%, transparent);
 }
 .menu-panel.hidden { display: none; }
 .menu-panel button {
@@ -334,14 +384,18 @@ html, body {
 }
 .menu-panel button:hover, .menu-panel button:focus-visible { background: var(--bg-panel-2); }
 .menu-panel button.menu-danger { color: var(--hp); }
-.menu-sep { flex: none; height: 1px; margin: 4px 6px; background: rgba(255,255,255,0.12); }
+.menu-sep { flex: none; height: 1px; margin: 4px 6px; background: color-mix(in srgb, var(--text) 12%, transparent); }
 
-/* Recolor Leaflet's default (light-themed) chrome to match the night theme */
-.leaflet-container { background: #0a0614; }
-.leaflet-bar { box-shadow: 0 1px 5px rgba(0,0,0,0.65); }
-.leaflet-bar a { background-color: var(--bg-panel-2); border-bottom: 1px solid rgba(226,177,60,0.25); color: var(--gold); }
+/* Recolor Leaflet's default chrome to match this theme (now light, see
+   World_Light_Gray tiles in js/map.js — Leaflet's own default chrome is
+   already light-themed, so this needs less overriding than the old dark
+   theme did, but the zoom bar/attribution still read our tokens for brand
+   consistency). */
+.leaflet-container { background: var(--bg-panel-2); }
+.leaflet-bar { box-shadow: 0 1px 5px color-mix(in srgb, var(--text) 25%, transparent); }
+.leaflet-bar a { background-color: var(--bg-panel-2); border-bottom: 1px solid color-mix(in srgb, var(--gold) 25%, transparent); color: var(--gold); }
 .leaflet-bar a:hover, .leaflet-bar a:focus { background-color: var(--bg-panel); }
-.leaflet-control-attribution { background: rgba(28,16,56,0.85); color: var(--text-dim); border-radius: 6px 0 0 0; }
+.leaflet-control-attribution { background: color-mix(in srgb, var(--bg-panel) 85%, transparent); color: var(--text-dim); border-radius: 6px 0 0 0; }
 .leaflet-control-attribution a { color: var(--gold); }
 
 /* Leaflet marker content */
@@ -363,14 +417,20 @@ html, body {
   position: absolute; inset: 4px; /* centers the 40px avatar inside the 48px ring */
   width: 40px; height: 40px; line-height: 40px;
   font-size: 1.4rem; border-radius: 50%;
-  background: var(--bg-panel-2); border: 1px solid rgba(255,255,255,0.08);
+  /* Border/shadow both darkened from the old light-on-dark-map styling
+     (rgba(255,255,255,...)) — against the new light map tiles a near-white
+     hairline border was nearly invisible. A darker ink border plus a small
+     drop shadow gives every marker a visible edge against varied street
+     colors (see proj-status.md Decisions Log, marker-contrast recheck). */
+  background: var(--bg-panel-2); border: 1px solid color-mix(in srgb, var(--text) 30%, transparent);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 35%, transparent);
   overflow: hidden;
 }
 .marker-avatar svg.portrait { width: 100%; height: 100%; display: block; }
 
 .hp-ring { position: absolute; inset: 0; transform: rotate(-90deg); pointer-events: none; }
 .hp-ring circle { fill: none; }
-.hp-ring-track { stroke: rgba(255,255,255,0.14); stroke-width: 3; }
+.hp-ring-track { stroke: color-mix(in srgb, var(--text) 22%, transparent); stroke-width: 3; }
 .hp-ring-arc { stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 0.25s ease; }
 
 /* Ward Shield's map-visible effect: a soft pulsing bubble behind the ring,
@@ -380,8 +440,8 @@ html, body {
    the existing `shieldActive` boolean into the markup. */
 .shield-bubble {
   position: absolute; inset: -8px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(93,74,153,0.30) 0%, rgba(93,74,153,0.08) 65%, transparent 100%);
-  border: 1px solid rgba(183,155,255,0.32);
+  background: radial-gradient(circle, color-mix(in srgb, var(--purple) 30%, transparent) 0%, color-mix(in srgb, var(--purple) 8%, transparent) 65%, transparent 100%);
+  border: 1px solid color-mix(in srgb, var(--purple) 45%, transparent);
   pointer-events: none;
   animation: shield-pulse 2.6s ease-in-out infinite;
 }
@@ -391,9 +451,12 @@ html, body {
 }
 @media (prefers-reduced-motion: reduce) { .shield-bubble { animation: none; opacity: 0.75; } }
 
+/* Dark ink text + light halo (flipped from the old dark-map's white-text/
+   black-halo — see proj-status.md Decisions Log, marker-contrast recheck)
+   so names stay legible against the new light street tiles. */
 .marker-label {
-  margin-top: 2px; font-size: 0.75rem; font-weight: 800; color: #fff;
-  text-shadow: 0 1px 3px #000, 0 0 6px #000; white-space: nowrap;
+  margin-top: 2px; font-size: 0.75rem; font-weight: 800; color: var(--text);
+  text-shadow: 0 1px 2px #fff, 0 0 5px #fff; white-space: nowrap;
 }
 .projectile-orb {
   width: 14px; height: 14px; margin: 6px auto;
@@ -414,7 +477,7 @@ html, body {
   border-bottom: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 12px 14px 12px;
   max-height: min(46dvh, 380px); overflow-y: auto;
-  box-shadow: 0 -8px 24px rgba(0,0,0,0.5);
+  box-shadow: 0 -8px 20px color-mix(in srgb, var(--text) 18%, transparent);
   animation: sheet-up 0.3s var(--ease-bounce);
 }
 @media (prefers-reduced-motion: reduce) { .sheet-panel { animation: none; } }
@@ -428,7 +491,7 @@ html, body {
   border-radius: 50%; border: none; background: transparent;
   color: var(--text); cursor: pointer; font-size: 1rem; z-index: 1;
 }
-.sheet-close:hover, .sheet-close:focus-visible { background: rgba(255,255,255,0.08); }
+.sheet-close:hover, .sheet-close:focus-visible { background: color-mix(in srgb, var(--text) 8%, transparent); }
 .sheet-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding-right: 40px; }
 /* Sizing/visuals now come from `.marker-ring-wrap`/`.marker-avatar` (see the
    map-marker section) — same ring component as the map and HUD, just a
@@ -442,14 +505,14 @@ html, body {
 .nemesis-badge {
   display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: var(--radius-pill);
   font-size: 0.68rem; font-weight: 800; color: var(--pink);
-  background: rgba(168, 57, 79, 0.18); border: 1px solid rgba(168, 57, 79, 0.45);
+  background: color-mix(in srgb, var(--pink) 18%, transparent); border: 1px solid color-mix(in srgb, var(--pink) 45%, transparent);
   vertical-align: middle;
 }
 .sheet-sub { color: var(--text-dim); font-size: 0.75rem; }
 .sheet-sub-synced { opacity: 0.85; }
 .sheet-remote-note {
-  font-size: 0.75rem; color: var(--text-dim); background: rgba(138,92,246,0.12);
-  border: 1px solid rgba(138,92,246,0.3); border-radius: var(--radius-sm);
+  font-size: 0.75rem; color: var(--text-dim); background: color-mix(in srgb, var(--purple) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--purple) 30%, transparent); border-radius: var(--radius-sm);
   padding: 8px 10px; margin-bottom: 10px;
 }
 .sheet-stats { display: flex; gap: 8px; margin-bottom: 8px; }
@@ -457,46 +520,41 @@ html, body {
 .sheet-shield-status {
   font-size: 0.75rem; color: var(--text-dim); margin-bottom: 8px; font-weight: 700;
 }
-.sheet-shield-status.active { color: var(--gold-soft); }
+.sheet-shield-status.active { color: var(--gold); }
 .sheet-shield-status:not(.active) { display: none; }
 .sheet-actions { display: flex; gap: 8px; }
+/* Flat fills + a single soft colored drop-shadow, not the Pixar pass's
+   two-tone gradient + hard black-mixed offset ledge (see the :root comment
+   and proj-status.md Decisions Log — a gradient between two muted mid-tones
+   doesn't leave room for one text color to stay readable at both ends, and
+   the hard offset shadow reads as a dark-theme technique on this cream
+   backdrop). Press motion keeps --ease-bounce, just with a smaller sink and
+   a smaller version of the same soft shadow instead of a matching hard edge. */
 .sheet-btn {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px; min-height: 44px; border-radius: var(--radius-pill); border: none; cursor: pointer;
   font-family: var(--font-head); font-weight: 700; font-size: 0.88rem;
-  color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
-  box-shadow:
-    0 5px 0 0 color-mix(in srgb, var(--gold) 65%, black),
-    0 8px 16px rgba(255,184,77,0.3);
+  color: var(--bg-panel); background: var(--gold);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--gold) 45%, transparent);
   transition: transform 0.16s var(--ease-bounce), box-shadow 0.16s ease;
 }
 .sheet-btn:active {
-  transform: translateY(4px);
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black),
-    0 2px 6px rgba(255,184,77,0.25);
+  transform: translateY(2px);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--gold) 35%, transparent);
 }
 .sheet-btn.attack {
-  background: linear-gradient(135deg, #ff9db3, var(--pink));
-  box-shadow:
-    0 5px 0 0 color-mix(in srgb, var(--pink) 65%, black),
-    0 8px 16px rgba(255,93,143,0.35);
+  background: var(--pink);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--pink) 45%, transparent);
 }
 .sheet-btn.attack:active {
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, var(--pink) 65%, black),
-    0 2px 6px rgba(255,93,143,0.3);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--pink) 35%, transparent);
 }
 .sheet-btn.shield {
-  background: linear-gradient(135deg, #b79bff, var(--purple));
-  box-shadow:
-    0 5px 0 0 color-mix(in srgb, var(--purple) 65%, black),
-    0 8px 16px rgba(140,92,246,0.35);
+  background: var(--purple);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--purple) 45%, transparent);
 }
 .sheet-btn.shield:active {
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, var(--purple) 65%, black),
-    0 2px 6px rgba(140,92,246,0.3);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--purple) 35%, transparent);
 }
 .sheet-btn.disabled { opacity: 0.4; pointer-events: none; }
 .sheet-btn-icon { font-size: 1rem; }
@@ -511,7 +569,7 @@ html, body {
   position: relative; z-index: var(--z-strip); flex: none;
   padding: 6px 8px; background: var(--alert-bg);
   border-bottom: 2px solid var(--pink);
-  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--text) 18%, transparent);
 }
 .defend-strip.hidden { display: none; }
 .defend-card {
@@ -519,39 +577,37 @@ html, body {
   max-width: 480px; margin: 0 auto;
   animation: pulse-red 1.2s ease-in-out infinite;
 }
-/* Deliberately NOT given the jelly/bounce treatment — this is a warning,
-   not a playful bounce (see proj-status.md Decisions Log). Only the color
-   moved to the new --hp value (kept as a literal rgb() to match this
-   file's existing style of pre-resolving token values inside @keyframes,
-   same as .shop-flash/.gem-ready below). */
-@keyframes pulse-red { 0%,100% { filter: none; } 50% { filter: drop-shadow(0 0 6px rgba(255,90,95,0.7)); } }
+/* Deliberately NOT given the organic/bouncy treatment — this is a warning,
+   not a playful bounce (see proj-status.md Decisions Log, both the Pixar
+   pass and this watercolor pass keep this rule). Only the color moved to
+   the new --hp value (kept as a literal rgb() to match this file's
+   existing style of pre-resolving token values inside @keyframes, same as
+   .shop-flash/.gem-ready below) — the watercolor pass recolored this to the
+   new muted terracotta-red but deliberately kept it visually urgent. */
+@keyframes pulse-red { 0%,100% { filter: none; } 50% { filter: drop-shadow(0 0 6px rgba(183,61,71,0.7)); } }
 @media (prefers-reduced-motion: reduce) { .defend-card { animation: none; } }
 .defend-ring { position: relative; flex: none; width: 44px; height: 44px; }
 .defend-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
 .defend-ring circle { fill: none; stroke-width: 4; }
-.defend-ring-track { stroke: rgba(255,255,255,0.15); }
+.defend-ring-track { stroke: color-mix(in srgb, var(--text) 15%, transparent); }
 .defend-ring-arc { stroke: var(--pink); stroke-linecap: round; transition: stroke-dashoffset 0.25s linear; }
 .defend-eta { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
 .defend-text { flex: 1; min-width: 0; }
 .defend-title { font-weight: 800; font-size: 0.9rem; line-height: 1.2; }
 .defend-sub { margin-top: 2px; font-size: 0.75rem; line-height: 1.2; color: var(--text-dim); font-weight: 700; }
 .defend-sub.hidden, .defend-sep.hidden { display: none; }
-.defend-more { color: var(--gold-soft); }
+.defend-more { color: var(--gold); }
 .defend-reason { color: var(--text); }
 .defend-btn {
   flex: none; min-width: var(--tap); min-height: var(--tap); padding: 0 12px; border-radius: var(--radius-pill); border: none; cursor: pointer;
-  background: linear-gradient(135deg, var(--gold-soft), var(--gold)); color: #241448;
+  background: var(--gold); color: var(--bg-panel);
   font-family: var(--font-body); font-weight: 800; font-size: 0.9rem; white-space: nowrap;
-  box-shadow:
-    0 4px 0 0 color-mix(in srgb, var(--gold) 65%, black),
-    0 6px 14px rgba(255,184,77,0.3);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--gold) 45%, transparent);
   transition: transform 0.16s var(--ease-bounce), box-shadow 0.16s ease;
 }
 .defend-btn:active {
-  transform: translateY(3px);
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black),
-    0 2px 6px rgba(255,184,77,0.25);
+  transform: translateY(2px);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--gold) 35%, transparent);
 }
 .defend-btn small { font-size: 0.75rem; font-weight: 700; opacity: 0.8; }
 .defend-btn.disabled { opacity: 0.4; pointer-events: none; }
@@ -575,7 +631,8 @@ html, body {
   display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none;
 }
 .toast {
-  background: rgba(20, 10, 35, 0.95); border: 1px solid var(--gold);
+  background: var(--bg-panel); border: 1px solid var(--gold); color: var(--text);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--text) 15%, transparent);
   padding: 8px 14px; border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 700;
   opacity: 0; transform: translateY(-8px) scale(0.92);
   transition: opacity 0.25s ease, transform 0.25s ease;
@@ -619,13 +676,13 @@ html, body {
   display: inline-flex; align-items: center; justify-content: center; gap: 3px; position: relative;
   /* the 44px circle from `.hud-actions button` grows into a pill with the count */
   width: auto; min-width: var(--tap); padding: 0 10px; border-radius: var(--radius-pill); cursor: pointer;
-  border: 1px solid rgba(226,177,60,0.4); background: var(--bg-panel-2);
-  color: var(--gold-soft); font-family: var(--font-body); font-weight: 800; font-size: 0.875rem;
+  border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); background: var(--bg-panel-2);
+  color: var(--gold); font-family: var(--font-body); font-weight: 800; font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
 }
 /* Crystals ready to collect: the chip glows gold (plus the small dot). */
-.hud-actions .hud-gems.ready { border-color: var(--gold); box-shadow: 0 0 10px 1px rgba(226,177,60,0.55); animation: gem-ready 1.8s ease-in-out infinite; }
-@keyframes gem-ready { 0%,100% { box-shadow: 0 0 6px 0 rgba(226,177,60,0.4); } 50% { box-shadow: 0 0 14px 3px rgba(226,177,60,0.75); } }
+.hud-actions .hud-gems.ready { border-color: var(--gold); box-shadow: 0 0 10px 1px color-mix(in srgb, var(--gold) 55%, transparent); animation: gem-ready 1.8s ease-in-out infinite; }
+@keyframes gem-ready { 0%,100% { box-shadow: 0 0 6px 0 color-mix(in srgb, var(--gold) 40%, transparent); } 50% { box-shadow: 0 0 14px 3px color-mix(in srgb, var(--gold) 75%, transparent); } }
 .hud-gems .hidden { display: none; }
 .hud-gems-dot {
   position: absolute; top: -2px; right: -2px; width: 9px; height: 9px; border-radius: 50%;
@@ -647,7 +704,7 @@ html, body {
 
 .gem-pop {
   position: absolute; z-index: var(--z-pop); pointer-events: none; transform: translateX(-50%);
-  font-weight: 800; font-size: 1rem; color: var(--gold-soft); text-shadow: 0 1px 4px #000;
+  font-weight: 800; font-size: 1rem; color: var(--gold); text-shadow: 0 1px 4px #fff;
   animation: gem-pop 1.4s ease-out forwards;
 }
 @keyframes gem-pop { 0% { opacity: 0; transform: translate(-50%, 0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, 36px); } }
@@ -660,7 +717,7 @@ html, body {
 .sheet-gear { margin: 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; max-width: 100%; }
 
 .treasury {
-  background: var(--bg-panel-2); border: 1px solid rgba(226,177,60,0.3);
+  background: var(--bg-panel-2); border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent);
   border-radius: var(--radius); display: flex; align-items: center; gap: 8px;
   padding: 6px 8px 6px 12px; margin-bottom: 8px;
 }
@@ -670,7 +727,7 @@ html, body {
 .treasury-rate.fast { color: var(--pink); }
 .sheet-btn.collect { flex: 0 0 auto; min-width: 104px; min-height: 44px; padding: 0 12px; font-size: 0.9rem; }
 .sheet-btn.secondary {
-  background: transparent; color: var(--gold-soft); border: 1px solid rgba(226,177,60,0.5);
+  background: transparent; color: var(--gold); border: 1px solid color-mix(in srgb, var(--gold) 50%, transparent);
   font-family: var(--font-body); font-weight: 800;
   box-shadow: none;
 }
@@ -693,32 +750,36 @@ html, body {
 }
 
 .shop-head { flex: none; display: flex; align-items: baseline; justify-content: space-between; padding-right: 40px; margin-bottom: 8px; }
-.shop-balance { font-weight: 800; color: var(--gold-soft); }
+.shop-balance { font-weight: 800; color: var(--gold); }
 .shop-intro { flex: none; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 8px; }
 .shop-slots { flex: none; display: flex; gap: 6px; margin-bottom: 10px; }
 .shop-slot {
   flex: 1; min-height: var(--tap); border-radius: var(--radius-pill); cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.15); background: var(--bg-panel-2);
+  border: 1px solid color-mix(in srgb, var(--text) 15%, transparent); background: var(--bg-panel-2);
   color: var(--text-dim); font-family: var(--font-body); font-weight: 800; font-size: 0.85rem;
 }
-.shop-slot.active { color: var(--gold-soft); border-color: var(--gold); background: rgba(226,177,60,0.12); }
+.shop-slot.active { color: var(--gold); border-color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, transparent); }
 .shop-list { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+/* Alternating asymmetric corner radii (watercolor pass), same idiom as
+   .element-choice above — a list of rows reads less uniform/geometric. */
 .shop-row {
   --tier: var(--mana);
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px;
-  background: var(--bg-panel-2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius);
+  background: var(--bg-panel-2); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  border-radius: 20px 16px 20px 16px;
   flex-shrink: 0;
 }
+.shop-row:nth-child(even) { border-radius: 16px 20px 16px 20px; }
 /* Upgrade strip inside the equipped row: info on the left, 44px button right. */
 .shop-upgrade {
   flex: 0 0 100%; display: flex; align-items: center; gap: 10px;
-  padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
 }
 .up-info { flex: 1; min-width: 0; }
 .up-title { font-size: 0.78rem; font-weight: 800; color: var(--text); }
-.up-next { font-size: 0.75rem; color: var(--gold-soft); font-weight: 700; }
+.up-next { font-size: 0.75rem; color: var(--gold); font-weight: 700; }
 .up-pips { display: flex; gap: 3px; margin-top: 4px; }
-.up-pips i { flex: 1; max-width: 18px; height: 5px; border-radius: 2px; background: rgba(255,255,255,0.15); }
+.up-pips i { flex: 1; max-width: 18px; height: 5px; border-radius: 2px; background: color-mix(in srgb, var(--text) 15%, transparent); }
 .up-pips i.on { background: var(--tier); }
 .up-btn { min-width: 112px; }
 .up-max { font-size: 0.9rem; padding: 0 8px; }
@@ -731,7 +792,7 @@ html, body {
 .shop-row.owned { opacity: 0.6; }
 .shop-row.locked { opacity: 0.5; }
 .shop-row.flash { animation: shop-flash 0.8s ease-out; }
-@keyframes shop-flash { 0% { background: rgba(226,177,60,0.45); } 100% { background: var(--bg-panel-2); } }
+@keyframes shop-flash { 0% { background: color-mix(in srgb, var(--gold) 45%, transparent); } 100% { background: var(--bg-panel-2); } }
 @media (prefers-reduced-motion: reduce) { .shop-row.flash { animation: none; } }
 .shop-icon {
   width: 44px; height: 44px; line-height: 40px; text-align: center; font-size: 1.5rem; flex-shrink: 0;
@@ -739,46 +800,41 @@ html, body {
 }
 .shop-info { flex: 1; min-width: 0; }
 .shop-name { font-weight: 800; font-size: 0.92rem; }
-.shop-pips { color: var(--tier); font-size: 0.75rem; letter-spacing: 1px; margin-left: 4px; }
-.shop-stats { font-size: 0.78rem; color: var(--gold-soft); font-weight: 700; }
+/* Pips always read in --gold (not the per-tier --tier accent) so tier 5's
+   lighter --gold-soft accent — fine as a decorative icon border/pip-fill —
+   never has to double as small text. */
+.shop-pips { color: var(--gold); font-size: 0.75rem; letter-spacing: 1px; margin-left: 4px; }
+.shop-stats { font-size: 0.78rem; color: var(--gold); font-weight: 700; }
 .shop-note { font-size: 0.75rem; color: var(--text-dim); }
 .shop-note.need { color: var(--text-dim); }
-.shop-progress { height: 3px; border-radius: 2px; background: rgba(255,255,255,0.12); margin-top: 4px; overflow: hidden; }
+.shop-progress { height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--text) 12%, transparent); margin-top: 4px; overflow: hidden; }
 .shop-progress > div { height: 100%; background: var(--gold); }
-.shop-tag { font-size: 0.75rem; font-weight: 800; color: var(--gold-soft); flex-shrink: 0; }
+.shop-tag { font-size: 0.75rem; font-weight: 800; color: var(--gold); flex-shrink: 0; }
 .shop-tag.dim { color: var(--text-dim); }
 .shop-price {
   flex-shrink: 0; min-width: 84px; min-height: 44px; padding: 6px 10px; border-radius: var(--radius-pill); border: none;
   cursor: pointer; font-family: var(--font-head); font-weight: 700; font-size: 0.85rem;
-  color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
-  box-shadow:
-    0 4px 0 0 color-mix(in srgb, var(--gold) 65%, black),
-    0 6px 14px rgba(255,184,77,0.3);
+  color: var(--bg-panel); background: var(--gold);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--gold) 45%, transparent);
   transition: transform 0.16s var(--ease-bounce), box-shadow 0.16s ease;
 }
 .shop-price:active {
-  transform: translateY(3px);
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black),
-    0 2px 6px rgba(255,184,77,0.25);
+  transform: translateY(2px);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--gold) 35%, transparent);
 }
 .shop-price.confirm {
-  background: linear-gradient(135deg, #ff9db3, var(--pink));
-  box-shadow:
-    0 4px 0 0 color-mix(in srgb, var(--pink) 65%, black),
-    0 6px 14px rgba(255,93,143,0.35);
+  background: var(--pink);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--pink) 45%, transparent);
 }
 .shop-price.confirm:active {
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, var(--pink) 65%, black),
-    0 2px 6px rgba(255,93,143,0.3);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--pink) 35%, transparent);
 }
-.shop-price.poor { background: rgba(255,255,255,0.1); color: var(--text-dim); cursor: default; box-shadow: none; }
+.shop-price.poor { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text-dim); cursor: default; box-shadow: none; }
 .shop-price.poor:active { transform: none; box-shadow: none; }
 
-/* Powers panel (🔮 Runes & Powers, opened from the ☰ menu) — dark
-   sheet-panel skin with a gold top border, deliberately NOT the log
-   panel's parchment theme (this is a wizard-facing stats screen, not lore). */
+/* Powers panel (🔮 Runes & Powers, opened from the ☰ menu) — a gold-top-
+   bordered sheet-panel skin, deliberately NOT the log panel's parchment
+   theme (this is a wizard-facing stats screen, not lore). */
 .powers-panel {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--z-log);
   max-height: 100%; overflow-y: auto;
@@ -786,7 +842,7 @@ html, body {
   border: 1px solid var(--gold); border-bottom: none;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 14px 16px 16px;
-  box-shadow: 0 -8px 32px rgba(0,0,0,0.55);
+  box-shadow: 0 -8px 26px color-mix(in srgb, var(--text) 18%, transparent);
 }
 .powers-panel.hidden { display: none; }
 .powers-header {
@@ -796,64 +852,60 @@ html, body {
 }
 .powers-close {
   width: var(--tap); height: var(--tap); border-radius: 50%; border: none;
-  background: rgba(255,255,255,0.08); color: var(--text); cursor: pointer; font-size: 0.9rem;
+  background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); cursor: pointer; font-size: 0.9rem;
 }
-.powers-balance { color: var(--gold-soft); font-weight: 700; margin-bottom: 12px; }
+.powers-balance { color: var(--gold); font-weight: 700; margin-bottom: 12px; }
 .powers-cards { display: flex; flex-direction: column; gap: 12px; }
 .power-card {
   background: var(--bg-panel-2); border-radius: var(--radius-lg); padding: 12px 14px;
-  border: 1px solid rgba(226,177,60,0.2);
+  border: 1px solid color-mix(in srgb, var(--gold) 20%, transparent);
 }
 .power-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .power-icon { font-size: 1.4rem; }
 .power-name { font-weight: 800; }
 .power-desc { font-size: 0.8rem; color: var(--text-dim); }
-.power-status { font-size: 0.85rem; color: var(--gold-soft); font-weight: 700; margin-bottom: 8px; }
+.power-status { font-size: 0.85rem; color: var(--gold); font-weight: 700; margin-bottom: 8px; }
 .power-buy {
   width: 100%; padding: 10px; border-radius: var(--radius-pill); border: none; cursor: pointer;
   font-family: var(--font-head); font-weight: 700; font-size: 0.9rem;
-  color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
-  box-shadow:
-    0 4px 0 0 color-mix(in srgb, var(--gold) 65%, black),
-    0 6px 14px rgba(255,184,77,0.3);
+  color: var(--bg-panel); background: var(--gold);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--gold) 45%, transparent);
   transition: transform 0.16s var(--ease-bounce), box-shadow 0.16s ease;
 }
 .power-buy:active {
-  transform: translateY(3px);
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black),
-    0 2px 6px rgba(255,184,77,0.25);
+  transform: translateY(2px);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--gold) 35%, transparent);
 }
 .power-buy.disabled { opacity: 0.4; pointer-events: none; }
 .power-reason { margin-top: 6px; font-size: 0.75rem; color: var(--text-dim); text-align: center; }
 .power-maxed {
-  text-align: center; font-weight: 800; color: var(--gold-soft);
-  padding: 8px; border-radius: var(--radius); background: rgba(226,177,60,0.12);
+  text-align: center; font-weight: 800; color: var(--gold);
+  padding: 8px; border-radius: var(--radius); background: color-mix(in srgb, var(--gold) 12%, transparent);
 }
 
 /* QA/dev tools panel (?qa=1 only — see docs/ARCHITECTURE.md). Reuses the
    powers-panel shell; only the innards below are QA-specific. */
-.qa-current-runes, .qa-current-gems { color: var(--gold-soft); font-weight: 700; margin-bottom: 12px; }
+.qa-current-runes, .qa-current-gems { color: var(--gold); font-weight: 700; margin-bottom: 12px; }
 .qa-section {
   background: var(--bg-panel-2); border-radius: var(--radius-lg); padding: 12px 14px;
-  border: 1px solid rgba(226,177,60,0.2); margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--gold) 20%, transparent); margin-bottom: 12px;
 }
 .qa-label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; }
 .qa-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
 .qa-row:first-of-type { margin-top: 0; }
 .qa-row input[type="number"] {
   flex: 1; min-width: 0; padding: 8px 10px; border-radius: var(--radius-sm);
-  border: 1px solid rgba(255,255,255,0.15); background: var(--bg-panel);
+  border: 1px solid color-mix(in srgb, var(--text) 15%, transparent); background: var(--bg-panel);
   color: var(--text); font-family: var(--font-body); font-size: 0.9rem;
 }
 .qa-row .power-buy { flex: 1; padding: 8px 10px; font-size: 0.85rem; }
 .qa-step {
   width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
   font-family: var(--font-head); font-weight: 700; font-size: 1.1rem;
-  color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+  color: var(--bg-panel); background: var(--gold);
 }
 .qa-step.disabled { opacity: 0.35; pointer-events: none; }
-.qa-level-value { flex: 1; text-align: center; font-weight: 800; color: var(--gold-soft); }
+.qa-level-value { flex: 1; text-align: center; font-weight: 800; color: var(--gold); }
 
 @media (min-width: 720px) {
   .create-card { max-width: 560px; }
@@ -878,7 +930,7 @@ html, body {
   background: var(--bg-panel); border-bottom: 1px solid var(--line-gold);
 }
 .subscreen-title {
-  margin: 0; font-family: var(--font-head); font-size: 1.05rem; font-weight: 700; color: var(--gold-soft);
+  margin: 0; font-family: var(--font-head); font-size: 1.05rem; font-weight: 700; color: var(--gold);
 }
 /* Incoming-curse banner: surfaced here too so a player browsing Shop/
    Inventory/Character isn't blindsided — tapping it jumps back to the map,
@@ -908,7 +960,7 @@ html, body {
 /* Character screen */
 .char-card {
   max-width: 480px; margin: 0 auto 16px; background: var(--bg-panel-2);
-  border: 1px solid rgba(226,177,60,0.25); border-radius: var(--radius-lg); padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--gold) 25%, transparent); border-radius: var(--radius-lg); padding: 14px;
 }
 .char-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .char-name { font-weight: 800; font-size: 1.1rem; }
@@ -918,10 +970,13 @@ html, body {
 .char-stats-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px;
 }
+/* Alternating asymmetric corner radii (watercolor pass), same idiom as the
+   other card grids above. */
 .char-stat {
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
-  background: var(--bg-panel); border-radius: var(--radius-sm); padding: 8px 10px;
+  background: var(--bg-panel); border-radius: 14px 10px 14px 10px; padding: 8px 10px;
 }
+.char-stat:nth-child(even) { border-radius: 10px 14px 10px 14px; }
 .char-stat-label { font-size: 0.8rem; color: var(--text-dim); font-weight: 700; }
 .char-stat-value { font-weight: 800; font-variant-numeric: tabular-nums; }
 .char-powers { max-width: 480px; margin: 0 auto; }
@@ -930,27 +985,25 @@ html, body {
 .inv-grid { display: flex; flex-direction: column; gap: 10px; max-width: 480px; margin: 0 auto; }
 .inv-row {
   display: flex; align-items: center; gap: 12px; padding: 12px;
-  background: var(--bg-panel-2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius);
+  background: var(--bg-panel-2); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  border-radius: 20px 16px 20px 16px;
 }
+.inv-row:nth-child(even) { border-radius: 16px 20px 16px 20px; }
 .inv-row.empty { opacity: 0.75; }
 .inv-info { flex: 1; min-width: 0; }
 .inv-name { font-weight: 800; font-size: 0.95rem; }
-.inv-stats { font-size: 0.8rem; color: var(--gold-soft); font-weight: 700; margin-top: 2px; }
+.inv-stats { font-size: 0.8rem; color: var(--gold); font-weight: 700; margin-top: 2px; }
 .inv-empty-note { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; }
 .inv-goshop {
   flex: none; min-height: var(--tap); padding: 0 14px; border-radius: var(--radius-pill); border: none; cursor: pointer;
   font-family: var(--font-head); font-weight: 700; font-size: 0.85rem;
-  color: #241448; background: linear-gradient(135deg, var(--gold-soft), var(--gold));
-  box-shadow:
-    0 4px 0 0 color-mix(in srgb, var(--gold) 65%, black),
-    0 6px 14px rgba(255,184,77,0.3);
+  color: var(--bg-panel); background: var(--gold);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--gold) 45%, transparent);
   transition: transform 0.16s var(--ease-bounce), box-shadow 0.16s ease;
 }
 .inv-goshop:active {
-  transform: translateY(3px);
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black),
-    0 2px 6px rgba(255,184,77,0.25);
+  transform: translateY(2px);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--gold) 35%, transparent);
 }
 
 /* Shop screen: reuses .shop-* row/list/icon classes from the old docked
@@ -960,7 +1013,10 @@ html, body {
 .shop-screen .shop-head { padding-right: 0; }
 .shop-screen .shop-list { overflow: visible; }
 
-/* Sign drawing pad */
+/* Sign drawing pad. The scrim behind the card stays a dark dimming overlay
+   on purpose (same as the menu scrim/down overlay below) — a modal scrim's
+   job is to dim whatever's behind it, which reads the same regardless of
+   the page's own light/dark theme. */
 .sign-pad {
   position: absolute; inset: 0; z-index: var(--z-sign);
   display: flex; align-items: center; justify-content: center;
@@ -976,19 +1032,19 @@ html, body {
 .sign-canvas {
   display: block; margin: 0 auto;
   width: min(100%, calc(100dvh - 210px)); aspect-ratio: 1; touch-action: none; cursor: crosshair;
-  background: rgba(255,255,255,0.04); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--text) 4%, transparent); border-radius: var(--radius);
 }
 .sign-result { min-height: 1.4em; margin: 8px 0; font-weight: 800; color: var(--gold); }
 .sign-actions { display: flex; gap: 8px; justify-content: center; }
 .sign-actions .sign-btn { flex: 1; min-height: 44px; }
 .sign-btn {
-  padding: 8px 12px; border-radius: var(--radius-pill); border: 1px solid rgba(255,255,255,0.25);
+  padding: 8px 12px; border-radius: var(--radius-pill); border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
   background: transparent; color: inherit; font-weight: 800; cursor: pointer;
   transition: transform 0.16s var(--ease-bounce);
 }
 .sign-btn.primary {
-  background: var(--gold); color: #241448; border-color: var(--gold);
-  box-shadow: 0 4px 0 0 color-mix(in srgb, var(--gold) 65%, black);
+  background: var(--gold); color: var(--bg-panel); border-color: var(--gold);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--gold) 45%, transparent);
 }
-.sign-btn.primary:active { transform: translateY(3px); box-shadow: 0 1px 0 0 color-mix(in srgb, var(--gold) 65%, black); }
+.sign-btn.primary:active { transform: translateY(2px); box-shadow: 0 2px 6px color-mix(in srgb, var(--gold) 35%, transparent); }
 .sign-btn:disabled { opacity: 0.4; cursor: default; }

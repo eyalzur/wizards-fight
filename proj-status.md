@@ -1,6 +1,6 @@
 # Wizards Fight — Project Status
 
-Last updated: 2026-10-11
+Last updated: 2026-10-14
 
 This file is the single source of truth for "what exists, what's next, and
 why we made the calls we made." Run `/resume-proj` to get a suggested next
@@ -31,11 +31,12 @@ on top of it when the repo owner has a Firebase project configured (see
   Ice, Lightning, Nature, Arcane). Element sets stat flavor only (power,
   HP, defense, sense range, mana, cast speed) — it does not change which
   spells you get.
-- **The map** — real streets and city labels via Leaflet + CartoDB Dark
-  Matter tiles (not Google Maps — see Decisions Log). Tap-to-walk (max
-  250m per tap, animated), a 📍 button to sync your real location, and a
-  dotted circle showing your **sense range**: NPCs outside it are not
-  shown at all.
+- **The map** — real streets and city labels via Leaflet + Esri World Light
+  Gray Canvas tiles (not Google Maps — see Decisions Log; light tiles as of
+  the 2026-10-14 "Watercolor Ghibli" theme pass, dark before that).
+  Tap-to-walk (max 250m per tap, animated), a 📍 button to sync your real
+  location, and a dotted circle showing your **sense range**: NPCs outside
+  it are not shown at all.
 - **Spells (3 total, same for everyone)**:
   - **Spark Bolt** (attack) — travels at a real 1 m/s, so a cast takes
     real minutes to land at "Real" time scale. A ⚡/🐢 toggle in the ☰
@@ -282,6 +283,136 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-14 — `js/wizard.js`'s per-element colors (`ELEMENTS[].color`)
+  retuned for the Watercolor Ghibli theme, closing the contrast gap the
+  theme pass below flagged but deliberately left unfixed as out of its
+  CSS-only scope.** Fire (`#a3523c`) and Nature (`#567151`) simply reuse the
+  shipped `--pink`/`--gold` hexes exactly — both already independently
+  verified ≥4.5:1 against `--bg-deep`/`--bg-panel` in the theme pass's own
+  contrast work. Arcane (`#7f6aa0`) reuses `--purple` the same way. Ice
+  (`#3d6680`) and Lightning (`#7d6420`) are new, darker-than-their-token-fill
+  shades — `--mana`/`--xp`'s own shipped values are only used as borders/
+  fills elsewhere in the CSS, not dark enough to double as text — chosen by
+  computing real WCAG contrast ratios (not eyeballed) against both cream
+  backgrounds until each cleared 4.5:1. No change to combat math or any
+  other data on the wizard object — purely the display-tint hex used by the
+  create screen's element picker and element labels.
+- **2026-10-14 — Visual theme replaced with "Watercolor Ghibli — Painted
+  Nature Magic," the user's pick from 5 reviewed mockup directions; this is
+  a deliberate reversal of BOTH the 2026-10-11 Disney/Pixar pass below AND
+  the 2026-09-26 "map tiles switched from CartoDB to Esri" entry's "dark
+  tiles to match the dark theme" reasoning — now light tiles to match this
+  light theme. Not assumed final: the user said another theme round may
+  follow.** Same scope as the Pixar pass it replaces (CSS/HTML/font/tile-URL
+  only, no game logic, no data-shape change, same token names/identity-color
+  meanings throughout — self=mana blue, NPC=pink, selected=gold, HP=red).
+  Three concrete changes: (1) **the page went light** — a full `:root`
+  palette swap from the Pixar pass's saturated dark-theme hex values to a
+  warm cream/parchment palette (`--bg-deep #f7f1e3`, `--bg-panel #fffdf7`,
+  `--bg-panel-2 #e8d9b8`, `--gold #567151`/`--gold-soft #8fae8b` — the
+  single biggest semantic shift, "gold" is now sage green but the token
+  keeps its name per the brief, same as every past palette swap — `--pink
+  #a3523c`, `--purple #7f6aa0`, `--mana #5f85a0`, `--hp #b73d47`, `--xp
+  #ab8a30`, `--text #4a4336`, `--text-dim #706754`; `--parchment`/
+  `--parchment-ink` left unchanged since they already read as "paper" and
+  don't need to chase the general palette); (2) **map tiles switched light**
+  — `js/map.js` now loads Esri's `World_Light_Gray_Base`/`_Reference`
+  instead of `World_Dark_Gray_*` (same keyless service family, same
+  base+reference split), and every marker/ring/circle style that assumed a
+  dark backdrop was rechecked and recolored for the light one (marker-avatar
+  border/shadow and the HP-ring track moved from a near-invisible
+  `rgba(255,255,255,...)` hairline to a dark-ink-tinted one; the wizard-name
+  map label flipped from white-text/black-halo to dark-text/light-halo; the
+  sense circle's hardcoded Leaflet color literal — vector layers can't read
+  a CSS custom property — was updated to match the new `--purple`); (3)
+  **shape language went organic** — alternating asymmetric corner radii on
+  repeated card grids/lists (element-choice, shop-row, inv-row, char-stat)
+  instead of one uniform radius, a pronounced irregular-circle wobble on the
+  avatar-choice frames specifically, and the create screen's old
+  radial-gradient "bloom" glows replaced by two actual blob shapes (CSS
+  `::before`/`::after` pseudo-elements, organic `border-radius`, ~0.2
+  opacity, blurred edges) — Primary CTA buttons (`--radius-pill`) were left
+  pill-shaped on purpose, the organic treatment is for cards/frames only.
+  Typography: Quicksand (headings/buttons) and Lora (body), replacing
+  Fredoka/Nunito. Element icon strokes thinned from 2.2 to 1.8 for a more
+  ink-brush feel, keeping the same rounded-cap/badge-circle treatment.
+  **Shadows softened, and this forced one implementation-judgment change
+  beyond the brief's literal ask**: the Pixar pass's "jelly button" shadow
+  (a hard offset shadow mixed toward black, plus a two-tone diagonal
+  gradient background) reads as a dark-theme technique and looked muddy on
+  cream, so every primary/secondary button (`.btn-primary`, `.sheet-btn`
+  incl. `.attack`/`.shield`, `.defend-btn`, `.shop-price` incl. `.confirm`,
+  `.power-buy`, `.inv-goshop`, `.qa-step`, `.sign-btn.primary`) was changed
+  to a **flat** fill (`background: var(--gold|pink|purple)`) with a single
+  soft `color-mix`-based drop-shadow, softer on `:active` instead of a
+  matching hard offset ledge. The flat-fill change wasn't optional once the
+  contrast math was run: computed WCAG contrast for the old dark-navy button
+  text (`#241448`) against a light-to-dark gradient spanning this theme's
+  muted mid-tones came out below 3:1 at the gradient's dark end for every
+  one of gold/pink/purple (e.g. 3.06-4.13), and no single text color (dark
+  navy, near-black, or near-white) could clear 4.5:1 against *both* ends of
+  any of the three gradients — a light pastel end and a muted mid-tone end
+  are too far apart in lightness for one text color to read well at both,
+  unlike the Pixar pass's bright-saturated gold where dark text had ~10.5:1
+  headroom. Switched to one flat background value (the darker/more
+  saturated anchor) with near-white text (`var(--bg-panel)`), which clears
+  4.5:1 against gold (5.33) and pink (5.39); purple came out at 4.62 after
+  nudging `--purple` slightly darker than its first concept anchor
+  (`#8a76a8` → `#7f6aa0`) specifically to clear that bar. `--ease-bounce`
+  and the spring-press motion are explicitly unchanged — only shadow
+  *rendering* and the gradient-vs-flat fill changed, not the press feel —
+  and `.defend-overlay`'s `pulse-red` incoming-curse animation keeps its
+  non-bouncy, urgent character, just recolored to the new `--hp` value.
+  **Contrast verified by computing actual WCAG ratios, not eyeballed**:
+  `--text`/`--text-dim` against both `--bg-deep` and `--bg-panel` (the two
+  backgrounds the brief named) — `--text` 8.68/9.61, `--text-dim` 4.96/5.50,
+  both comfortably ≥4.5. `--gold`, `--pink` and `--hp` (the three accent
+  tokens actually used as literal small/body text somewhere — `.field-label`/
+  headings, `.nemesis-badge`/`.treasury-rate.fast`, and `.menu-danger`
+  respectively) were independently darkened from their first concept
+  anchors until they also cleared 4.5:1 against `--bg-deep` (the harder of
+  the two mandated backgrounds, since it's the less-light of the two): gold
+  4.81, pink 4.87, hp 4.94. `--purple`, `--mana` and `--xp` were confirmed
+  (by grepping every `color:`/`var(...)` use site in `css/style.css`) to
+  never appear as literal foreground text — only as borders, decorative
+  tier accents, or gradient/fill stops — so they were left closer to their
+  original pastel concept anchors rather than over-darkened for a contrast
+  bar they don't actually need to clear; `--hp` and `--pink`'s hues were
+  deliberately spread further apart (355° vs 13°) than the brief's own
+  anchors (6° vs 13°) while darkening them, specifically so HP and
+  Fire-flavored UI stay visually distinguishable, per the brief's own
+  explicit ask. `--bg-panel-2` (used for nested surfaces like shop rows) is
+  darker than the other two backgrounds and wasn't part of the brief's
+  mandated pair; small dim/accent text sitting directly on it (e.g.
+  `.shop-note`) lands around 3.3-4.0:1 — below the 4.5 small-text bar, a
+  known, honestly-disclosed soft spot rather than a silent gap, consistent
+  with the Pixar pass's own contrast note only checking two of the three
+  backgrounds. **Flagged, not fixed, as out of this pass's CSS-only
+  scope**: `js/wizard.js`'s per-element accent colors (`ELEMENTS[].color`,
+  e.g. Lightning `#ffe066`, Nature `#6bff8f`) are pale pastels tuned for the
+  old dark backdrop; against the new light cream they read low-contrast on
+  the create screen's element labels (confirmed visually) and wherever else
+  `el-color` tints text. Touching them would mean editing `wizard.js` (game
+  data, not CSS/HTML/font/tile-URL) and is a product/visual call, not an
+  implementation one — a follow-up for the ui-designer, not done here.
+  Verified with a throwaway Playwright script (local static server, a
+  locally-cached Leaflet build substituted for the sandbox's blocked cdnjs/
+  arcgisonline egress — same recurring workaround as every prior pass's
+  Decisions Log entry, unrelated to the app itself): screenshotted the
+  create screen (default and with Fire/Lightning selected, confirming the
+  two background blobs render with the right colors/opacity/radius via
+  `getComputedStyle(el, '::before'/'::after')`, not just assumed from the
+  CSS source), the HUD/map at a default and a zoomed-out level (marker
+  rings/avatar borders/sense circle all visibly legible against the
+  tile-less fallback background, since this sandbox can't reach
+  arcgisonline.com either), the self sheet, an NPC cluster sheet, the ☰
+  menu, all 4 tab-bar screens, the sign-pad, and — by toggling ⚡ Fast and
+  waiting for a real NPC aggression roll rather than mocking the state — a
+  live incoming-curse defend strip with its countdown ring and Counter
+  button; also read computed `font-family` on both a heading and a
+  body-text element to confirm Quicksand/Lora actually apply (not just
+  declared in the CSS source), and ran `node --check` on `js/map.js` (the
+  only changed `.js` file).
 - **2026-10-11 — Player-facing `power` numbers now shown at a ×100 "power
   points" display scale, not the raw internal float.** `power` is a small
   float internally (player base ~4.5, gear bonuses like 0.08-1.5 — see
