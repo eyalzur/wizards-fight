@@ -283,6 +283,45 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-15 — Two small display-only fixes: the player/NPC/remote-player
+  map marker's `iconAnchor` was wrong, and the create screen's title now
+  stays sticky while scrolling.** (1) `js/map.js`'s divIcon markers
+  (player/NPC/remote, all three kept in sync) used `iconAnchor: [32, 74]`
+  on a 64x84 box — but the icon's actual visual content
+  (`js/portraits.js:avatarWithRing`'s 48x48 `.marker-ring-wrap`) is the
+  *first* child, flowing from box-local y=0, with `.marker-label` below it;
+  anchoring near the box's bottom (y=74) put the ring's true visual center
+  (box-local y=24) about 50px above the geo-coordinate Leaflet actually
+  draws there — visible as the avatar sitting above-and-off-center from its
+  own sense-range circle (a real `L.circle` centered on the same point).
+  Fixed by anchoring at `[32, 24]`, the ring's real center, in all three
+  marker-creation call sites. `keepInView()`'s pixel-margin `BOX` constant
+  mirrors the anchor and moved in lockstep: `up` 74→32 (ring-top-to-anchor
+  24px + the shield-bubble's 8px `inset:-8px` overhang), `down` 10→60
+  (`iconSize.height - iconAnchor.y`, same invariant as before). Verified
+  with a disposable Playwright script against a locally-vendored Leaflet
+  build (this sandbox blocks the real cdnjs/arcgisonline hosts) measuring
+  `getBoundingClientRect()` on the live DOM: the ring's center now lands
+  within a sub-pixel of the sense circle's center, with and without an
+  active Ward Shield, and `keepInView()` still keeps the marker fully
+  inside the stage when a sheet opens. (2) `index.html`'s `#screen-create`
+  title+subtitle now live in a new `.create-card-header` wrapper,
+  `position: sticky; top: -16px` within `.create-card`, so they stay
+  visible at the top while a tall form scrolls underneath — matching the
+  app's existing header/scrollable-body pattern
+  (`.subscreen-header`/`.subscreen-content`). The `top: -16px` (not `0`) is
+  load-bearing, not a stylistic choice: `#screen-create` itself has 16px
+  padding, and Chromium's sticky positioning keeps an ancestor's own
+  padding visible above a stuck child by default — a plain `top: 0` left a
+  16px strip at the very top of the screen where scrolled-past form
+  content was still paintable underneath (confirmed via
+  `elementFromPoint()` in the same verification script before this value
+  was corrected), defeating the point of the fix. If `#screen-create`'s own
+  top padding value ever changes, this offset must change with it (noted
+  in the CSS comment). Verified visually at both a short/overflowing
+  viewport (header pins at the very top, no bleed-through, rest of the form
+  scrolls underneath) and a tall/non-overflowing one (pixel-identical to
+  before, no seam).
 - **2026-10-14 — `js/wizard.js`'s per-element colors (`ELEMENTS[].color`)
   retuned for the Watercolor Ghibli theme, closing the contrast gap the
   theme pass below flagged but deliberately left unfixed as out of its

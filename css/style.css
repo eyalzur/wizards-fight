@@ -193,6 +193,35 @@ html, body {
 
 .subtitle { text-align: center; color: var(--text-dim); margin: 0 0 14px; font-weight: 600; }
 
+/* Sticks the title+subtitle to the top of #screen-create (the scroll
+   ancestor, overflow-y:auto — see above) once the card is taller than the
+   viewport, so they stay visible like this app's other header/scrollable-
+   body pairs (.subscreen-header/.subscreen-content, .sheet-header/
+   .sheet-panel) instead of scrolling away with the form fields. Breaks out
+   of .create-card's own 20px top/side padding (negative margin) so it reads
+   as a full-width header bar once stuck, then re-applies its own padding;
+   the matching border-radius on just the top corners keeps the card's
+   rounded look intact when nothing is scrolled yet. z-index:2 is needed to
+   sit above .create-card's own z-index:1 stacking context (and therefore
+   above the form fields scrolling underneath once stuck).
+   `top: -16px` (not `0`) cancels out #screen-create's own 16px padding:
+   sticky offsets are resolved so an ancestor's padding always stays visible
+   above a stuck child (verified in Chromium — a plain `top: 0` here left a
+   16px strip at the very top of the screen where scrolled-past form content
+   was still visible/paintable, i.e. exactly the "text bleeding through"
+   this fix needs to avoid), so the offset has to counteract that padding to
+   actually reach the screen's true top edge. If #screen-create's own
+   top padding value ever changes, this must change with it. */
+.create-card-header {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+  background: var(--bg-panel);
+  margin: -20px -20px 0;
+  padding: 20px 20px 10px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
 .field-label {
   display: block;
   font-weight: 800;
