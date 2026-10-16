@@ -210,12 +210,14 @@ that matters in that case.
       in each with real (or spoofed, via devtools) locations close enough
       to be within each other's sense range.
 - [ ] Within ~15-20s of both being up, each player's marker appears on
-      the other's map: purple accent border + small badge dot, distinct
-      from the gold self-marker and pink NPC markers.
+      the other's map — rendered **identically to an NPC marker** (pink
+      ring, gold when selected): no purple accent, no badge dot (2026-10-15
+      decision — a player should not be able to tell a real opponent from
+      an NPC, see `proj-status.md` Decisions Log).
 - [ ] Tapping the other player's marker opens a sheet with: name, level,
-      distance, HP bar, a "synced Xm ago" line, the "A real player — they
-      may be offline. Spark Bolt still travels in real time." note, and a
-      Cast Spark Bolt button — NOT an "NPC" label anywhere.
+      distance, HP bar, and a Cast Spark Bolt button — **same shape as an
+      NPC's sheet**: no "synced Xm ago" line, no "may be offline" note, no
+      "NPC" label anywhere either.
 - [ ] Cast Spark Bolt at the other player from Player A. Confirm: mana
       deducted, cooldown set, a projectile animates from A toward B's
       last-known position, and a log line on A's side says the spell is
