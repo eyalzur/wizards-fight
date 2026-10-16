@@ -41,6 +41,25 @@ export function castAttack(caster, target, spellId, world, now, powerMult = 1) {
   if (!chk.ok) return chk;
   if (target.hp <= 0) return { ok: false, reason: `${target.name} is already defeated.` };
   const dist = distanceMeters(caster.position, target.position);
+  // A NaN distance means caster.position or target.position has a bad
+  // lat/lng (not simply missing — distanceMeters would throw on a missing
+  // position's property access before this line runs; this is specifically
+  // a present-but-non-finite coordinate, e.g. a stray geolocation glitch or
+  // an NPC-spawn edge case). Left unguarded, `dist > ...` below is always
+  // false (any comparison against NaN is), so the range check wouldn't have
+  // caught it either, and the projectile below would carry that NaN into
+  // startPos/endPos — map.js's own render-time guard would then have to
+  // drop it, but by then there's no way back to *why*. Catching it here,
+  // at the one place we still have the real caster/target objects (not
+  // just their already-spread positions), gives a diagnosable log instead
+  // of a mysterious dropped or misplaced mark on the map — see
+  // proj-status.md Decisions Log "projectile diagnostics".
+  if (!Number.isFinite(dist)) {
+    console.error('[combat] castAttack aborted — non-finite distance from a bad position', {
+      casterId: caster.id, casterPos: caster.position, targetId: target.id, targetPos: target.position, spellId,
+    });
+    return { ok: false, reason: `${target.name}'s position is unavailable right now.` };
+  }
   if (dist > Math.min(spell.range, caster.senseRange)) {
     return { ok: false, reason: `${target.name} is out of range for ${spell.name}.` };
   }
