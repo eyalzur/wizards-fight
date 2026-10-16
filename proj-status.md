@@ -280,6 +280,14 @@ Bigger bets, needs validation first:
     NPC's true temperament, whether a target is likely online, a Ley Line
     about to flip) — a soft information-economy layer instead of a third
     currency.
+15. **Veil Charm (temporary invisibility item)** — a rare consumable/gear
+    piece that shrinks or zeroes how far *other* wizards can perceive its
+    holder for a while, without touching the holder's own cast range or
+    their own sense range (see the 2026-10-16 "cast range vs. visible
+    range" principle in the Decisions Log below) — i.e. it's specifically
+    a stealth debuff you inflict on everyone else's view of you, not a
+    buff to your own stats. Raised in the same conversation as the sense-
+    range aggro fix, explicitly as a later idea, not scoped yet.
 
 ## Decisions log
 
