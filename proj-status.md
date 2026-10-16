@@ -283,51 +283,6 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
-- **2026-10-16 — Projectile diagnostics: incoming Spark Bolts now draw a
-  short comet tail back toward their caster, and the projectile pipeline
-  validates its own geo data instead of silently rendering (or dropping)
-  garbage.** Triggered by a player screenshot showing several small glowing
-  dots scattered around their sense circle with no visible source, read as
-  a possible bug. Root-caused: the dots were real — the HUD's own "+7 more
-  incoming" banner meant 8 simultaneous Spark Bolts were in flight — but
-  `js/map.js:renderProjectiles` only ever drew the orb itself, never
-  anything connecting it back to its caster, so a multi-attack moment
-  reads exactly like "dots from nowhere" even when every one of them is
-  working correctly. (A second shape in the same screenshot, a thick red
-  arrow, still doesn't match anything this renderer draws — no polyline,
-  trail, or arrow shape exists anywhere in the code outside this change —
-  so that one most likely wasn't produced by the app at all; not chased
-  further since there was nothing in the codebase to trace it to.)
-  Fix, two parts: (1) **Comet tail** — each projectile now also draws an
-  `L.polyline` from a point `PROJECTILE_TAIL_FRAC` (15%) of its own flight
-  *behind* its current position back toward its caster, clamped so it
-  never extends past the caster's actual cast-time position (frac 0),
-  colored to match the orb's own `casterColor`. Proportional to each
-  bolt's own trip, not a fixed real-world length, so a close-range NPC jab
-  and a long cross-map Spark Bolt both get a tail that reads as "this much
-  of its own journey," not a disproportionate line. Verified with a
-  disposable Playwright harness (served `js/map.js` directly, faked three
-  projectiles at different cast angles/distances — this sandbox can't
-  reach arcgisonline.com for real tiles, same recurring workaround as
-  every prior pass) that the tail renders as a short, clearly-sourced line
-  per caster, not anything resembling the reported arrow. (2) **Defensive
-  validation + diagnostics**, in case a *real* anomaly ever does occur:
-  `js/combat.js:castAttack` now checks `Number.isFinite(dist)` right after
-  computing it — a non-finite distance means a caster's or target's
-  position has a bad (present but non-numeric/NaN) lat/lng, most likely a
-  stray geolocation glitch or an NPC-spawn edge case, not a missing
-  position (that would already throw earlier, in `distanceMeters` itself,
-  before this check) — and aborts the cast with a full diagnostic
-  `console.error` (caster/target ids and positions, spellId) instead of
-  building a corrupt projectile. `js/map.js:renderProjectiles` adds the
-  same `isFiniteLatLng` check as a second line of defense (in case
-  anything ever lands in `world.projectiles` some other way) and drops +
-  logs instead of handing Leaflet a NaN coordinate. Confirmed via the same
-  Playwright harness: a deliberately-corrupted fake projectile (NaN `lng`)
-  was dropped from rendering and logged with full context, not drawn as a
-  stray mark. If whatever produced that screenshot happens again, there's
-  now either a comet tail explaining it at a glance, or a console error
-  with everything needed to root-cause it for real.
 - **2026-10-15 — Reversed the "real players look visually distinct from
   NPCs" decision from the original Multiplayer feature: by explicit user
   request, a player should not be able to tell a real opponent from an NPC,
