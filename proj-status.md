@@ -283,6 +283,33 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-16 — NPCs can no longer start an attack from outside the
+  player's own sense-range circle — the real root cause behind "spells
+  from nowhere," confirmed with a screen recording after the comet-tail
+  fix below didn't fully explain it.** The recording showed the "N more
+  incoming" count climbing past 10 within ~24 seconds while only 2 NPCs
+  were ever rendered on screen, with incoming-bolt dots visibly appearing
+  *outside* the dashed sense circle. Root cause: `js/combat.js:tick`'s NPC
+  aggro loop only ever checked `dist <= spell.range` (Spark Bolt: 260m) —
+  never the player's own `senseRange` (170-210m depending on element,
+  the thing the dashed circle actually draws and what `js/main.js`'s
+  `visibleNpcs` filter uses to decide what's on screen at all). NPCs also
+  spawn up to `senseRange * 2` away (`js/main.js`), so a meaningful chunk
+  of the 9-NPC roster can sit in a band that's attack-range-reachable but
+  never once rendered — exactly "one area is attackable, one is vision,"
+  per the report, and they didn't match. Fixed by adding a
+  `dist > world.player.senseRange` guard before the temperament/aggression
+  roll even happens, not just before the cast — so an NPC outside the
+  player's own view never gets a chance to target them at all, matching
+  "you can't be attacked by something you can't see" exactly, rather than
+  just hiding the symptom. Verified with a standalone script importing
+  `combat.js`'s `tick` directly (pure logic, no DOM) with two fake NPCs —
+  one at 100m (inside senseRange, should still attack) and one at 220m
+  (inside Spark Bolt's 260m range but outside a 170m senseRange, the exact
+  gap this closes) — confirming only the near one cast. Deliberately not
+  done: "show every character, even far away, regardless of attackability"
+  — raised in the same conversation as a possible future direction, but
+  explicitly not needed right now.
 - **2026-10-16 — Projectile diagnostics: incoming Spark Bolts now draw a
   short comet tail back toward their caster, and the projectile pipeline
   validates its own geo data instead of silently rendering (or dropping)
