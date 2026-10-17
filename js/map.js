@@ -279,6 +279,27 @@ export function renderRemotePlayers(remotePlayers, onRemoteClick, selectedId) {
   });
 }
 
+function lerpPos(startPos, endPos, frac) {
+  return {
+    lat: startPos.lat + (endPos.lat - startPos.lat) * frac,
+    lng: startPos.lng + (endPos.lng - startPos.lng) * frac,
+  };
+}
+
+// A projectile is only ever pushed by combat.js:castAttack, which always
+// spreads a real wizard's `{lat,lng}` into startPos/endPos — so an invalid
+// one here means a caller bypassed that (or a wizard's `position` was still
+// null when cast, e.g. before geolocation resolved) and a corrupt object
+// landed in world.projectiles directly. Rather than hand Leaflet a NaN
+// LatLng (which renders a marker at an undefined screen position — a very
+// plausible root cause for an unexplained mark on the map, see
+// proj-status.md Decisions Log), this skips the projectile entirely and
+// logs everything needed to diagnose it for real if it happens again,
+// instead of leaving only a confusing screenshot.
+function isFiniteLatLng(pos) {
+  return !!pos && Number.isFinite(pos.lat) && Number.isFinite(pos.lng);
+}
+
 // `projectiles` entries are expected to carry a `casterColor` field (a hex
 // string) added by main.js — map.js renders whatever it's handed and
 // doesn't look up wizards by id itself (see docs/ARCHITECTURE.md on the
@@ -287,11 +308,18 @@ export function renderProjectiles(projectiles, now) {
   const seen = new Set();
   projectiles.forEach((p) => {
     if (p.resolved || now < p.travelStart) return;
+    if (!isFiniteLatLng(p.startPos) || !isFiniteLatLng(p.endPos)) {
+      console.error('[map] dropped a projectile with an invalid position — see proj-status.md Decisions Log "projectile diagnostics"', {
+        id: p.id, casterId: p.casterId, targetId: p.targetId, spellId: p.spellId,
+        startPos: p.startPos, endPos: p.endPos,
+        castStart: p.castStart, travelStart: p.travelStart, impactTime: p.impactTime, now,
+      });
+      return;
+    }
     seen.add(p.id);
     const dur = Math.max(1, p.impactTime - p.travelStart);
     const frac = Math.min(1, Math.max(0, (now - p.travelStart) / dur));
-    const lat = p.startPos.lat + (p.endPos.lat - p.startPos.lat) * frac;
-    const lng = p.startPos.lng + (p.endPos.lng - p.startPos.lng) * frac;
+    const { lat, lng } = lerpPos(p.startPos, p.endPos, frac);
     const icon = L.divIcon({
       className: 'projectile-marker',
       html: `<div class="projectile-orb" style="--orb-color:${p.casterColor || '#b9903f'}"></div>`,

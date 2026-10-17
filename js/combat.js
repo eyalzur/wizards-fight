@@ -41,6 +41,25 @@ export function castAttack(caster, target, spellId, world, now, powerMult = 1) {
   if (!chk.ok) return chk;
   if (target.hp <= 0) return { ok: false, reason: `${target.name} is already defeated.` };
   const dist = distanceMeters(caster.position, target.position);
+  // A NaN distance means caster.position or target.position has a bad
+  // lat/lng (not simply missing — distanceMeters would throw on a missing
+  // position's property access before this line runs; this is specifically
+  // a present-but-non-finite coordinate, e.g. a stray geolocation glitch or
+  // an NPC-spawn edge case). Left unguarded, `dist > ...` below is always
+  // false (any comparison against NaN is), so the range check wouldn't have
+  // caught it either, and the projectile below would carry that NaN into
+  // startPos/endPos — map.js's own render-time guard would then have to
+  // drop it, but by then there's no way back to *why*. Catching it here,
+  // at the one place we still have the real caster/target objects (not
+  // just their already-spread positions), gives a diagnosable log instead
+  // of a mysterious dropped or misplaced mark on the map — see
+  // proj-status.md Decisions Log "projectile diagnostics".
+  if (!Number.isFinite(dist)) {
+    console.error('[combat] castAttack aborted — non-finite distance from a bad position', {
+      casterId: caster.id, casterPos: caster.position, targetId: target.id, targetPos: target.position, spellId,
+    });
+    return { ok: false, reason: `${target.name}'s position is unavailable right now.` };
+  }
   if (dist > Math.min(spell.range, caster.senseRange)) {
     return { ok: false, reason: `${target.name} is out of range for ${spell.name}.` };
   }
@@ -337,9 +356,23 @@ export function tick(world, now) {
       if (npc.hp <= 0) continue;
       if (now < (npc.nextAiCheck || 0)) continue;
       npc.nextAiCheck = now + randRange(2500, 5000);
+      const dist = distanceMeters(npc.position, world.player.position);
+      // An NPC can only start an attack from inside the player's own sense
+      // circle — the one thing actually drawn on the map (js/main.js's
+      // `visibleNpcs` filter uses this exact same `player.senseRange`). Spark
+      // Bolt's range (260m) is bigger than a typical sense range (170-210m
+      // depending on element), and NPCs spawn up to `senseRange * 2` away
+      // (js/main.js), so without this an NPC the player has never seen could
+      // already be attacking them — a real "spell from nowhere" bug, not
+      // just a tail/visual gap (see proj-status.md Decisions Log; reported
+      // with a screen recording showing the incoming count climbing past 10
+      // while only 2 NPCs were ever on screen). Checked before the
+      // temperament roll below, not just before casting, so an NPC outside
+      // view never even gets a chance at the player — consistent with "you
+      // can't be attacked by something you can't see."
+      if (dist > world.player.senseRange) continue;
       const chance = TEMPERAMENT_AGGRO[npc.temperament] ?? 0.15;
       if (Math.random() > chance) continue;
-      const dist = distanceMeters(npc.position, world.player.position);
       const usable = npc.spells
         .map(getSpell)
         .filter((s) => s && s.type === 'attack' && dist <= s.range && npc.mana >= s.manaCost && (npc.cooldowns[s.id] || 0) <= now);

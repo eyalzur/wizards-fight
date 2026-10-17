@@ -28,12 +28,33 @@ senseRange 170m, manaRegenMs 2000`. Element modifiers, applied on top:
 
 ## Sense range
 
-The radius (in meters) within which you can perceive other wizards at
-all. It's drawn as a dotted circle on the map (`js/map.js:updateSenseCircle`).
-NPCs outside it are not rendered, not selectable, and not attackable —
-this is the single gate for both "can I see them" and "can I target them"
-(`js/combat.js:castAttack` clamps attack range to
-`min(spell.range, casterSenseRange)`).
+The radius (in meters) within which a wizard can perceive other wizards
+at all. For the player, it's drawn as a dotted circle on the map
+(`js/map.js:updateSenseCircle`).
+
+**Standing principle (see `proj-status.md` Decisions Log, 2026-10-16):
+every wizard casts according to their own cast range, and perceives/
+targets others according to their own visible range — but nothing may
+ever attack the player from outside the player's own visible range.**
+Concretely:
+- **Your own casts** (`js/combat.js:castAttack`, caster = you) are
+  clamped to `min(spell.range, your senseRange)` — you can never target
+  something you can't see, using your own stats.
+- **An NPC's casts at you** are additionally gated by *your* senseRange,
+  not just the NPC's own (`js/combat.js:tick`'s aggro loop checks
+  `dist <= player.senseRange` before an NPC even rolls a chance to
+  attack, on top of `castAttack`'s own `min(spell.range, npc.senseRange)`
+  clamp). Without this, an NPC with a larger senseRange than yours (e.g.
+  Lightning's +40m) could validly sense and attack you from outside your
+  own circle — a real "spell from nowhere" bug, not just a missing visual
+  cue (see the Decisions Log entry for how this was confirmed and fixed).
+- NPCs outside your senseRange are also simply not rendered or selectable
+  on your map (`js/main.js`'s `visibleNpcs` filter) — the same number
+  gates "can I see them" and "can I be hit by them," by design.
+- A rare future item that shrinks how far *others* can perceive its
+  holder (without touching the holder's own cast/sense range) is on the
+  Roadmap as a later idea (`proj-status.md` Roadmap, "Veil Charm") — not
+  built yet.
 
 ## The map
 

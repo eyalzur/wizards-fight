@@ -80,6 +80,11 @@ stale.
       the temperament rates in `docs/FEATURES.md`.
 - [ ] NPCs occasionally react to being attacked with their own Shield or
       Counterspell (visible via a mitigated/negated hit in the log).
+- [ ] **Every "Spark Bolt incoming" ever shown was cast by an NPC you
+      could actually see at that moment** — i.e. one already rendered on
+      your map inside your sense circle (2026-10-16 fix: an NPC outside
+      your sense range can no longer even roll an aggression check against
+      you).
 
 ## Progression & defeat
 

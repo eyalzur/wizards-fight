@@ -280,9 +280,89 @@ Bigger bets, needs validation first:
     NPC's true temperament, whether a target is likely online, a Ley Line
     about to flip) — a soft information-economy layer instead of a third
     currency.
+15. **Veil Charm (temporary invisibility item)** — a rare consumable/gear
+    piece that shrinks or zeroes how far *other* wizards can perceive its
+    holder for a while, without touching the holder's own cast range or
+    their own sense range (see the 2026-10-16 "cast range vs. visible
+    range" principle in the Decisions Log below) — i.e. it's specifically
+    a stealth debuff you inflict on everyone else's view of you, not a
+    buff to your own stats. Raised in the same conversation as the sense-
+    range aggro fix, explicitly as a later idea, not scoped yet.
 
 ## Decisions log
 
+- **2026-10-16 — NPCs can no longer start an attack from outside the
+  player's own sense-range circle — the real root cause behind "spells
+  from nowhere," confirmed with a screen recording after the projectile-
+  diagnostics fix below didn't fully explain it.** The recording showed the "N more
+  incoming" count climbing past 10 within ~24 seconds while only 2 NPCs
+  were ever rendered on screen, with incoming-bolt dots visibly appearing
+  *outside* the dashed sense circle. Root cause: `js/combat.js:tick`'s NPC
+  aggro loop only ever checked `dist <= spell.range` (Spark Bolt: 260m) —
+  never the player's own `senseRange` (170-210m depending on element,
+  the thing the dashed circle actually draws and what `js/main.js`'s
+  `visibleNpcs` filter uses to decide what's on screen at all). NPCs also
+  spawn up to `senseRange * 2` away (`js/main.js`), so a meaningful chunk
+  of the 9-NPC roster can sit in a band that's attack-range-reachable but
+  never once rendered — exactly "one area is attackable, one is vision,"
+  per the report, and they didn't match. Fixed by adding a
+  `dist > world.player.senseRange` guard before the temperament/aggression
+  roll even happens, not just before the cast — so an NPC outside the
+  player's own view never gets a chance to target them at all, matching
+  "you can't be attacked by something you can't see" exactly, rather than
+  just hiding the symptom. Verified with a standalone script importing
+  `combat.js`'s `tick` directly (pure logic, no DOM) with two fake NPCs —
+  one at 100m (inside senseRange, should still attack) and one at 220m
+  (inside Spark Bolt's 260m range but outside a 170m senseRange, the exact
+  gap this closes) — confirming only the near one cast. Deliberately not
+  done: "show every character, even far away, regardless of attackability"
+  — raised in the same conversation as a possible future direction, but
+  explicitly not needed right now.
+- **2026-10-17 — The comet tail added below (2026-10-16) was removed by
+  explicit user request before ever shipping; the defensive validation it
+  shipped alongside stays.** The user didn't want a visible trail on
+  incoming spells at all, having seen it in review. `js/map.js`'s
+  `projectileTails` registry, `PROJECTILE_TAIL_FRAC`, and the per-tick
+  `L.polyline` draw/update/cleanup are gone; `renderProjectiles` now only
+  ever draws the orb. The `isFiniteLatLng`/`Number.isFinite(dist)` checks
+  in `js/combat.js:castAttack` and `js/map.js:renderProjectiles` (see
+  below) were not part of what the user objected to and are unchanged.
+  `docs/FEATURES.md`/`docs/QA-CHECKLIST.md`'s comet-tail mentions were
+  removed to match.
+- **2026-10-16 — Projectile diagnostics: incoming Spark Bolts drew a short
+  comet tail back toward their caster (removed 2026-10-17, see above), and
+  the projectile pipeline validates its own geo data instead of silently
+  rendering (or dropping) garbage.** Triggered by a player screenshot
+  showing several small glowing dots scattered around their sense circle
+  with no visible source, read as a possible bug. Root-caused: the dots
+  were real — the HUD's own "+7 more incoming" banner meant 8 simultaneous
+  Spark Bolts were in flight — but `js/map.js:renderProjectiles` only ever
+  drew the orb itself, never anything connecting it back to its caster, so
+  a multi-attack moment reads exactly like "dots from nowhere" even when
+  every one of them is working correctly. (A second shape in the same
+  screenshot, a thick red arrow, still doesn't match anything this
+  renderer draws — no polyline, trail, or arrow shape exists anywhere in
+  the code outside this change — so that one most likely wasn't produced
+  by the app at all; not chased further since there was nothing in the
+  codebase to trace it to.) **Defensive validation + diagnostics**, in
+  case a *real* anomaly ever does occur: `js/combat.js:castAttack` now
+  checks `Number.isFinite(dist)` right after computing it — a non-finite
+  distance means a caster's or target's position has a bad (present but
+  non-numeric/NaN) lat/lng, most likely a stray geolocation glitch or an
+  NPC-spawn edge case, not a missing position (that would already throw
+  earlier, in `distanceMeters` itself, before this check) — and aborts the
+  cast with a full diagnostic `console.error` (caster/target ids and
+  positions, spellId) instead of building a corrupt projectile.
+  `js/map.js:renderProjectiles` adds the same `isFiniteLatLng` check as a
+  second line of defense (in case anything ever lands in
+  `world.projectiles` some other way) and drops + logs instead of handing
+  Leaflet a NaN coordinate. Confirmed via a disposable Playwright harness:
+  a deliberately-corrupted fake projectile (NaN `lng`) was dropped from
+  rendering and logged with full context, not drawn as a stray mark. If
+  whatever produced that screenshot happens again, there's now a console
+  error with everything needed to root-cause it for real (the comet tail
+  that would have also made it visible at a glance didn't survive to
+  ship, see above).
 - **2026-10-15 — Reversed the "real players look visually distinct from
   NPCs" decision from the original Multiplayer feature: by explicit user
   request, a player should not be able to tell a real opponent from an NPC,
