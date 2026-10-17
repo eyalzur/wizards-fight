@@ -7,7 +7,6 @@ let senseCircle = null;
 let npcMarkers = {};
 let remoteMarkers = {};
 let projectileMarkers = {};
-let projectileTails = {};
 let playerClickHandler = null;
 
 export function initMap(center, onMapClick) {
@@ -280,15 +279,6 @@ export function renderRemotePlayers(remotePlayers, onRemoteClick, selectedId) {
   });
 }
 
-// How far behind the orb its comet-tail trails, as a fraction of the whole
-// flight (not a fixed real-world distance) — a short-range NPC jab and a
-// long real-world Spark Bolt both get a tail that's "15% of its own trip,"
-// so neither looks disproportionate. Added 2026-10-16 after a player saw a
-// scatter of incoming-bolt dots with no visible link back to their casters
-// and reasonably read it as a bug (see proj-status.md Decisions Log) — the
-// tail is purely cosmetic, it does not change `frac`/lat/lng math above it.
-const PROJECTILE_TAIL_FRAC = 0.15;
-
 function lerpPos(startPos, endPos, frac) {
   return {
     lat: startPos.lat + (endPos.lat - startPos.lat) * frac,
@@ -341,32 +331,11 @@ export function renderProjectiles(projectiles, now) {
     } else {
       projectileMarkers[p.id].setLatLng([lat, lng]);
     }
-
-    // Comet tail: a short line from a bit behind the orb (toward its
-    // caster) to the orb's current spot, so an incoming bolt always shows
-    // where it came from at a glance instead of looking like a dot that
-    // appeared out of nowhere. Clamped at 0 so it never extends past the
-    // caster's actual cast-time position.
-    const tailPos = lerpPos(p.startPos, p.endPos, Math.max(0, frac - PROJECTILE_TAIL_FRAC));
-    const tailLatLngs = [[tailPos.lat, tailPos.lng], [lat, lng]];
-    if (!projectileTails[p.id]) {
-      projectileTails[p.id] = L.polyline(tailLatLngs, {
-        color: p.casterColor || '#b9903f', weight: 3, opacity: 0.45, interactive: false, lineCap: 'round',
-      }).addTo(map);
-    } else {
-      projectileTails[p.id].setLatLngs(tailLatLngs);
-    }
   });
   Object.keys(projectileMarkers).forEach((id) => {
     if (!seen.has(id)) {
       map.removeLayer(projectileMarkers[id]);
       delete projectileMarkers[id];
-    }
-  });
-  Object.keys(projectileTails).forEach((id) => {
-    if (!seen.has(id)) {
-      map.removeLayer(projectileTails[id]);
-      delete projectileTails[id];
     }
   });
 }

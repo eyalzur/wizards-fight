@@ -84,10 +84,7 @@ stale.
       could actually see at that moment** — i.e. one already rendered on
       your map inside your sense circle (2026-10-16 fix: an NPC outside
       your sense range can no longer even roll an aggression check against
-      you). If several attacks queue up at once ("+N more incoming"), each
-      incoming dot should show a short comet tail pointing back toward its
-      caster — never a bare dot with nothing explaining where it came
-      from.
+      you).
 
 ## Progression & defeat
 
