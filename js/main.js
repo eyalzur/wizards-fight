@@ -236,7 +236,7 @@ async function checkForAwayHits() {
   for (const hit of hits) {
     const { dmg } = combat.applyPendingHit(world, hit, now);
     total += dmg;
-    names.add(hit.casterName || 'an NPC');
+    names.add(hit.casterName || 'A rival wizard');
   }
   if (total > 0) {
     ui.toast(`⚔️ While you were away, ${[...names].join(', ')} hit you for ${total} damage total. See the Spell Log for details.`);
@@ -751,8 +751,11 @@ function buildRemoteSheetData(remote, now) {
   const cdReady = (player.cooldowns[ATTACK_SPELL.id] || 0) <= now;
   const canAfford = player.mana >= ATTACK_SPELL.manaCost;
   const canAttack = remote.hp > 0 && !world.playerDown && inRange && cdReady && canAfford;
+  // Reason wording matches buildNpcSheetData's exactly (see below) — a
+  // player shouldn't be able to tell a real opponent from an NPC by how
+  // the sheet talks about them either (see proj-status.md Decisions Log).
   let reason = '';
-  if (remote.hp <= 0) reason = 'Defeated (on their end) — try again later.';
+  if (remote.hp <= 0) reason = 'Defeated — regrouping...';
   else if (!inRange) reason = `Out of range (${Math.round(dist)}m away).`;
   else if (!cdReady) reason = 'Recharging.';
   else if (!canAfford) reason = 'Not enough mana.';
@@ -763,7 +766,6 @@ function buildRemoteSheetData(remote, now) {
     canAttack,
     reason,
     dist: Math.round(dist),
-    syncedAgoMs: now - (remote.lastSyncedAt || now),
   };
 }
 

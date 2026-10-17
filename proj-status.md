@@ -283,6 +283,48 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-15 — Reversed the "real players look visually distinct from
+  NPCs" decision from the original Multiplayer feature: by explicit user
+  request, a player should not be able to tell a real opponent from an NPC,
+  before or after tapping.** Three concrete tells removed: (1) the remote
+  player marker's identity ring was a dedicated purple (`var(--purple)`,
+  always, regardless of selection) — now uses the exact same logic as an
+  NPC marker (`var(--pink)`, `var(--gold)` when selected), in
+  `js/map.js:renderRemotePlayers`; (2) the remote wizard sheet
+  (`js/ui.js`) had a "synced Xm ago" line and a permanent
+  "🌐 A real player — they may be offline. Spark Bolt still travels in real
+  time." callout, plus the same purple ring — all three removed, and the
+  sheet is now built with the exact same markup shape as an NPC's (the now-
+  unused `formatAgo` helper and `.sheet-sub-synced`/`.sheet-remote-note` CSS
+  were deleted rather than left dead); (3) the remote sheet's "already
+  defeated" reason text read "Defeated (on their end) — try again later."
+  vs. an NPC's "Defeated — regrouping..." — unified to the NPC wording in
+  `js/main.js:buildRemoteSheetData`. Also fixed, while in the area: the
+  "attacked while away" toast's fallback caster name was the literal string
+  `'an NPC'` (`js/main.js:checkForAwayHits`) — this path only ever fires
+  for *queued remote hits* (see `js/combat.js:applyPendingHit`'s header; an
+  NPC's attack always resolves live on your own device, so it never needs
+  the "while you were away" queue), so that fallback was not just a tell
+  but factually wrong; changed to `'A rival wizard'`, matching the fallback
+  `combat.js` itself already uses in two other spots for the same case.
+  **Deliberately NOT changed, flagged instead**: `js/combat.js:resolveImpact`
+  still shows a different cast-time message for a remote target ("rockets
+  into the distance... should strike home any moment now", no damage
+  number) vs. a local one ("strikes X for N damage!", immediate). This is
+  not a cosmetic choice — a damage number for a remote cast would have to be
+  a guess (this device has no authoritative view of the target's live
+  defense/shield; only their own device can resolve it, see
+  `applyPendingHit`), and showing one anyway would be actively misleading
+  rather than just "not a tell." Fully equalizing this would mean either
+  showing a knowingly-wrong number for remote casts or making local casts
+  against NPCs *also* defer their damage reveal to match — both real
+  trade-offs, not a quick fix, so this was left as-is pending a product call
+  rather than decided unilaterally here. Also NOT changed: Nemesis badges
+  (still NPC-exclusive, a genuine recurring-rival mechanic, not an identity
+  cue) and the remote sheet's lack of a shield-status line (this device
+  still has no live visibility into a remote player's Ward Shield state —
+  it already simply doesn't render, same as an NPC with no shield up, so
+  there was no visible asymmetry to fix there).
 - **2026-10-15 — Two small display-only fixes: the player/NPC/remote-player
   map marker's `iconAnchor` was wrong, and the create screen's title now
   stays sticky while scrolling.** (1) `js/map.js`'s divIcon markers

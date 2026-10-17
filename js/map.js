@@ -231,15 +231,18 @@ export function renderNpcs(npcs, onNpcClick, selectedId) {
   });
 }
 
-// Real players render like NPCs (same ring/HP-gauge/name-label pattern, via
-// avatarWithRing) but with a distinct ring color (var(--purple)) so one's
-// recognizable as a real, possibly-offline player before tapping it — see
-// docs/FEATURES.md "Multiplayer". Kept as its own marker registry/function
-// rather than reusing renderNpcs — the two are similar-looking but genuinely
-// different data sources (own NPC array vs. fetched remote-player
-// snapshots), and collapsing them would mean threading an isRemote flag
-// through every line. shieldActive is always false: this device has no live
-// visibility into a remote player's shield state (see combat.js).
+// Real players render exactly like NPCs now — same ring/HP-gauge/name-label
+// pattern via avatarWithRing, *and* the same identity ring color (pink, gold
+// when selected) — by explicit product decision (see proj-status.md
+// Decisions Log) a player should not be able to tell a real opponent from an
+// NPC before tapping; the previous purple "real player" accent is gone.
+// Kept as its own marker registry/function rather than reusing renderNpcs —
+// the two look identical but are genuinely different data sources (own NPC
+// array vs. fetched remote-player snapshots), and collapsing them would mean
+// threading an isRemote flag through every line. shieldActive is always
+// false: this device has no live visibility into a remote player's shield
+// state (see combat.js) — same as an NPC with no shield up, so it reads the
+// same either way.
 export function renderRemotePlayers(remotePlayers, onRemoteClick, selectedId) {
   const seen = new Set();
   remotePlayers.forEach((rp) => {
@@ -250,7 +253,7 @@ export function renderRemotePlayers(remotePlayers, onRemoteClick, selectedId) {
     const avatarHtml = avatarWithRing(rp.avatar, getElement(rp.element).color, {
       hp: rp.hp,
       maxHP: rp.maxHP,
-      ringColor: 'var(--purple)',
+      ringColor: selected ? 'var(--gold)' : 'var(--pink)',
       shieldActive: false,
       wrapClass,
     });
