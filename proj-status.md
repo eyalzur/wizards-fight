@@ -142,6 +142,7 @@ on top of it when the repo owner has a Firebase project configured (see
   low. Any hits that landed while you were away are surfaced as one
   summary toast on reload. See `docs/FEATURES.md` "Multiplayer" and
   `docs/ARCHITECTURE.md` "Multiplayer" for the full mechanics.
+- **PWA install** (2026-10-27) — `manifest.webmanifest` + `service-worker.js` make the live site installable to an iPhone/Android home screen as a standalone app (no browser chrome). The service worker caches only the static app shell (HTML/CSS/JS/icons); map tiles, Firebase, and the Leaflet CDN are always live network, since this is a real-time GPS game. See Decisions Log.
 - **Deploy** — static site, GitHub Pages, deploys from `main`.
 
 ## Known gaps / not yet built
@@ -205,7 +206,6 @@ Mana Crystals economy phases (Phase 1 is live, see above):
 - Sound effects and hit/impact animation.
 - A real automated test suite (the Playwright smoke-test pattern used
   during manual development is a natural starting point).
-- PWA install support for a more app-like mobile feel.
 - Guilds/covens or a simple leaderboard.
 - Revisit whether the real street map is pulling its weight once played
   at Real speed for a while, vs. a simpler abstract "nearby" view (the
@@ -291,6 +291,42 @@ Bigger bets, needs validation first:
 
 ## Decisions log
 
+- **2026-10-27 — PWA install support shipped: `manifest.webmanifest`, a
+  shell-only `service-worker.js`, and a generated icon set.** No icon
+  assets existed anywhere in the repo, so the icon (`icons/icon-512.png`
+  et al., plus a 180px `apple-touch-icon.png`) was generated rather than
+  hand-drawn: a cream circle (`--bg-deep`/`--bg-panel` gradient) with the
+  exact same pentagram stroke math as `js/sign.js`'s `SIGN` (Spark Bolt's
+  Star Sigil) traced in `--gold`, so the icon is literally the game's own
+  attack sigil rather than new art — generated via a throwaway Python
+  script computing the same unit-box points, rendered to SVG, rasterized
+  through headless Chromium (this sandbox's ImageMagick has no `rsvg`
+  delegate) and resized with `convert`. The manifest uses relative paths
+  (`start_url`/`scope`: `./`) so it resolves correctly under the site's
+  actual `/wizards-fight/` subpath without hardcoding it. The service
+  worker deliberately caches **only the static app shell** (HTML/CSS/the
+  16 same-origin `js/*.js` modules/icons) with a network-first strategy
+  (falls back to cache only when the network fetch itself fails) — map
+  tiles, Firebase reads/writes, and the Leaflet CDN script/CSS are never
+  intercepted, since stale map or multiplayer data would be actively
+  wrong for a live GPS game, not just a minor staleness. `js/firebase-
+  config.js` (gitignored, per-developer, optional — see Multiplayer) is
+  deliberately left out of the precache list, and every precached file is
+  added independently (`cache.add(...).catch(() => {})` per file, not one
+  atomic `cache.addAll`) so a missing optional file can never sink the
+  rest of the shell. Verified by serving the repo over a local static
+  server and driving it with headless Chromium (this sandbox's
+  `playwright-core`, installed to a scratch dir, pointed at the
+  pre-installed Chromium binary): confirmed `manifest.webmanifest` is
+  linked and parses, the service worker reaches `active` state, and no
+  new console errors appear beyond this sandbox's existing CDN/tile
+  egress block (same recurring, unrelated sandbox limitation noted in
+  every prior Decisions Log entry that touched the live map). Not
+  verified here, since it needs a real device: the actual iOS "Add to
+  Home Screen" flow and Android's install prompt/banner, including
+  whether the generated maskable icon survives Android's circular/squircle
+  mask crop — both are first-pass, worth a real-phone check before calling
+  this fully done.
 - **2026-10-16 — NPCs can no longer start an attack from outside the
   player's own sense-range circle — the real root cause behind "spells
   from nowhere," confirmed with a screen recording after the projectile-
