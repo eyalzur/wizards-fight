@@ -7,6 +7,16 @@
 <meta name="description" content="Create a wizard, sense others nearby on a real street map, and duel with spells that take time to land." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%99%3C/text%3E%3C/svg%3E" />
 
+<!-- PWA: installable on iOS/Android home screens. manifest.webmanifest +
+     service-worker.js cache the app shell only — map tiles, Firebase, and
+     the Leaflet CDN stay live-network, since this is a real-time GPS game. -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#f7f1e3" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Wizards Fight" />
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
@@ -245,5 +255,13 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script type="module" src="js/main.js"></script>
+<script>
+  // Registered after load so it never delays first paint/interaction.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+</script>
 </body>
 </html>
